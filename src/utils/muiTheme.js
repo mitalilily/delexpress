@@ -1,5 +1,8 @@
 import { createTheme } from "@mui/material/styles";
 
+const headingFont = '"Plus Jakarta Sans", "Segoe UI", sans-serif';
+const bodyFont = '"Poppins", "Segoe UI", sans-serif';
+
 const theme = createTheme({
   palette: {
     mode: "light",
@@ -19,24 +22,33 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"Manrope", "Segoe UI", sans-serif',
+    fontFamily: bodyFont,
     h1: {
-      fontWeight: 700,
-      letterSpacing: "-0.06em",
-      lineHeight: 0.96,
+      fontFamily: headingFont,
+      fontWeight: 800,
+      letterSpacing: "-0.065em",
+      lineHeight: 0.94,
     },
     h2: {
-      fontWeight: 700,
-      letterSpacing: "-0.05em",
-      lineHeight: 1,
+      fontFamily: headingFont,
+      fontWeight: 800,
+      letterSpacing: "-0.055em",
+      lineHeight: 0.98,
     },
     h3: {
+      fontFamily: headingFont,
+      fontWeight: 800,
+      letterSpacing: "-0.035em",
+      lineHeight: 1.05,
+    },
+    h4: {
+      fontFamily: headingFont,
       fontWeight: 700,
-      letterSpacing: "-0.03em",
     },
     button: {
       textTransform: "none",
       fontWeight: 700,
+      fontFamily: bodyFont,
     },
   },
   shape: {

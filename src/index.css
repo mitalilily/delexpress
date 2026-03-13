@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Poppins:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -24,11 +24,11 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at top left, rgba(243, 217, 223, 0.5), transparent 28%),
-    radial-gradient(circle at top right, rgba(247, 231, 215, 0.55), transparent 28%),
-    linear-gradient(180deg, #f6efe7 0%, #f9f4ee 48%, #fdfaf7 100%);
+    radial-gradient(circle at top left, rgba(243, 217, 223, 0.28), transparent 30%),
+    radial-gradient(circle at top right, rgba(255, 232, 210, 0.32), transparent 32%),
+    linear-gradient(180deg, #f4ecdf 0%, #f6efe6 52%, #f3eadf 100%);
   color: var(--ink);
-  font-family: "Manrope", sans-serif;
+  font-family: "Poppins", sans-serif;
 }
 
 button,
@@ -74,7 +74,23 @@ img {
   z-index: -1;
 }
 
+.brand-heading {
+  background: linear-gradient(90deg, #181318 0%, #181318 48%, #9b3150 52%, #9b3150 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand-heading-light {
+  background: linear-gradient(90deg, #ffffff 0%, #ffffff 48%, #f1c5d1 52%, #f1c5d1 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 .surface-panel {
+  position: relative;
+  overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--line);
   box-shadow: 0 16px 42px rgba(39, 28, 35, 0.06);
@@ -82,14 +98,48 @@ img {
 }
 
 .hero-panel {
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.74));
   border: 1px solid rgba(181, 162, 170, 0.8);
   box-shadow: 0 26px 72px rgba(35, 26, 31, 0.08);
 }
 
+.hero-panel::before,
+.surface-panel::before,
+.feature-card::before,
+.tool-card::before,
+.problem-card::before {
+  content: "";
+  position: absolute;
+  width: 160px;
+  height: 160px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(243, 217, 223, 0.95) 0%, rgba(243, 217, 223, 0) 72%);
+  top: -52px;
+  right: -42px;
+  opacity: 0.7;
+  animation: floatBlob 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
 .dark-panel {
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(135deg, #1b151a 0%, #251a21 100%);
   box-shadow: 0 26px 70px rgba(22, 16, 20, 0.22);
+}
+
+.dark-panel::before {
+  content: "";
+  position: absolute;
+  inset: auto -30px -30px auto;
+  width: 220px;
+  height: 220px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(241, 197, 209, 0.22) 0%, rgba(241, 197, 209, 0) 72%);
+  animation: pulseGlow 6s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .image-frame {
@@ -114,4 +164,194 @@ img {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #6d5760;
+}
+
+.tool-card,
+.feature-card,
+.problem-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-orb {
+  position: absolute;
+  width: 88px;
+  height: 88px;
+  border-radius: 999px;
+  filter: blur(2px);
+  opacity: 0.8;
+  animation: driftOrb 10s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.feature-orb.orb-primary {
+  background: radial-gradient(circle, rgba(241, 197, 209, 0.9) 0%, rgba(241, 197, 209, 0.08) 72%);
+  top: -12px;
+  right: -8px;
+}
+
+.feature-orb.orb-secondary {
+  background: radial-gradient(circle, rgba(255, 221, 168, 0.9) 0%, rgba(255, 221, 168, 0.08) 72%);
+  bottom: -18px;
+  left: -8px;
+  animation-delay: -3s;
+}
+
+.problem-visual {
+  position: relative;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.problem-ring {
+  position: absolute;
+  inset: 18% auto auto 50%;
+  width: 210px;
+  height: 210px;
+  border-radius: 999px;
+  border: 1px dashed rgba(155, 49, 80, 0.28);
+  transform: translateX(-50%);
+  animation: spinSlow 18s linear infinite;
+}
+
+.problem-dot {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 8px rgba(155, 49, 80, 0.08);
+  animation: bob 4s ease-in-out infinite;
+}
+
+.problem-dot.dot-a {
+  top: 18%;
+  left: 22%;
+}
+
+.problem-dot.dot-b {
+  top: 34%;
+  right: 18%;
+  animation-delay: -1.2s;
+}
+
+.problem-dot.dot-c {
+  bottom: 20%;
+  left: 36%;
+  animation-delay: -2.2s;
+}
+
+.flowchart-grid {
+  position: relative;
+  display: grid;
+  gap: 1rem;
+}
+
+.flow-line {
+  position: relative;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(155, 49, 80, 0.15), rgba(155, 49, 80, 0.7), rgba(155, 49, 80, 0.15));
+  overflow: hidden;
+}
+
+.flow-line::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent);
+  animation: linePulse 3s linear infinite;
+}
+
+.calculator-pulse {
+  position: absolute;
+  inset: auto 18px 18px auto;
+  width: 110px;
+  height: 110px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(155, 49, 80, 0.22) 0%, rgba(155, 49, 80, 0) 72%);
+  animation: pulseGlow 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.testimonial-marquee {
+  overflow: hidden;
+}
+
+.testimonial-track {
+  display: flex;
+  gap: 1.5rem;
+  width: max-content;
+}
+
+@keyframes floatBlob {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(-12px, 16px, 0) scale(1.08);
+  }
+}
+
+@keyframes driftOrb {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(12px, -10px, 0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.82;
+  }
+
+  50% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+
+@keyframes linePulse {
+  0% {
+    left: -40%;
+  }
+
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes spinSlow {
+  0% {
+    transform: translateX(-50%) rotate(0deg);
+  }
+
+  100% {
+    transform: translateX(-50%) rotate(360deg);
+  }
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-16px);
+  }
+}
+
+@media (max-width: 899px) {
+  .flowchart-grid {
+    grid-template-columns: 1fr;
+  }
 }
