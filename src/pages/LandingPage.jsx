@@ -6,6 +6,7 @@ import CommerceSections from "../components/landing/CommerceSections";
 import HeroSection from "../components/landing/HeroSection";
 import LandingFooter from "../components/landing/LandingFooter";
 import LandingHeader from "../components/landing/LandingHeader";
+import { MotionProvider } from "../components/landing/LandingPrimitives";
 import OperationsSections from "../components/landing/OperationsSections";
 import SocialSections from "../components/landing/SocialSections";
 import { footerGroups, footerMeta, navigationLinks } from "../utils/landingContent";
@@ -32,28 +33,30 @@ function LandingPage() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <div className="page-shell min-h-screen">
-        <LandingHeader
-          menuOpen={menuOpen}
-          navigationLinks={navigationLinks}
-          onToggleMenu={() => setMenuOpen((open) => !open)}
-          onCloseMenu={() => setMenuOpen(false)}
-        />
-
-        <main id="top">
-          <HeroSection />
-          <CommerceSections />
-          <OperationsSections />
-          <CalculatorSection
-            estimate={estimate}
-            shippingForm={shippingForm}
-            onFieldChange={handleFieldChange}
+      <MotionProvider>
+        <div className="page-shell min-h-screen">
+          <LandingHeader
+            menuOpen={menuOpen}
+            navigationLinks={navigationLinks}
+            onToggleMenu={() => setMenuOpen((open) => !open)}
+            onCloseMenu={() => setMenuOpen(false)}
           />
-          <SocialSections />
-        </main>
 
-        <LandingFooter footerGroups={footerGroups} footerMeta={footerMeta} />
-      </div>
+          <main id="top">
+            <HeroSection />
+            <CommerceSections />
+            <OperationsSections />
+            <CalculatorSection
+              estimate={estimate}
+              shippingForm={shippingForm}
+              onFieldChange={handleFieldChange}
+            />
+            <SocialSections />
+          </main>
+
+          <LandingFooter footerGroups={footerGroups} footerMeta={footerMeta} />
+        </div>
+      </MotionProvider>
     </ThemeProvider>
   );
 }

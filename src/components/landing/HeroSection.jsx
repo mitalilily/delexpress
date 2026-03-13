@@ -115,6 +115,8 @@ export default function HeroSection() {
               <img
                 src={mediaAssets.hero}
                 alt="DelExpress shipping operations dashboard preview"
+                decoding="async"
+                fetchPriority="high"
                 className="h-[260px] w-full object-cover sm:h-[420px]"
               />
             </div>

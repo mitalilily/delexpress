@@ -72,6 +72,8 @@ export default function CommerceSections() {
               <img
                 src={mediaAssets.network}
                 alt="Courier network operations"
+                loading="lazy"
+                decoding="async"
                 className="h-full min-h-[240px] w-full rounded-[22px] object-cover sm:min-h-[320px] sm:rounded-[26px]"
               />
             </MotionDiv>
@@ -174,44 +176,83 @@ export default function CommerceSections() {
             </MotionDiv>
 
             <MotionDiv {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.08 }}>
-              <div className="dark-panel problem-visual rounded-[28px] p-5 text-white sm:rounded-[34px] sm:p-8">
-                <Typography className="text-sm uppercase tracking-[0.25em] text-[#f1c5d1]">
-                  One view for every shipment
-                </Typography>
-                <Typography variant="h3" className="brand-heading-light mt-4 text-3xl sm:text-4xl">
-                  Clarity replaces guesswork
-                </Typography>
-                <Typography className="mt-4 max-w-md text-sm leading-7 text-white/72 sm:text-base">
-                  Instead of jumping between courier portals, your team sees shipping cost, lane
-                  coverage, delivery updates, and courier performance in one place.
-                </Typography>
+              <div className="dark-panel rounded-[28px] p-5 text-white sm:rounded-[34px] sm:p-8">
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="max-w-lg">
+                      <Typography className="text-sm uppercase tracking-[0.25em] text-[#f1c5d1]">
+                        One view for every shipment
+                      </Typography>
+                      <Typography
+                        variant="h3"
+                        className="brand-heading-light mt-4 text-3xl sm:text-4xl"
+                      >
+                        Clarity replaces guesswork
+                      </Typography>
+                      <Typography className="mt-4 text-sm leading-7 text-white/72 sm:text-base">
+                        Replace scattered courier tools with one structured workspace for rates,
+                        tracking, and delivery performance.
+                      </Typography>
+                    </div>
+                    <div className="sm:pt-2">
+                      <LiteralVisual title="Shipment Overview" compact />
+                    </div>
+                  </div>
 
-                <div className="problem-ring" />
-                <div className="problem-dot dot-a" />
-                <div className="problem-dot dot-b" />
-                <div className="problem-dot dot-c" />
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {[
+                      "Rate comparison",
+                      "Tracking updates",
+                      "Courier performance",
+                    ].map((label) => (
+                      <div
+                        key={label}
+                        className="rounded-[22px] border border-white/10 bg-white/8 px-4 py-4"
+                      >
+                        <Typography className="text-xs uppercase tracking-[0.18em] text-white/45">
+                          Live view
+                        </Typography>
+                        <Typography className="mt-3 text-base font-semibold text-white">
+                          {label}
+                        </Typography>
+                      </div>
+                    ))}
+                  </div>
 
-                <MotionDiv
-                  animate={{ y: [0, -8, 0] }}
-                  transition={{ duration: 4.8, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute left-4 top-24 rounded-full border border-white/12 bg-white/10 px-3 py-2 text-xs text-white/80 sm:left-8 sm:top-28 sm:px-4 sm:text-sm"
-                >
-                  Multiple dashboards
-                </MotionDiv>
-                <MotionDiv
-                  animate={{ y: [0, 7, 0] }}
-                  transition={{ duration: 4.1, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
-                  className="absolute right-4 top-44 rounded-full border border-white/12 bg-white/10 px-3 py-2 text-xs text-white/80 sm:right-8 sm:top-48 sm:px-4 sm:text-sm"
-                >
-                  Manual rate checks
-                </MotionDiv>
-                <MotionDiv
-                  animate={{ y: [0, -6, 0] }}
-                  transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
-                  className="absolute bottom-8 left-5 rounded-full border border-white/12 bg-white/10 px-3 py-2 text-xs text-white/80 sm:bottom-10 sm:left-12 sm:px-4 sm:text-sm"
-                >
-                  Scattered tracking
-                </MotionDiv>
+                  <div className="rounded-[28px] border border-white/10 bg-white/6 p-5">
+                    <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
+                      <div className="grid gap-3">
+                        {[
+                          "Compare rates without switching dashboards",
+                          "Check active shipment status in one place",
+                          "Review delivery trends before choosing a partner",
+                        ].map((item) => (
+                          <div key={item} className="flex items-start gap-3">
+                            <div className="mt-2 h-2.5 w-2.5 rounded-full bg-[#56c0a5]" />
+                            <Typography className="text-sm leading-7 text-white/72">
+                              {item}
+                            </Typography>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid gap-3">
+                        {[
+                          "Unified dashboard",
+                          "Lower manual work",
+                          "Faster decisions",
+                        ].map((item) => (
+                          <div
+                            key={item}
+                            className="rounded-full border border-white/10 bg-white/8 px-4 py-3 text-sm text-white/80"
+                          >
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </MotionDiv>
           </div>

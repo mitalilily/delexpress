@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { domAnimation, LazyMotion, m } from "framer-motion";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import CompareArrowsRoundedIcon from "@mui/icons-material/CompareArrowsRounded";
@@ -15,7 +15,11 @@ import TimelineRoundedIcon from "@mui/icons-material/TimelineRounded";
 import VerifiedRoundedIcon from "@mui/icons-material/VerifiedRounded";
 import { Typography } from "@mui/material";
 
-export const MotionDiv = motion.div;
+export function MotionProvider({ children }) {
+  return <LazyMotion features={domAnimation}>{children}</LazyMotion>;
+}
+
+export const MotionDiv = m.div;
 
 export const fadeUp = {
   initial: { opacity: 0, y: 28 },
@@ -94,26 +98,28 @@ export function LiteralVisual({ title, compact = false }) {
   return (
     <div className={`relative ${compact ? "h-20 w-24" : "h-24 w-28"}`}>
       <MotionDiv
-        animate={{ y: [0, -8, 0], rotate: [0, 2, 0] }}
-        transition={{ duration: 4.2, repeat: Infinity, ease: "easeInOut" }}
+        initial={{ opacity: 0, y: 10, scale: 0.96 }}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
+        viewport={{ once: true, amount: 0.5 }}
+        transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
         className="absolute left-0 top-5 grid place-items-center rounded-[24px] border border-white/70 bg-white/90 shadow-[0_16px_34px_rgba(42,26,34,0.12)]"
-        style={{ width: primarySize, height: primarySize, color: "#9b3150", backdropFilter: "blur(8px)" }}
+        style={{ width: primarySize, height: primarySize, color: "#9b3150" }}
       >
         <PrimaryIcon sx={{ fontSize: compact ? 28 : 34 }} />
       </MotionDiv>
       <MotionDiv
-        animate={{ y: [0, 7, 0], x: [0, 4, 0], scale: [1, 1.08, 1] }}
-        transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut", delay: 0.35 }}
+        initial={{ opacity: 0, scale: 0.88 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true, amount: 0.5 }}
+        transition={{ duration: 0.42, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
         className="absolute bottom-0 right-0 grid place-items-center rounded-full border border-[#f0d2db] bg-[#f8e7ed] shadow-[0_10px_30px_rgba(155,49,80,0.18)]"
         style={{ width: secondarySize, height: secondarySize, color: "#181318" }}
       >
         <SecondaryIcon sx={{ fontSize: compact ? 20 : 24 }} />
       </MotionDiv>
-      <MotionDiv
-        animate={{ scale: [1, 1.08, 1], opacity: [0.55, 0.9, 0.55] }}
-        transition={{ duration: 4.6, repeat: Infinity, ease: "easeInOut" }}
+      <div
         className="absolute inset-x-2 bottom-1 h-5 rounded-full blur-md"
-        style={{ background: "rgba(155, 49, 80, 0.18)" }}
+        style={{ background: "rgba(155, 49, 80, 0.12)" }}
       />
     </div>
   );

@@ -154,6 +154,8 @@ export default function OperationsSections() {
               <img
                 src={mediaAssets.dashboard}
                 alt="Shipping analytics dashboard"
+                loading="lazy"
+                decoding="async"
                 className="h-full min-h-[250px] w-full rounded-[22px] object-cover sm:min-h-[360px] sm:rounded-[26px]"
               />
             </MotionDiv>
