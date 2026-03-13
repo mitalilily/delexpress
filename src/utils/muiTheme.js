@@ -4,41 +4,43 @@ const theme = createTheme({
   palette: {
     mode: "light",
     primary: {
-      main: "#8a1f43",
+      main: "#9b3150",
     },
     secondary: {
-      main: "#131118",
+      main: "#181318",
     },
     background: {
-      default: "#f8f5f1",
+      default: "#f7f1ea",
       paper: "#ffffff",
     },
     text: {
-      primary: "#17141a",
-      secondary: "#5d5761",
+      primary: "#1d171c",
+      secondary: "#5e5860",
     },
   },
   typography: {
-    fontFamily: '"Source Sans 3", "Segoe UI", sans-serif',
+    fontFamily: '"Manrope", "Segoe UI", sans-serif',
     h1: {
-      fontWeight: 500,
-      letterSpacing: "-0.045em",
+      fontWeight: 700,
+      letterSpacing: "-0.06em",
+      lineHeight: 0.96,
     },
     h2: {
-      fontWeight: 500,
-      letterSpacing: "-0.035em",
+      fontWeight: 700,
+      letterSpacing: "-0.05em",
+      lineHeight: 1,
     },
     h3: {
-      fontWeight: 600,
-      letterSpacing: "-0.02em",
+      fontWeight: 700,
+      letterSpacing: "-0.03em",
     },
     button: {
       textTransform: "none",
-      fontWeight: 600,
+      fontWeight: 700,
     },
   },
   shape: {
-    borderRadius: 14,
+    borderRadius: 18,
   },
 });
 
