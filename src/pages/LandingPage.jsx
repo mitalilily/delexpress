@@ -1,4 +1,4 @@
-import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
+﻿import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import EastRoundedIcon from "@mui/icons-material/EastRounded";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import {
@@ -12,19 +12,18 @@ import {
   CssBaseline,
   Divider,
   IconButton,
-  Stack,
   ThemeProvider,
   Typography,
 } from "@mui/material";
 import { useMemo, useState } from "react";
 import {
-  capabilityColumns,
+  experiencePoints,
   faqItems,
+  heroMetrics,
+  mediaAssets,
   navigationLinks,
-  networkPanels,
-  platformHighlights,
-  trustMetrics,
-  workflowSteps,
+  servicePoints,
+  visualHighlights,
 } from "../utils/landingContent";
 import theme from "../utils/muiTheme";
 
@@ -35,61 +34,45 @@ function LandingPage() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <div className="site-shell min-h-screen text-stone-900">
-        <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-[rgba(246,242,236,0.92)] backdrop-blur-xl">
+      <div className="min-h-screen text-stone-900">
+        <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-[rgba(248,245,241,0.94)] backdrop-blur-xl">
           <Container maxWidth="xl" className="!px-5 sm:!px-6 lg:!px-8">
             <div className="flex items-center justify-between gap-4 py-4">
               <a href="#top" className="flex min-w-0 items-center gap-4">
-                <img src="/delexpress-logo.svg" alt="DelExpress logo" className="h-12 w-auto sm:h-14" />
+                <img src="/delexpress-logo.svg" alt="DelExpress logo" className="h-11 w-auto sm:h-13" />
               </a>
 
               <nav className="hidden items-center gap-8 lg:flex">
                 {navigationLinks.map((item) => (
-                  <a key={item.href} href={item.href} className="text-sm font-semibold tracking-[0.01em] text-stone-600 transition hover:text-[#8A1F43]">
+                  <a key={item.href} href={item.href} className="text-sm font-semibold text-stone-600 transition hover:text-[#8a1f43]">
                     {item.label}
                   </a>
                 ))}
               </nav>
 
               <div className="hidden items-center gap-3 lg:flex">
-                <Button color="inherit" href="#platform" sx={{ borderRadius: 999, px: 2.25, color: "#433d46" }}>
-                  Platform overview
+                <Button color="inherit" href="#services" sx={{ borderRadius: 999, px: 2.4, color: "#3d3640" }}>
+                  Explore services
                 </Button>
-                <Button
-                  variant="contained"
-                  endIcon={<EastRoundedIcon />}
-                  href="#contact"
-                  sx={{
-                    borderRadius: 999,
-                    px: 2.7,
-                    py: 1.15,
-                    bgcolor: "#161318",
-                    boxShadow: "none",
-                    '&:hover': { bgcolor: '#8A1F43', boxShadow: 'none' },
-                  }}
-                >
-                  Talk to DelExpress
+                <Button variant="contained" endIcon={<EastRoundedIcon />} href="#contact" sx={{ borderRadius: 999, px: 2.8, py: 1.15, bgcolor: "#151219", boxShadow: "none", '&:hover': { bgcolor: '#8a1f43', boxShadow: 'none' } }}>
+                  Book a demo
                 </Button>
               </div>
 
-              <IconButton
-                onClick={() => setMenuOpen((value) => !value)}
-                className="lg:!hidden"
-                sx={{ border: "1px solid rgba(199,184,190,0.8)", bgcolor: "rgba(255,255,255,0.88)" }}
-              >
+              <IconButton onClick={() => setMenuOpen((value) => !value)} className="lg:!hidden" sx={{ border: "1px solid rgba(190,181,186,0.82)", bgcolor: "#fff" }}>
                 <MenuRoundedIcon />
               </IconButton>
             </div>
 
             {menuOpen ? (
-              <div className="mb-4 space-y-2 rounded-[1.2rem] border border-stone-200 bg-white p-3 lg:hidden">
+              <div className="mb-4 space-y-2 rounded-[0.9rem] border border-stone-200 bg-white p-3 lg:hidden">
                 {navigationLinks.map((item) => (
-                  <a key={item.href} href={item.href} className="block rounded-xl px-4 py-3 text-sm font-semibold text-stone-600 transition hover:bg-stone-50 hover:text-[#8A1F43]">
+                  <a key={item.href} href={item.href} className="block rounded-lg px-4 py-3 text-sm font-semibold text-stone-600 transition hover:bg-stone-50 hover:text-[#8a1f43]">
                     {item.label}
                   </a>
                 ))}
-                <Button variant="contained" href="#contact" fullWidth sx={{ borderRadius: 999, py: 1.25, bgcolor: "#161318", '&:hover': { bgcolor: '#8A1F43' } }}>
-                  Talk to DelExpress
+                <Button variant="contained" href="#contact" fullWidth sx={{ borderRadius: 999, py: 1.15, bgcolor: "#151219", '&:hover': { bgcolor: '#8a1f43' } }}>
+                  Book a demo
                 </Button>
               </div>
             ) : null}
@@ -97,200 +80,126 @@ function LandingPage() {
         </header>
 
         <main id="top">
-          <Container maxWidth="xl" className="!px-5 pb-10 pt-10 sm:!px-6 lg:!px-8 lg:pb-18 lg:pt-16">
-            <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
+          <Container maxWidth="xl" className="!px-5 pt-10 sm:!px-6 lg:!px-8 lg:pt-16">
+            <div className="grid gap-10 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
               <div>
-                <Stack direction="row" spacing={1.2} className="flex-wrap">
-                  <Chip label="Logistics aggregator" sx={{ bgcolor: "#ffffff", border: "1px solid rgba(201, 186, 192, 0.86)", color: "#8A1F43", fontWeight: 700 }} />
-                  <Chip label="DelExpress" sx={{ bgcolor: "#f0e7ea", color: "#161318", fontWeight: 700 }} />
-                </Stack>
-
-                <Typography variant="h1" className="mt-7 max-w-5xl !text-5xl !leading-[0.97] !text-stone-950 sm:!text-6xl lg:!text-[5.2rem]">
-                  A cleaner shipping aggregator experience for brands that care about cost,
-                  <span className="serif-display ml-2 inline text-[#8A1F43]">control</span>
-                  <span className="ml-2 inline">and delivery visibility.</span>
+                <Chip label="Shipping operations platform" sx={{ bgcolor: "#fff", border: "1px solid rgba(190,181,186,0.82)", color: "#8a1f43", fontWeight: 700 }} />
+                <Typography variant="h1" className="mt-7 max-w-5xl !text-5xl !leading-[0.99] !text-stone-950 sm:!text-6xl lg:!text-[4.8rem]">
+                  Better shipping control for brands that need speed, accuracy, and reliable delivery visibility.
                 </Typography>
-
-                <Typography className="mt-6 max-w-3xl !text-lg !leading-8 !text-stone-600 sm:!text-xl">
-                  DelExpress is presented as a serious aggregator platform for multi-courier execution, post-shipment visibility, and shipping decisions built on operational logic.
+                <Typography className="mt-6 max-w-3xl !text-xl !leading-8 !text-stone-600">
+                  DelExpress brings courier selection, dispatch execution, tracking updates, and shipment follow-through into one operating layer built for modern teams.
                 </Typography>
-
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} className="mt-8 max-w-xl">
-                  <Button
-                    variant="contained"
-                    endIcon={<EastRoundedIcon />}
-                    href="#contact"
-                    sx={{
-                      borderRadius: 999,
-                      px: 3.2,
-                      py: 1.5,
-                      bgcolor: "#161318",
-                      boxShadow: "none",
-                      '&:hover': { bgcolor: '#8A1F43', boxShadow: 'none' },
-                    }}
-                  >
-                    Request a platform walkthrough
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <Button variant="contained" endIcon={<EastRoundedIcon />} href="#contact" sx={{ borderRadius: 999, px: 3.2, py: 1.45, bgcolor: "#151219", boxShadow: "none", '&:hover': { bgcolor: '#8a1f43', boxShadow: 'none' } }}>
+                    Request a walkthrough
                   </Button>
-                  <Button
-                    variant="outlined"
-                    href="#capabilities"
-                    sx={{
-                      borderRadius: 999,
-                      px: 3.2,
-                      py: 1.5,
-                      borderColor: "rgba(176, 153, 162, 0.92)",
-                      color: "#3d3640",
-                    }}
-                  >
-                    Review capabilities
+                  <Button variant="outlined" href="#overview" sx={{ borderRadius: 999, px: 3.2, py: 1.45, borderColor: "rgba(176,165,170,0.94)", color: "#3d3640" }}>
+                    See the platform
                   </Button>
-                </Stack>
-
+                </div>
                 <div className="mt-10 grid gap-4 sm:grid-cols-3">
-                  {trustMetrics.map((item) => (
-                    <div key={item.label} className="frame-card rounded-[1.3rem] px-5 py-5">
-                      <p className="text-3xl font-bold tracking-tight text-stone-950">{item.value}</p>
-                      <p className="mt-2 text-sm leading-6 text-stone-500">{item.label}</p>
+                  {heroMetrics.map((item) => (
+                    <div key={item.label} className="surface-panel rounded-[0.9rem] px-5 py-5">
+                      <Typography className="!text-3xl !font-semibold !text-stone-950">{item.value}</Typography>
+                      <Typography className="mt-2 !text-sm !leading-6 !text-stone-500">{item.label}</Typography>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="frame-card overflow-hidden rounded-[1.7rem] p-4 sm:p-5">
-                <img src="/aggregator-hero.svg" alt="DelExpress dashboard visualization" className="w-full rounded-[1.15rem] border border-stone-200" />
+              <div className="image-frame rounded-[1.1rem] bg-white p-3">
+                <img src={mediaAssets.hero} alt="DelExpress shipping control scene" className="h-[420px] w-full rounded-[0.8rem] object-cover lg:h-[560px]" />
               </div>
             </div>
           </Container>
 
-          <Container maxWidth="xl" className="!px-5 py-4 sm:!px-6 lg:!px-8">
-            <div className="frame-card flex flex-wrap items-center justify-between gap-4 rounded-[1.3rem] px-5 py-5 text-sm font-semibold text-stone-600">
-              <p className="text-stone-950">Structured for an aggregator buyer, not a generic courier marketing page.</p>
-              <div className="flex flex-wrap gap-2">
-                <Chip label="Routing intelligence" size="small" sx={{ bgcolor: "#fff", fontWeight: 700 }} />
-                <Chip label="Branded tracking" size="small" sx={{ bgcolor: "#fff", fontWeight: 700 }} />
-                <Chip label="Operational control" size="small" sx={{ bgcolor: "#fff", fontWeight: 700 }} />
-              </div>
-            </div>
-          </Container>
-
-          <Container id="platform" maxWidth="xl" className="!px-5 py-12 sm:!px-6 lg:!px-8 lg:py-20">
-            <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-              <div>
-                <Typography className="!text-sm !font-bold !uppercase !tracking-[0.28em] !text-[#8A1F43]">Platform positioning</Typography>
-                <Typography variant="h2" className="mt-4 !text-4xl !leading-tight !text-stone-950 sm:!text-5xl">
-                  The page now sounds like an aggregator platform should.
-                </Typography>
-              </div>
-              <Typography className="!text-lg !leading-8 !text-stone-600">
-                Real logistics aggregators do not sell vague speed and convenience. They sell courier breadth, margin control, routing discipline, tracking continuity, and post-shipment responsiveness. DelExpress now reflects that framing.
-              </Typography>
-            </div>
-
-            <div className="mt-10 grid gap-5 lg:grid-cols-3">
-              {platformHighlights.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.title} className="tinted-card rounded-[1.4rem] p-7">
-                    <div className="flex h-13 w-13 items-center justify-center rounded-xl bg-white shadow-sm">
-                      <Icon sx={{ color: "#8A1F43", fontSize: 26 }} />
-                    </div>
-                    <Typography variant="h3" className="mt-6 !text-[1.45rem] !text-stone-950">
-                      {item.title}
-                    </Typography>
-                    <Typography className="mt-4 !text-base !leading-7 !text-stone-600">
-                      {item.description}
-                    </Typography>
+          <Container maxWidth="xl" className="!px-5 py-10 sm:!px-6 lg:!px-8 lg:py-14">
+            <div className="grid gap-6 lg:grid-cols-3">
+              {visualHighlights.map((item) => (
+                <div key={item.title} className="surface-panel overflow-hidden rounded-[1rem]">
+                  <img src={item.image} alt={item.title} className="h-[240px] w-full object-cover sm:h-[280px]" />
+                  <div className="space-y-2 px-5 py-5">
+                    <Typography className="!text-lg !font-semibold !text-stone-950">{item.title}</Typography>
+                    <Typography className="!text-sm !leading-6 !text-stone-600">{item.description}</Typography>
                   </div>
-                );
-              })}
-            </div>
-          </Container>
-
-          <Container id="capabilities" maxWidth="xl" className="!px-5 py-4 sm:!px-6 lg:!px-8 lg:py-16">
-            <div className="grid gap-6 lg:grid-cols-[0.96fr_1.04fr] lg:items-start">
-              <div className="frame-card rounded-[1.7rem] p-5 sm:p-6">
-                <img src="/aggregator-network.svg" alt="DelExpress operating network illustration" className="w-full rounded-[1.05rem] border border-stone-200" />
-              </div>
-
-              <div className="space-y-5">
-                <div>
-                  <Typography className="!text-sm !font-bold !uppercase !tracking-[0.28em] !text-[#8A1F43]">Capabilities</Typography>
-                  <Typography variant="h2" className="mt-4 !text-4xl !leading-tight !text-stone-950 sm:!text-5xl">
-                    The modules are clearer, straighter, and more useful.
-                  </Typography>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-3">
-                  {capabilityColumns.map((column) => (
-                    <div key={column.title} className="frame-card rounded-[1.3rem] p-5">
-                      <Typography className="!text-sm !font-bold !uppercase !tracking-[0.18em] !text-stone-500">{column.title}</Typography>
-                      <div className="mt-4 space-y-3">
-                        {column.items.map((item) => (
-                          <div key={item} className="border-l-2 border-[#8A1F43]/60 pl-3 text-sm leading-6 text-stone-600">
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Container>
-
-          <Container id="network" maxWidth="xl" className="!px-5 py-12 sm:!px-6 lg:!px-8 lg:py-20">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div className="max-w-2xl">
-                <Typography className="!text-sm !font-bold !uppercase !tracking-[0.28em] !text-[#8A1F43]">Network and workflow</Typography>
-                <Typography variant="h2" className="mt-4 !text-4xl !leading-tight !text-stone-950 sm:!text-5xl">
-                  Stronger delivery logic from order intake to final outcome.
-                </Typography>
-              </div>
-              <div className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-500">
-                Aggregator website direction: precise, credible, modern
-              </div>
-            </div>
-
-            <div className="mt-10 grid gap-5 md:grid-cols-3">
-              {workflowSteps.map((item) => (
-                <div key={item.step} className="frame-card rounded-[1.3rem] p-7">
-                  <Typography className="!text-sm !font-bold !text-[#8A1F43]">{item.step}</Typography>
-                  <Typography variant="h3" className="mt-5 !text-[1.45rem] !text-stone-950">
-                    {item.title}
-                  </Typography>
-                  <Typography className="mt-4 !text-base !leading-7 !text-stone-600">
-                    {item.description}
-                  </Typography>
                 </div>
               ))}
             </div>
+          </Container>
 
-            <div className="mt-8 grid gap-4 lg:grid-cols-3">
-              {networkPanels.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.title} className="tinted-card rounded-[1.3rem] p-6">
-                    <Icon sx={{ color: "#8A1F43", fontSize: 24 }} />
-                    <Typography className="mt-4 !text-lg !font-semibold !text-stone-950">{item.title}</Typography>
-                    <Typography className="mt-3 !text-sm !leading-7 !text-stone-600">{item.description}</Typography>
-                  </div>
-                );
-              })}
+          <Container id="overview" maxWidth="xl" className="!px-5 py-14 sm:!px-6 lg:!px-8 lg:py-20">
+            <div className="grid gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
+              <div>
+                <Typography className="!text-sm !font-semibold !uppercase !tracking-[0.26em] !text-[#8a1f43]">Overview</Typography>
+                <Typography variant="h2" className="mt-4 !text-4xl !leading-tight !text-stone-950 sm:!text-[3.2rem]">
+                  A more practical shipping platform for day-to-day execution.
+                </Typography>
+              </div>
+              <div className="space-y-5 text-lg leading-8 text-stone-600">
+                <Typography>
+                  DelExpress is built for businesses that need better courier choice, steadier dispatch workflows, and stronger visibility after a shipment is created.
+                </Typography>
+                <Typography>
+                  The platform is positioned around real operating needs: shipping cost control, delivery updates, and a cleaner experience for teams managing volume every day.
+                </Typography>
+              </div>
             </div>
           </Container>
 
-          <Container id="faq" maxWidth="xl" className="!px-5 py-12 sm:!px-6 lg:!px-8 lg:py-20">
+          <Container id="services" maxWidth="xl" className="!px-5 py-2 sm:!px-6 lg:!px-8 lg:py-10">
+            <div className="grid gap-8 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
+              <div className="space-y-5">
+                <Typography className="!text-sm !font-semibold !uppercase !tracking-[0.26em] !text-[#8a1f43]">Services</Typography>
+                <Typography variant="h2" className="!text-4xl !leading-tight !text-stone-950 sm:!text-[3.2rem]">
+                  Shipping tools that support execution instead of slowing it down.
+                </Typography>
+                <div className="space-y-4">
+                  {servicePoints.map((item) => (
+                    <div key={item} className="surface-panel rounded-[0.9rem] px-5 py-4 text-base leading-7 text-stone-600">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="image-frame rounded-[1.1rem] bg-white p-3">
+                <img src={mediaAssets.operations} alt="DelExpress operations workflow scene" className="h-[360px] w-full rounded-[0.8rem] object-cover lg:h-[480px]" />
+              </div>
+            </div>
+          </Container>
+
+          <Container id="visibility" maxWidth="xl" className="!px-5 py-14 sm:!px-6 lg:!px-8 lg:py-20">
+            <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+              <div className="image-frame rounded-[1.1rem] bg-white p-3">
+                <img src={mediaAssets.team} alt="DelExpress client visibility scene" className="h-[360px] w-full rounded-[0.8rem] object-cover lg:h-[480px]" />
+              </div>
+              <div>
+                <Typography className="!text-sm !font-semibold !uppercase !tracking-[0.26em] !text-[#8a1f43]">Visibility</Typography>
+                <Typography variant="h2" className="mt-4 !text-4xl !leading-tight !text-stone-950 sm:!text-[3.2rem]">
+                  Better shipment visibility for teams that need to stay aligned.
+                </Typography>
+                <div className="mt-6 space-y-4">
+                  {experiencePoints.map((item) => (
+                    <div key={item} className="border-b border-stone-200 pb-4 text-base leading-7 text-stone-600 last:border-none last:pb-0">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Container>
+
+          <Container id="faq" maxWidth="xl" className="!px-5 py-10 sm:!px-6 lg:!px-8 lg:py-16">
             <div className="max-w-2xl">
-              <Typography className="!text-sm !font-bold !uppercase !tracking-[0.28em] !text-[#8A1F43]">FAQ</Typography>
-              <Typography variant="h2" className="mt-4 !text-4xl !leading-tight !text-stone-950 sm:!text-5xl">
-                Clean answers for the DelExpress story.
+              <Typography className="!text-sm !font-semibold !uppercase !tracking-[0.26em] !text-[#8a1f43]">FAQ</Typography>
+              <Typography variant="h2" className="mt-4 !text-4xl !leading-tight !text-stone-950 sm:!text-[3.1rem]">
+                Straight answers for prospective clients.
               </Typography>
             </div>
-
             <div className="mt-8 space-y-4">
               {faqItems.map((item) => (
-                <Accordion key={item.question} disableGutters elevation={0} className="frame-card !rounded-[1.2rem] !bg-transparent !shadow-none before:!hidden">
-                  <AccordionSummary expandIcon={<ExpandMoreRoundedIcon sx={{ color: "#8A1F43" }} />}>
+                <Accordion key={item.question} disableGutters elevation={0} className="surface-panel !rounded-[0.9rem] !bg-transparent !shadow-none before:!hidden">
+                  <AccordionSummary expandIcon={<ExpandMoreRoundedIcon sx={{ color: "#8a1f43" }} />}>
                     <Typography className="!text-lg !font-semibold !text-stone-950">{item.question}</Typography>
                   </AccordionSummary>
                   <AccordionDetails>
@@ -302,24 +211,24 @@ function LandingPage() {
           </Container>
 
           <Container id="contact" maxWidth="xl" className="!px-5 pb-16 pt-4 sm:!px-6 lg:!px-8 lg:pb-24">
-            <Box className="rounded-[1.8rem] border border-stone-300 bg-[#171419] px-7 py-10 text-white shadow-[0_28px_60px_rgba(23,20,25,0.16)] sm:px-10 sm:py-12">
-              <Typography className="!text-sm !font-bold !uppercase !tracking-[0.28em] !text-rose-300">Contact</Typography>
-              <Typography variant="h2" className="mt-4 max-w-4xl !text-4xl !leading-tight !text-white sm:!text-5xl">
-                DelExpress, repositioned as a sharper aggregator website.
+            <Box className="rounded-[1rem] bg-[#151219] px-7 py-10 text-white shadow-[0_18px_36px_rgba(21,18,25,0.12)] sm:px-10 sm:py-12">
+              <Typography className="!text-sm !font-semibold !uppercase !tracking-[0.26em] !text-rose-300">Contact</Typography>
+              <Typography variant="h2" className="mt-4 max-w-4xl !text-4xl !leading-tight !text-white sm:!text-[3.1rem]">
+                DelExpress for businesses that want cleaner shipping execution.
               </Typography>
               <Typography className="mt-5 max-w-2xl !text-lg !leading-8 !text-stone-300">
-                This version drops the softer, AI-looking visual language and replaces it with a cleaner brand system, more professional typography, and logistics-focused messaging.
+                This version uses clearer language, stronger visuals, and a simpler interface so the website feels more relevant and more presentable.
               </Typography>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} className="mt-8 max-w-xl">
-                <Button variant="contained" href="mailto:sales@delexpress.com" sx={{ borderRadius: 999, px: 3, py: 1.45, bgcolor: "#fff", color: "#171419", '&:hover': { bgcolor: '#efe8eb' } }}>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Button variant="contained" href="mailto:sales@delexpress.com" sx={{ borderRadius: 999, px: 3, py: 1.4, bgcolor: "#fff", color: "#151219", '&:hover': { bgcolor: '#efe8eb' } }}>
                   Contact DelExpress
                 </Button>
-                <Button variant="outlined" href="#top" sx={{ borderRadius: 999, px: 3, py: 1.45, borderColor: "rgba(255,255,255,0.18)", color: "#fff" }}>
+                <Button variant="outlined" href="#top" sx={{ borderRadius: 999, px: 3, py: 1.4, borderColor: "rgba(255,255,255,0.18)", color: "#fff" }}>
                   Back to top
                 </Button>
-              </Stack>
+              </div>
               <Divider sx={{ borderColor: "rgba(255,255,255,0.12)", my: 5 }} />
-              <Typography className="!text-sm !text-stone-400">DelExpress � {currentYear}. Multi-courier orchestration, tracking continuity, and delivery operations in one aggregator platform.</Typography>
+              <Typography className="!text-sm !text-stone-400">DelExpress © {currentYear}. Courier choice, shipment visibility, and delivery operations in one platform.</Typography>
             </Box>
           </Container>
         </main>
@@ -329,3 +238,4 @@ function LandingPage() {
 }
 
 export default LandingPage;
+

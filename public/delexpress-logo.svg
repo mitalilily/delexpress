@@ -1,12 +1,9 @@
-<svg width="860" height="220" viewBox="0 0 860 220" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="860" height="220" rx="32" fill="#F8F3EE"/>
-  <rect x="44" y="42" width="136" height="136" rx="28" fill="#161318"/>
-  <path d="M82 84H122C146.301 84 166 103.699 166 128C166 152.301 146.301 172 122 172H82V84Z" fill="#F8F3EE"/>
-  <path d="M100 102H122C136.359 102 148 113.641 148 128C148 142.359 136.359 154 122 154H100V102Z" fill="#161318"/>
-  <path d="M145 87H235L266 118L235 149H145V131H205V105H145V87Z" fill="#8A1F43"/>
-  <path d="M218 105H291L316 136H264L242 118L218 105Z" fill="#161318"/>
-  <text x="342" y="121" fill="#161318" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="62" font-weight="700" letter-spacing="-0.05em">DelExpress</text>
-  <text x="344" y="161" fill="#625C65" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="22" font-weight="500" letter-spacing="0.18em">AGGREGATOR SHIPPING PLATFORM</text>
-  <path d="M700 96H786" stroke="#8A1F43" stroke-width="10" stroke-linecap="round"/>
-  <path d="M724 128H786" stroke="#161318" stroke-width="10" stroke-linecap="round"/>
+<svg width="900" height="210" viewBox="0 0 900 210" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="900" height="210" rx="24" fill="#F7F2ED"/>
+  <path d="M46 42H170C199.823 42 224 66.1766 224 96C224 125.823 199.823 150 170 150H46V42Z" fill="#161219"/>
+  <path d="M82 70H162C176.359 70 188 81.6406 188 96C188 110.359 176.359 122 162 122H82V70Z" fill="#F7F2ED"/>
+  <path d="M188 58H308L340 96L308 134H188V112H270V80H188V58Z" fill="#8A1F43"/>
+  <path d="M286 80H394L428 122H344L312 96L286 80Z" fill="#161219"/>
+  <text x="478" y="100" fill="#161219" font-family="Source Sans 3, Segoe UI, sans-serif" font-size="68" font-weight="700" letter-spacing="-0.05em">DelExpress</text>
+  <text x="480" y="138" fill="#6A616A" font-family="Source Sans 3, Segoe UI, sans-serif" font-size="22" font-weight="600" letter-spacing="0.14em">SHIPPING OPERATIONS PLATFORM</text>
 </svg>

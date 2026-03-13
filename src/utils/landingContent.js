@@ -1,110 +1,65 @@
-import { AssessmentRounded, HubRounded, Inventory2Rounded, LanguageRounded, LocalShippingRounded, RadarRounded } from "@mui/icons-material";
-
 export const navigationLinks = [
-  { label: "Platform", href: "#platform" },
-  { label: "Capabilities", href: "#capabilities" },
-  { label: "Network", href: "#network" },
+  { label: "Overview", href: "#overview" },
+  { label: "Services", href: "#services" },
+  { label: "Visibility", href: "#visibility" },
   { label: "FAQ", href: "#faq" },
 ];
 
-export const trustMetrics = [
-  { value: "180+", label: "Courier connections across priority lanes" },
-  { value: "24%", label: "Typical savings through routing logic" },
-  { value: "98.9%", label: "Tracking continuity across shipments" },
+export const heroMetrics = [
+  { value: "180+", label: "Courier partners and service lanes" },
+  { value: "24%", label: "Average cost savings through allocation logic" },
+  { value: "98.9%", label: "Tracking continuity across active shipments" },
 ];
 
-export const platformHighlights = [
-  {
-    title: "Rate logic across multiple courier partners",
-    description: "Evaluate serviceability, margin, promised SLA, and delivery experience before every shipment moves into allocation.",
-    icon: HubRounded,
-  },
-  {
-    title: "One operating layer for shipping teams",
-    description: "Manage order movement, labels, manifests, tracking, and delivery exceptions without splitting work between disconnected tools.",
-    icon: Inventory2Rounded,
-  },
-  {
-    title: "Branded visibility after dispatch",
-    description: "Deliver cleaner customer updates, branded tracking, and stronger NDR handling from the same aggregator environment.",
-    icon: RadarRounded,
-  },
+export const servicePoints = [
+  "Compare courier options before every shipment is booked",
+  "Allocate orders using serviceability, SLA, and cost rules",
+  "Handle labels, manifests, and dispatch activity in one flow",
+  "Keep delivery updates and exception handling easier to manage",
 ];
 
-export const capabilityColumns = [
-  {
-    title: "Operational control",
-    items: [
-      "Rate comparison and courier recommendation",
-      "Shipment booking and label generation",
-      "Manifest and pickup coordination",
-    ],
-  },
-  {
-    title: "Post-shipment visibility",
-    items: [
-      "Tracking synchronization across partners",
-      "NDR and RTO monitoring workflows",
-      "Support-ready delivery exception timelines",
-    ],
-  },
-  {
-    title: "Commercial intelligence",
-    items: [
-      "Courier performance benchmarking",
-      "Zone and lane level cost visibility",
-      "Service quality and turnaround reporting",
-    ],
-  },
-];
-
-export const workflowSteps = [
-  {
-    step: "01",
-    title: "Consolidate order flow",
-    description: "Create one control layer for courier selection, booking, and shipment movement across channels.",
-  },
-  {
-    step: "02",
-    title: "Apply routing discipline",
-    description: "Use aggregator logic to assign the right partner based on cost, serviceability, and promised experience.",
-  },
-  {
-    step: "03",
-    title: "Track delivery performance",
-    description: "Keep support, operations, and leadership aligned on shipment status, exceptions, and final outcomes.",
-  },
-];
-
-export const networkPanels = [
-  {
-    title: "Aggregator position",
-    description: "DelExpress is presented as a logistics control platform, not just another courier booking screen.",
-    icon: LocalShippingRounded,
-  },
-  {
-    title: "Buyer expectation",
-    description: "The page is written for operations teams and commerce brands evaluating shipping control, not consumer parcel users.",
-    icon: LanguageRounded,
-  },
-  {
-    title: "Decision visibility",
-    description: "Performance, cost, and execution reporting are framed as core value rather than side features.",
-    icon: AssessmentRounded,
-  },
+export const experiencePoints = [
+  "A single view for shipping, support, and operations teams",
+  "Cleaner communication after dispatch",
+  "Faster visibility into delays and delivery exceptions",
+  "Stronger reporting for cost and service performance",
 ];
 
 export const faqItems = [
   {
-    question: "What does DelExpress represent?",
-    answer: "DelExpress is positioned as an aggregator platform for brands that need better courier selection, shipment execution, and post-shipment visibility from one commercial system.",
+    question: "What does DelExpress help with?",
+    answer: "DelExpress helps brands manage courier allocation, dispatch execution, tracking visibility, and delivery follow-through from one platform.",
   },
   {
-    question: "Why is the design more restrained now?",
-    answer: "Aggregator websites need to feel credible and deliverable. A more controlled layout, cleaner typography, and fewer decorative effects make the product look more serious.",
+    question: "Who is the platform designed for?",
+    answer: "It is designed for brands, logistics teams, and operations managers who need better control across multiple courier partners.",
   },
   {
-    question: "Why are the visuals limited?",
-    answer: "The imagery is used only where it supports the narrative. That keeps the page closer to a real business website and further from an AI-generated landing page style.",
+    question: "Why does the website focus on visibility?",
+    answer: "Because shipping does not end at booking. Teams need reliable status updates, better customer communication, and faster response when a delivery needs attention.",
+  },
+];
+
+export const mediaAssets = {
+  hero: "https://images.pexels.com/photos/6170405/pexels-photo-6170405.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  operations: "https://images.pexels.com/photos/6169643/pexels-photo-6169643.jpeg?auto=compress&cs=tinysrgb&w=1400",
+  team: "https://images.pexels.com/photos/5025635/pexels-photo-5025635.jpeg?auto=compress&cs=tinysrgb&w=1400",
+};
+
+export const visualHighlights = [
+  {
+    title: "Warehouse oversight",
+    description: "Real parcel handling and inventory checks reflected in the delivery workflow.",
+    image: "https://images.pexels.com/photos/6169058/pexels-photo-6169058.jpeg?auto=compress&cs=tinysrgb&w=1200",
+  },
+  {
+    title: "Dispatch execution",
+    description: "Daily dispatch movement, package coordination, and courier readiness in action.",
+    image: "https://images.pexels.com/photos/6169660/pexels-photo-6169660.jpeg?auto=compress&cs=tinysrgb&w=1200",
+  },
+  {
+    title: "Team coordination",
+    description: "Operational teamwork around parcel movement, checks, and last-mile preparation.",
+    image: "https://images.pexels.com/photos/6869043/pexels-photo-6869043.jpeg?auto=compress&cs=tinysrgb&w=1200",
   },
 ];

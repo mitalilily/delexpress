@@ -1,13 +1,12 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 :root {
   color-scheme: light;
-  --page-bg: #f6f2ec;
-  --ink: #171419;
-  --muted: #5f5862;
-  --line: rgba(199, 184, 190, 0.72);
-  --panel: rgba(255, 255, 255, 0.9);
+  --ink: #17141a;
+  --muted: #5d5761;
+  --line: rgba(190, 181, 186, 0.72);
+  --panel: rgba(255, 255, 255, 0.93);
 }
 
 * {
@@ -21,9 +20,9 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  background: linear-gradient(180deg, #f4efe9 0%, #f7f3ee 56%, #fbf9f6 100%);
+  background: linear-gradient(180deg, #f3eee8 0%, #f8f4ef 48%, #fcfaf7 100%);
   color: var(--ink);
-  font-family: "IBM Plex Sans", sans-serif;
+  font-family: "Source Sans 3", sans-serif;
 }
 
 button,
@@ -47,38 +46,18 @@ img {
 }
 
 ::selection {
-  background: #e8c5cf;
+  background: #e8c7d0;
   color: #21181d;
 }
 
-.site-shell {
-  position: relative;
-}
-
-.site-shell::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(rgba(255,255,255,0.28) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.28) 1px, transparent 1px);
-  background-size: 72px 72px;
-  opacity: 0.12;
-}
-
-.frame-card {
+.surface-panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  box-shadow: 0 18px 44px rgba(33, 24, 29, 0.05);
+  box-shadow: 0 10px 26px rgba(29, 23, 29, 0.045);
 }
 
-.tinted-card {
-  background: linear-gradient(180deg, rgba(255, 249, 250, 0.94), rgba(252, 246, 247, 0.9));
-  border: 1px solid rgba(211, 189, 197, 0.78);
-  box-shadow: 0 14px 30px rgba(33, 24, 29, 0.04);
-}
-
-.serif-display {
-  font-family: "Newsreader", serif;
+.image-frame {
+  overflow: hidden;
+  border: 1px solid rgba(183, 174, 180, 0.7);
+  box-shadow: 0 14px 34px rgba(29, 23, 29, 0.06);
 }

@@ -5,29 +5,27 @@ const theme = createTheme({
     mode: "light",
     primary: {
       main: "#8a1f43",
-      dark: "#61142f",
-      light: "#b74a6f",
     },
     secondary: {
-      main: "#151218",
+      main: "#131118",
     },
     background: {
-      default: "#f6f2ec",
+      default: "#f8f5f1",
       paper: "#ffffff",
     },
     text: {
-      primary: "#171419",
-      secondary: "#5f5862",
+      primary: "#17141a",
+      secondary: "#5d5761",
     },
   },
   typography: {
-    fontFamily: '"IBM Plex Sans", "Segoe UI", sans-serif',
+    fontFamily: '"Source Sans 3", "Segoe UI", sans-serif',
     h1: {
-      fontWeight: 700,
+      fontWeight: 500,
       letterSpacing: "-0.045em",
     },
     h2: {
-      fontWeight: 700,
+      fontWeight: 500,
       letterSpacing: "-0.035em",
     },
     h3: {
@@ -37,11 +35,10 @@ const theme = createTheme({
     button: {
       textTransform: "none",
       fontWeight: 600,
-      letterSpacing: "-0.01em",
     },
   },
   shape: {
-    borderRadius: 18,
+    borderRadius: 14,
   },
 });
 
