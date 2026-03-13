@@ -82,7 +82,7 @@ export default function OperationsSections() {
             />
           </MotionDiv>
 
-          <div className="mt-10 grid gap-5 lg:grid-cols-4">
+          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             {workflowSteps.map((step, index) => (
               <MotionCard
                 key={step.title}
@@ -150,11 +150,11 @@ export default function OperationsSections() {
       <section id="analytics" className="py-14 sm:py-18">
         <Container maxWidth="xl">
           <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-            <MotionDiv {...fadeUp} className="image-frame rounded-[34px] bg-white p-3">
+            <MotionDiv {...fadeUp} className="image-frame rounded-[28px] bg-white p-3 sm:rounded-[34px]">
               <img
                 src={mediaAssets.dashboard}
                 alt="Shipping analytics dashboard"
-                className="h-full min-h-[360px] w-full rounded-[26px] object-cover"
+                className="h-full min-h-[250px] w-full rounded-[22px] object-cover sm:min-h-[360px] sm:rounded-[26px]"
               />
             </MotionDiv>
 
@@ -209,14 +209,19 @@ export default function OperationsSections() {
             />
           </MotionDiv>
 
-          <div className="relative mt-12 grid gap-8">
+          <div className="relative mt-12 grid gap-6 sm:gap-8">
+            <div className="absolute left-[18px] top-0 h-full w-[2px] bg-gradient-to-b from-[#9b3150] via-[#56c0a5] to-[#9b3150] md:hidden" />
             <div className="absolute left-1/2 top-0 hidden h-full w-[2px] -translate-x-1/2 bg-gradient-to-b from-[#9b3150] via-[#56c0a5] to-[#9b3150] md:block" />
 
             {trackingStages.map((stage, index) => {
               const onLeft = index % 2 === 0;
 
               return (
-                <div key={stage.title} className="relative grid items-center gap-5 md:grid-cols-[1fr_40px_1fr]">
+                <div
+                  key={stage.title}
+                  className="relative grid items-center gap-5 pl-10 md:grid-cols-[1fr_40px_1fr] md:pl-0"
+                >
+                  <div className="absolute left-[10px] top-8 z-10 h-4 w-4 rounded-full border-4 border-[#f7efe6] bg-[#56c0a5] shadow-[0_0_0_6px_rgba(86,192,165,0.12)] md:hidden" />
                   <div
                     className={`${onLeft ? "md:col-start-1" : "md:col-start-3 md:order-3"}`}
                   >

@@ -10,7 +10,7 @@ export default function CalculatorSection({ estimate, shippingForm, onFieldChang
     <section id="calculator" className="py-14 sm:py-18">
       <Container maxWidth="xl">
         <div className="grid gap-8 xl:grid-cols-[1.02fr_0.98fr]">
-          <MotionDiv {...fadeUp} className="hero-panel rounded-[34px] p-6 sm:p-8">
+          <MotionDiv {...fadeUp} className="hero-panel rounded-[28px] p-5 sm:rounded-[34px] sm:p-8">
             <SectionHeader
               eyebrow="Shipping Calculator"
               title="Calculate Shipping Costs Instantly"
@@ -75,7 +75,7 @@ export default function CalculatorSection({ estimate, shippingForm, onFieldChang
           </MotionDiv>
 
           <MotionDiv {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.08 }}>
-            <div className="dark-panel relative rounded-[34px] p-6 text-white sm:p-8">
+            <div className="dark-panel relative rounded-[28px] p-5 text-white sm:rounded-[34px] sm:p-8">
               <div className="calculator-pulse" />
               <Typography className="text-sm uppercase tracking-[0.25em] text-[#f1c5d1]">
                 Live estimate
@@ -84,7 +84,7 @@ export default function CalculatorSection({ estimate, shippingForm, onFieldChang
                 Cost, zone, and delivery timing in one glance
               </Typography>
 
-              <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              <div className="mt-8 grid gap-4 md:grid-cols-3">
                 <MotionCard delay={0.04} className="rounded-[26px] border border-white/10 bg-white/8 p-5">
                   <Typography className="text-xs uppercase tracking-[0.2em] text-white/58">
                     Estimated Cost

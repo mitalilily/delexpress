@@ -13,7 +13,7 @@ export default function HeroSection() {
     <section className="pt-8 pb-14 sm:pt-12 sm:pb-20">
       <Container maxWidth="xl">
         <div className="grid gap-8 xl:grid-cols-[1.06fr_0.94fr]">
-          <MotionDiv {...fadeUp} className="hero-panel rounded-[34px] p-6 sm:p-8 lg:p-10">
+          <MotionDiv {...fadeUp} className="hero-panel rounded-[28px] p-5 sm:rounded-[34px] sm:p-8 lg:p-10">
             <div className="pill-row">
               <span>Rate comparison</span>
               <span>Shipment tracking</span>
@@ -22,7 +22,7 @@ export default function HeroSection() {
 
             <Typography
               variant="h1"
-              className="brand-heading mt-6 max-w-4xl text-5xl sm:text-6xl lg:text-[4.8rem]"
+              className="brand-heading mt-6 max-w-4xl text-4xl leading-[1.02] sm:text-6xl lg:text-[4.8rem]"
             >
               {heroContent.headline}
             </Typography>
@@ -47,6 +47,7 @@ export default function HeroSection() {
                   py: 1.35,
                   backgroundColor: "#181318",
                   "&:hover": { backgroundColor: "#30262e" },
+                  width: { xs: "100%", sm: "auto" },
                 }}
               >
                 {heroContent.primaryCta}
@@ -62,6 +63,7 @@ export default function HeroSection() {
                   py: 1.35,
                   borderColor: "rgba(155, 49, 80, 0.32)",
                   color: "#181318",
+                  width: { xs: "100%", sm: "auto" },
                 }}
               >
                 {heroContent.secondaryCta}
@@ -72,7 +74,7 @@ export default function HeroSection() {
               {heroContent.trustLine}
             </Typography>
 
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
+            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {heroQuickTools.map((tool, index) => (
                 <MotionCard
                   key={tool.title}
@@ -107,17 +109,17 @@ export default function HeroSection() {
           <MotionDiv
             {...fadeUp}
             transition={{ ...fadeUp.transition, delay: 0.08 }}
-            className="hero-panel rounded-[34px] p-5 sm:p-6"
+            className="hero-panel rounded-[28px] p-4 sm:rounded-[34px] sm:p-6"
           >
             <div className="image-frame rounded-[30px] bg-white">
               <img
                 src={mediaAssets.hero}
                 alt="DelExpress shipping operations dashboard preview"
-                className="h-[320px] w-full object-cover sm:h-[420px]"
+                className="h-[260px] w-full object-cover sm:h-[420px]"
               />
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
               {heroHighlights.map((item, index) => (
                 <MotionCard
                   key={item.label}

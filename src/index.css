@@ -23,6 +23,7 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top left, rgba(243, 217, 223, 0.28), transparent 30%),
     radial-gradient(circle at top right, rgba(255, 232, 210, 0.32), transparent 32%),
@@ -59,6 +60,7 @@ img {
 .page-shell {
   position: relative;
   isolation: isolate;
+  overflow-x: clip;
 }
 
 .page-shell::before {
@@ -353,5 +355,30 @@ img {
 @media (max-width: 899px) {
   .flowchart-grid {
     grid-template-columns: 1fr;
+  }
+
+  .problem-visual {
+    min-height: 380px;
+  }
+
+  .problem-ring {
+    top: 26%;
+    width: 170px;
+    height: 170px;
+  }
+
+  .problem-dot.dot-a {
+    top: 22%;
+    left: 18%;
+  }
+
+  .problem-dot.dot-b {
+    top: 38%;
+    right: 14%;
+  }
+
+  .problem-dot.dot-c {
+    bottom: 18%;
+    left: 28%;
   }
 }

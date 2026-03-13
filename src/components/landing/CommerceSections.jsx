@@ -67,12 +67,12 @@ export default function CommerceSections() {
             <MotionDiv
               {...fadeUp}
               transition={{ ...fadeUp.transition, delay: 0.08 }}
-              className="image-frame rounded-[34px] bg-white p-3"
+              className="image-frame rounded-[28px] bg-white p-3 sm:rounded-[34px]"
             >
               <img
                 src={mediaAssets.network}
                 alt="Courier network operations"
-                className="h-full min-h-[320px] w-full rounded-[26px] object-cover"
+                className="h-full min-h-[240px] w-full rounded-[22px] object-cover sm:min-h-[320px] sm:rounded-[26px]"
               />
             </MotionDiv>
           </div>
@@ -174,7 +174,7 @@ export default function CommerceSections() {
             </MotionDiv>
 
             <MotionDiv {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.08 }}>
-              <div className="dark-panel problem-visual rounded-[34px] p-6 text-white sm:p-8">
+              <div className="dark-panel problem-visual rounded-[28px] p-5 text-white sm:rounded-[34px] sm:p-8">
                 <Typography className="text-sm uppercase tracking-[0.25em] text-[#f1c5d1]">
                   One view for every shipment
                 </Typography>
@@ -194,21 +194,21 @@ export default function CommerceSections() {
                 <MotionDiv
                   animate={{ y: [0, -8, 0] }}
                   transition={{ duration: 4.8, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute left-8 top-28 rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm text-white/80"
+                  className="absolute left-4 top-24 rounded-full border border-white/12 bg-white/10 px-3 py-2 text-xs text-white/80 sm:left-8 sm:top-28 sm:px-4 sm:text-sm"
                 >
                   Multiple dashboards
                 </MotionDiv>
                 <MotionDiv
                   animate={{ y: [0, 7, 0] }}
                   transition={{ duration: 4.1, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
-                  className="absolute right-8 top-48 rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm text-white/80"
+                  className="absolute right-4 top-44 rounded-full border border-white/12 bg-white/10 px-3 py-2 text-xs text-white/80 sm:right-8 sm:top-48 sm:px-4 sm:text-sm"
                 >
                   Manual rate checks
                 </MotionDiv>
                 <MotionDiv
                   animate={{ y: [0, -6, 0] }}
                   transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
-                  className="absolute bottom-10 left-12 rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm text-white/80"
+                  className="absolute bottom-8 left-5 rounded-full border border-white/12 bg-white/10 px-3 py-2 text-xs text-white/80 sm:bottom-10 sm:left-12 sm:px-4 sm:text-sm"
                 >
                   Scattered tracking
                 </MotionDiv>
