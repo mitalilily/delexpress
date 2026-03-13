@@ -1,0 +1,12 @@
+<svg width="860" height="220" viewBox="0 0 860 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="860" height="220" rx="32" fill="#F8F3EE"/>
+  <rect x="44" y="42" width="136" height="136" rx="28" fill="#161318"/>
+  <path d="M82 84H122C146.301 84 166 103.699 166 128C166 152.301 146.301 172 122 172H82V84Z" fill="#F8F3EE"/>
+  <path d="M100 102H122C136.359 102 148 113.641 148 128C148 142.359 136.359 154 122 154H100V102Z" fill="#161318"/>
+  <path d="M145 87H235L266 118L235 149H145V131H205V105H145V87Z" fill="#8A1F43"/>
+  <path d="M218 105H291L316 136H264L242 118L218 105Z" fill="#161318"/>
+  <text x="342" y="121" fill="#161318" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="62" font-weight="700" letter-spacing="-0.05em">DelExpress</text>
+  <text x="344" y="161" fill="#625C65" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="22" font-weight="500" letter-spacing="0.18em">AGGREGATOR SHIPPING PLATFORM</text>
+  <path d="M700 96H786" stroke="#8A1F43" stroke-width="10" stroke-linecap="round"/>
+  <path d="M724 128H786" stroke="#161318" stroke-width="10" stroke-linecap="round"/>
+</svg>

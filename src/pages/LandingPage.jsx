@@ -1,186 +1,330 @@
-import { ArrowRight, ChartNoAxesCombined, Clock3, PackageCheck, ShieldCheck, Sparkles } from "lucide-react";
-import { Link } from "react-router-dom";
-
-const heroHighlights = [
-  "Compare courier options in one place",
-  "Keep customer updates easier to manage",
-  "Move from signup to dispatch without friction",
-];
-
-const featureCards = [
-  {
-    title: "Courier choices that stay clear",
-    description: "Review delivery partners, pricing, and movement updates without jumping between tabs.",
-    icon: PackageCheck,
-  },
-  {
-    title: "A calmer operations flow",
-    description: "Give your team one simple workspace for profile details, orders, and ongoing shipment activity.",
-    icon: ChartNoAxesCombined,
-  },
-  {
-    title: "Faster daily handoffs",
-    description: "Keep account setup, dispatch prep, and tracking work close together so fewer steps get missed.",
-    icon: Clock3,
-  },
-];
-
-const workflowSteps = [
-  "Create your account and save your business details",
-  "Open the workspace in a separate tab for operational work",
-  "Manage profile, shipment-ready information, and daily updates",
-];
-
-const faqs = [
-  {
-    question: "Who is this workspace built for?",
-    answer: "Small teams, growing brands, and operators who want a cleaner shipping setup without unnecessary clutter.",
-  },
-  {
-    question: "What opens after Get Started?",
-    answer: "The app workspace opens in a separate tab with the home view, profile section, and account flow.",
-  },
-  {
-    question: "Will my signup stay after refresh?",
-    answer: "Yes. The client stores auth locally so your signed-in state remains until you log out.",
-  },
-];
+import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
+import EastRoundedIcon from "@mui/icons-material/EastRounded";
+import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
+  Button,
+  Chip,
+  Container,
+  CssBaseline,
+  Divider,
+  IconButton,
+  Stack,
+  ThemeProvider,
+  Typography,
+} from "@mui/material";
+import { useMemo, useState } from "react";
+import {
+  capabilityColumns,
+  faqItems,
+  navigationLinks,
+  networkPanels,
+  platformHighlights,
+  trustMetrics,
+  workflowSteps,
+} from "../utils/landingContent";
+import theme from "../utils/muiTheme";
 
 function LandingPage() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+
   return (
-    <main>
-      <section className="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:px-8 lg:py-20">
-        <div className="space-y-8">
-          <span className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-500 shadow-sm">
-            <Sparkles size={16} />
-            Modern courier workspace for small teams
-          </span>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <div className="site-shell min-h-screen text-stone-900">
+        <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-[rgba(246,242,236,0.92)] backdrop-blur-xl">
+          <Container maxWidth="xl" className="!px-5 sm:!px-6 lg:!px-8">
+            <div className="flex items-center justify-between gap-4 py-4">
+              <a href="#top" className="flex min-w-0 items-center gap-4">
+                <img src="/delexpress-logo.svg" alt="DelExpress logo" className="h-12 w-auto sm:h-14" />
+              </a>
 
-          <div className="space-y-5">
-            <h1 className="max-w-3xl text-5xl font-semibold leading-[1.02] tracking-tight text-stone-900 sm:text-6xl">
-              One clean place to run shipping, account setup, and profile management.
-            </h1>
-            <p className="max-w-2xl text-lg leading-8 text-stone-600 sm:text-xl">
-              IronManCourier gives your team a lighter workspace for onboarding, courier decisions, and day-to-day shipping operations.
-            </p>
-          </div>
+              <nav className="hidden items-center gap-8 lg:flex">
+                {navigationLinks.map((item) => (
+                  <a key={item.href} href={item.href} className="text-sm font-semibold tracking-[0.01em] text-stone-600 transition hover:text-[#8A1F43]">
+                    {item.label}
+                  </a>
+                ))}
+              </nav>
 
-          <div className="flex flex-wrap gap-3">
-            <Link
-              to="/app/home"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-rose-500"
-            >
-              Get Started
-              <ArrowRight size={16} />
-            </Link>
-            <a href="#features" className="inline-flex rounded-full border border-rose-200 bg-white px-6 py-3 text-sm font-semibold text-stone-700 transition hover:border-rose-300 hover:text-rose-500">
-              Explore the flow
-            </a>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            {heroHighlights.map((item) => (
-              <div key={item} className="rounded-3xl border border-rose-200/70 bg-white/80 px-4 py-5 text-sm font-medium leading-6 text-stone-600 shadow-sm">
-                {item}
+              <div className="hidden items-center gap-3 lg:flex">
+                <Button color="inherit" href="#platform" sx={{ borderRadius: 999, px: 2.25, color: "#433d46" }}>
+                  Platform overview
+                </Button>
+                <Button
+                  variant="contained"
+                  endIcon={<EastRoundedIcon />}
+                  href="#contact"
+                  sx={{
+                    borderRadius: 999,
+                    px: 2.7,
+                    py: 1.15,
+                    bgcolor: "#161318",
+                    boxShadow: "none",
+                    '&:hover': { bgcolor: '#8A1F43', boxShadow: 'none' },
+                  }}
+                >
+                  Talk to DelExpress
+                </Button>
               </div>
-            ))}
-          </div>
-        </div>
 
-        <div className="rounded-[2rem] border border-rose-200/80 bg-white/80 p-6 shadow-[0_35px_80px_rgba(244,114,182,0.12)] sm:p-8">
-          <div className="rounded-[1.75rem] bg-[linear-gradient(180deg,#fff7f2_0%,#fff0f3_100%)] p-6">
-            <div className="flex items-center justify-between text-sm text-stone-500">
-              <span>Workspace preview</span>
-              <span className="rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-500">Live-ready</span>
+              <IconButton
+                onClick={() => setMenuOpen((value) => !value)}
+                className="lg:!hidden"
+                sx={{ border: "1px solid rgba(199,184,190,0.8)", bgcolor: "rgba(255,255,255,0.88)" }}
+              >
+                <MenuRoundedIcon />
+              </IconButton>
             </div>
-            <div className="mt-6 space-y-4">
-              <div className="rounded-3xl bg-white p-5 shadow-sm">
-                <p className="text-sm font-medium text-stone-500">Account progress</p>
-                <p className="mt-3 text-3xl font-semibold text-stone-900">92%</p>
-                <p className="mt-2 text-sm leading-6 text-stone-500">Profile, bank, and KYC details stay together inside the same workspace.</p>
+
+            {menuOpen ? (
+              <div className="mb-4 space-y-2 rounded-[1.2rem] border border-stone-200 bg-white p-3 lg:hidden">
+                {navigationLinks.map((item) => (
+                  <a key={item.href} href={item.href} className="block rounded-xl px-4 py-3 text-sm font-semibold text-stone-600 transition hover:bg-stone-50 hover:text-[#8A1F43]">
+                    {item.label}
+                  </a>
+                ))}
+                <Button variant="contained" href="#contact" fullWidth sx={{ borderRadius: 999, py: 1.25, bgcolor: "#161318", '&:hover': { bgcolor: '#8A1F43' } }}>
+                  Talk to DelExpress
+                </Button>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl bg-stone-900 p-5 text-white">
-                  <p className="text-sm text-stone-300">Daily orders</p>
-                  <p className="mt-3 text-2xl font-semibold">128</p>
-                </div>
-                <div className="rounded-3xl bg-white p-5 shadow-sm">
-                  <p className="text-sm text-stone-500">Courier options</p>
-                  <p className="mt-3 text-2xl font-semibold text-stone-900">12</p>
+            ) : null}
+          </Container>
+        </header>
+
+        <main id="top">
+          <Container maxWidth="xl" className="!px-5 pb-10 pt-10 sm:!px-6 lg:!px-8 lg:pb-18 lg:pt-16">
+            <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
+              <div>
+                <Stack direction="row" spacing={1.2} className="flex-wrap">
+                  <Chip label="Logistics aggregator" sx={{ bgcolor: "#ffffff", border: "1px solid rgba(201, 186, 192, 0.86)", color: "#8A1F43", fontWeight: 700 }} />
+                  <Chip label="DelExpress" sx={{ bgcolor: "#f0e7ea", color: "#161318", fontWeight: 700 }} />
+                </Stack>
+
+                <Typography variant="h1" className="mt-7 max-w-5xl !text-5xl !leading-[0.97] !text-stone-950 sm:!text-6xl lg:!text-[5.2rem]">
+                  A cleaner shipping aggregator experience for brands that care about cost,
+                  <span className="serif-display ml-2 inline text-[#8A1F43]">control</span>
+                  <span className="ml-2 inline">and delivery visibility.</span>
+                </Typography>
+
+                <Typography className="mt-6 max-w-3xl !text-lg !leading-8 !text-stone-600 sm:!text-xl">
+                  DelExpress is presented as a serious aggregator platform for multi-courier execution, post-shipment visibility, and shipping decisions built on operational logic.
+                </Typography>
+
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} className="mt-8 max-w-xl">
+                  <Button
+                    variant="contained"
+                    endIcon={<EastRoundedIcon />}
+                    href="#contact"
+                    sx={{
+                      borderRadius: 999,
+                      px: 3.2,
+                      py: 1.5,
+                      bgcolor: "#161318",
+                      boxShadow: "none",
+                      '&:hover': { bgcolor: '#8A1F43', boxShadow: 'none' },
+                    }}
+                  >
+                    Request a platform walkthrough
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    href="#capabilities"
+                    sx={{
+                      borderRadius: 999,
+                      px: 3.2,
+                      py: 1.5,
+                      borderColor: "rgba(176, 153, 162, 0.92)",
+                      color: "#3d3640",
+                    }}
+                  >
+                    Review capabilities
+                  </Button>
+                </Stack>
+
+                <div className="mt-10 grid gap-4 sm:grid-cols-3">
+                  {trustMetrics.map((item) => (
+                    <div key={item.label} className="frame-card rounded-[1.3rem] px-5 py-5">
+                      <p className="text-3xl font-bold tracking-tight text-stone-950">{item.value}</p>
+                      <p className="mt-2 text-sm leading-6 text-stone-500">{item.label}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="rounded-3xl border border-dashed border-rose-200 bg-white px-5 py-4 text-sm leading-6 text-stone-500">
-                Open the workspace in a separate tab, sign in once, and keep your setup saved through refresh.
+
+              <div className="frame-card overflow-hidden rounded-[1.7rem] p-4 sm:p-5">
+                <img src="/aggregator-hero.svg" alt="DelExpress dashboard visualization" className="w-full rounded-[1.15rem] border border-stone-200" />
               </div>
             </div>
-          </div>
-        </div>
-      </section>
+          </Container>
 
-      <section id="features" className="mx-auto max-w-7xl px-5 py-8 sm:px-6 lg:px-8 lg:py-16">
-        <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-rose-500">Features</p>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">A more commercial workspace without a cluttered feel.</h2>
-          <p className="mt-4 text-lg leading-8 text-stone-600">The product story stays simple: onboard faster, manage operations from one area, and keep profile details close to the work.</p>
-        </div>
-        <div className="mt-8 grid gap-5 lg:grid-cols-3">
-          {featureCards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <article key={card.title} className="rounded-[2rem] border border-rose-200/70 bg-white/85 p-7 shadow-sm">
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-100 text-rose-500">
-                  <Icon size={22} />
-                </span>
-                <h3 className="mt-6 text-2xl font-semibold text-stone-900">{card.title}</h3>
-                <p className="mt-3 text-base leading-7 text-stone-600">{card.description}</p>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section id="why-us" className="mx-auto max-w-7xl px-5 py-8 sm:px-6 lg:px-8 lg:py-16">
-        <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="rounded-[2rem] bg-stone-900 p-8 text-white shadow-[0_26px_70px_rgba(28,25,23,0.18)]">
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-rose-200">Why teams like it</p>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Light on friction, strong on clarity.</h2>
-            <p className="mt-4 max-w-xl text-base leading-7 text-stone-300">This is designed to feel commercial and professional without reading like a heavy enterprise product.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {workflowSteps.map((step, index) => (
-              <div key={step} className="rounded-[2rem] border border-rose-200/70 bg-white/85 p-6 shadow-sm">
-                <p className="text-sm font-semibold text-rose-500">0{index + 1}</p>
-                <p className="mt-4 text-base leading-7 text-stone-700">{step}</p>
+          <Container maxWidth="xl" className="!px-5 py-4 sm:!px-6 lg:!px-8">
+            <div className="frame-card flex flex-wrap items-center justify-between gap-4 rounded-[1.3rem] px-5 py-5 text-sm font-semibold text-stone-600">
+              <p className="text-stone-950">Structured for an aggregator buyer, not a generic courier marketing page.</p>
+              <div className="flex flex-wrap gap-2">
+                <Chip label="Routing intelligence" size="small" sx={{ bgcolor: "#fff", fontWeight: 700 }} />
+                <Chip label="Branded tracking" size="small" sx={{ bgcolor: "#fff", fontWeight: 700 }} />
+                <Chip label="Operational control" size="small" sx={{ bgcolor: "#fff", fontWeight: 700 }} />
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+            </div>
+          </Container>
 
-      <section id="workflow" className="mx-auto max-w-7xl px-5 py-8 sm:px-6 lg:px-8 lg:py-16">
-        <div className="rounded-[2rem] border border-rose-200/70 bg-white/85 p-8 shadow-sm sm:p-10">
-          <div className="flex items-center gap-3 text-rose-500">
-            <ShieldCheck size={20} />
-            <p className="text-sm font-semibold uppercase tracking-[0.28em]">Workflow</p>
-          </div>
-          <h2 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">Landing page for discovery. Workspace for action.</h2>
-          <p className="mt-4 max-w-3xl text-lg leading-8 text-stone-600">Your marketing page stays public and polished. The actual work happens inside a separate tab where users can manage home, profile, and ongoing tasks.</p>
-        </div>
-      </section>
+          <Container id="platform" maxWidth="xl" className="!px-5 py-12 sm:!px-6 lg:!px-8 lg:py-20">
+            <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+              <div>
+                <Typography className="!text-sm !font-bold !uppercase !tracking-[0.28em] !text-[#8A1F43]">Platform positioning</Typography>
+                <Typography variant="h2" className="mt-4 !text-4xl !leading-tight !text-stone-950 sm:!text-5xl">
+                  The page now sounds like an aggregator platform should.
+                </Typography>
+              </div>
+              <Typography className="!text-lg !leading-8 !text-stone-600">
+                Real logistics aggregators do not sell vague speed and convenience. They sell courier breadth, margin control, routing discipline, tracking continuity, and post-shipment responsiveness. DelExpress now reflects that framing.
+              </Typography>
+            </div>
 
-      <section id="faq" className="mx-auto max-w-7xl px-5 py-8 sm:px-6 lg:px-8 lg:py-16">
-        <div className="grid gap-4 lg:grid-cols-3">
-          {faqs.map((item) => (
-            <details key={item.question} className="rounded-[2rem] border border-rose-200/70 bg-white/85 p-6 shadow-sm">
-              <summary className="cursor-pointer text-lg font-semibold text-stone-900">{item.question}</summary>
-              <p className="mt-4 text-base leading-7 text-stone-600">{item.answer}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-    </main>
+            <div className="mt-10 grid gap-5 lg:grid-cols-3">
+              {platformHighlights.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.title} className="tinted-card rounded-[1.4rem] p-7">
+                    <div className="flex h-13 w-13 items-center justify-center rounded-xl bg-white shadow-sm">
+                      <Icon sx={{ color: "#8A1F43", fontSize: 26 }} />
+                    </div>
+                    <Typography variant="h3" className="mt-6 !text-[1.45rem] !text-stone-950">
+                      {item.title}
+                    </Typography>
+                    <Typography className="mt-4 !text-base !leading-7 !text-stone-600">
+                      {item.description}
+                    </Typography>
+                  </div>
+                );
+              })}
+            </div>
+          </Container>
+
+          <Container id="capabilities" maxWidth="xl" className="!px-5 py-4 sm:!px-6 lg:!px-8 lg:py-16">
+            <div className="grid gap-6 lg:grid-cols-[0.96fr_1.04fr] lg:items-start">
+              <div className="frame-card rounded-[1.7rem] p-5 sm:p-6">
+                <img src="/aggregator-network.svg" alt="DelExpress operating network illustration" className="w-full rounded-[1.05rem] border border-stone-200" />
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <Typography className="!text-sm !font-bold !uppercase !tracking-[0.28em] !text-[#8A1F43]">Capabilities</Typography>
+                  <Typography variant="h2" className="mt-4 !text-4xl !leading-tight !text-stone-950 sm:!text-5xl">
+                    The modules are clearer, straighter, and more useful.
+                  </Typography>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  {capabilityColumns.map((column) => (
+                    <div key={column.title} className="frame-card rounded-[1.3rem] p-5">
+                      <Typography className="!text-sm !font-bold !uppercase !tracking-[0.18em] !text-stone-500">{column.title}</Typography>
+                      <div className="mt-4 space-y-3">
+                        {column.items.map((item) => (
+                          <div key={item} className="border-l-2 border-[#8A1F43]/60 pl-3 text-sm leading-6 text-stone-600">
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Container>
+
+          <Container id="network" maxWidth="xl" className="!px-5 py-12 sm:!px-6 lg:!px-8 lg:py-20">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="max-w-2xl">
+                <Typography className="!text-sm !font-bold !uppercase !tracking-[0.28em] !text-[#8A1F43]">Network and workflow</Typography>
+                <Typography variant="h2" className="mt-4 !text-4xl !leading-tight !text-stone-950 sm:!text-5xl">
+                  Stronger delivery logic from order intake to final outcome.
+                </Typography>
+              </div>
+              <div className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-500">
+                Aggregator website direction: precise, credible, modern
+              </div>
+            </div>
+
+            <div className="mt-10 grid gap-5 md:grid-cols-3">
+              {workflowSteps.map((item) => (
+                <div key={item.step} className="frame-card rounded-[1.3rem] p-7">
+                  <Typography className="!text-sm !font-bold !text-[#8A1F43]">{item.step}</Typography>
+                  <Typography variant="h3" className="mt-5 !text-[1.45rem] !text-stone-950">
+                    {item.title}
+                  </Typography>
+                  <Typography className="mt-4 !text-base !leading-7 !text-stone-600">
+                    {item.description}
+                  </Typography>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 grid gap-4 lg:grid-cols-3">
+              {networkPanels.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.title} className="tinted-card rounded-[1.3rem] p-6">
+                    <Icon sx={{ color: "#8A1F43", fontSize: 24 }} />
+                    <Typography className="mt-4 !text-lg !font-semibold !text-stone-950">{item.title}</Typography>
+                    <Typography className="mt-3 !text-sm !leading-7 !text-stone-600">{item.description}</Typography>
+                  </div>
+                );
+              })}
+            </div>
+          </Container>
+
+          <Container id="faq" maxWidth="xl" className="!px-5 py-12 sm:!px-6 lg:!px-8 lg:py-20">
+            <div className="max-w-2xl">
+              <Typography className="!text-sm !font-bold !uppercase !tracking-[0.28em] !text-[#8A1F43]">FAQ</Typography>
+              <Typography variant="h2" className="mt-4 !text-4xl !leading-tight !text-stone-950 sm:!text-5xl">
+                Clean answers for the DelExpress story.
+              </Typography>
+            </div>
+
+            <div className="mt-8 space-y-4">
+              {faqItems.map((item) => (
+                <Accordion key={item.question} disableGutters elevation={0} className="frame-card !rounded-[1.2rem] !bg-transparent !shadow-none before:!hidden">
+                  <AccordionSummary expandIcon={<ExpandMoreRoundedIcon sx={{ color: "#8A1F43" }} />}>
+                    <Typography className="!text-lg !font-semibold !text-stone-950">{item.question}</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Typography className="!text-base !leading-7 !text-stone-600">{item.answer}</Typography>
+                  </AccordionDetails>
+                </Accordion>
+              ))}
+            </div>
+          </Container>
+
+          <Container id="contact" maxWidth="xl" className="!px-5 pb-16 pt-4 sm:!px-6 lg:!px-8 lg:pb-24">
+            <Box className="rounded-[1.8rem] border border-stone-300 bg-[#171419] px-7 py-10 text-white shadow-[0_28px_60px_rgba(23,20,25,0.16)] sm:px-10 sm:py-12">
+              <Typography className="!text-sm !font-bold !uppercase !tracking-[0.28em] !text-rose-300">Contact</Typography>
+              <Typography variant="h2" className="mt-4 max-w-4xl !text-4xl !leading-tight !text-white sm:!text-5xl">
+                DelExpress, repositioned as a sharper aggregator website.
+              </Typography>
+              <Typography className="mt-5 max-w-2xl !text-lg !leading-8 !text-stone-300">
+                This version drops the softer, AI-looking visual language and replaces it with a cleaner brand system, more professional typography, and logistics-focused messaging.
+              </Typography>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} className="mt-8 max-w-xl">
+                <Button variant="contained" href="mailto:sales@delexpress.com" sx={{ borderRadius: 999, px: 3, py: 1.45, bgcolor: "#fff", color: "#171419", '&:hover': { bgcolor: '#efe8eb' } }}>
+                  Contact DelExpress
+                </Button>
+                <Button variant="outlined" href="#top" sx={{ borderRadius: 999, px: 3, py: 1.45, borderColor: "rgba(255,255,255,0.18)", color: "#fff" }}>
+                  Back to top
+                </Button>
+              </Stack>
+              <Divider sx={{ borderColor: "rgba(255,255,255,0.12)", my: 5 }} />
+              <Typography className="!text-sm !text-stone-400">DelExpress © {currentYear}. Multi-courier orchestration, tracking continuity, and delivery operations in one aggregator platform.</Typography>
+            </Box>
+          </Container>
+        </main>
+      </div>
+    </ThemeProvider>
   );
 }
 
