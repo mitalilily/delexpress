@@ -1,0 +1,62 @@
+-- =====================================================
+-- B2C Manifest Retry Tracking
+-- =====================================================
+-- STATUS: Schema change required for failed-manifest retries
+--
+-- These changes add bounded retry tracking for manifest_failed B2C orders.
+-- The application allows up to 3 manual retry attempts and stores the latest
+-- retry timestamp on the order.
+--
+-- Migration (run inside your Postgres session):
+-- ALTER TABLE b2c_orders
+--   ADD COLUMN IF NOT EXISTS manifest_retry_count INTEGER NOT NULL DEFAULT 0,
+--   ADD COLUMN IF NOT EXISTS manifest_last_retry_at TIMESTAMP;
+--
+-- Verification query (optional):
+-- SELECT order_number, order_status, manifest_retry_count, manifest_last_retry_at
+-- FROM b2c_orders
+-- WHERE order_status = 'manifest_failed'
+-- ORDER BY updated_at DESC
+-- LIMIT 20;
+-- =====================================================
+-- Developer Issue State Tracking
+-- =====================================================
+-- STATUS: Schema change required for developer issue queue state
+--
+-- This table stores grouped admin issue state such as owner, priority,
+-- open/resolved status, alert visibility, and repeat count snapshots.
+--
+-- Migration (run inside your Postgres session):
+-- CREATE TABLE IF NOT EXISTS developer_issue_states (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   issue_key VARCHAR(255) NOT NULL,
+--   source VARCHAR(50) NOT NULL,
+--   title VARCHAR(255) NOT NULL,
+--   status VARCHAR(20) NOT NULL DEFAULT 'open',
+--   priority VARCHAR(20) NOT NULL DEFAULT 'medium',
+--   owner_admin_id UUID REFERENCES users(id),
+--   resolved_by_admin_id UUID REFERENCES users(id),
+--   first_seen_at TIMESTAMP NOT NULL DEFAULT NOW(),
+--   last_seen_at TIMESTAMP NOT NULL DEFAULT NOW(),
+--   occurrence_count INTEGER NOT NULL DEFAULT 1,
+--   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+--   updated_at TIMESTAMP DEFAULT NOW(),
+--   resolved_at TIMESTAMP,
+--   alert_seen_at TIMESTAMP
+-- );
+--
+-- CREATE UNIQUE INDEX IF NOT EXISTS developer_issue_states_issue_key_unique
+--   ON developer_issue_states(issue_key);
+--
+-- CREATE TABLE IF NOT EXISTS developer_issue_audit_logs (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   issue_key VARCHAR(255) NOT NULL,
+--   admin_user_id UUID REFERENCES users(id),
+--   action VARCHAR(50) NOT NULL,
+--   note TEXT,
+--   metadata JSONB,
+--   created_at TIMESTAMP NOT NULL DEFAULT NOW()
+-- );
+-- =====================================================
+-- END OF FILE
+-- =====================================================

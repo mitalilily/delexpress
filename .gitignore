@@ -1,0 +1,52 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node / Monorepo
+**/node_modules/
+**/.pnpm-store/
+**/.turbo/
+**/.cache/
+**/.eslintcache
+
+# Builds
+**/dist/
+**/build/
+**/.next/
+**/.vercel/
+
+# Tests/Coverage
+**/coverage/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+**/logs/
+**/*.log
+
+# Local data/artifacts
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/tmp/
+
+# Misc
+**/.DS_Store
+**/*.local
+**/.npm-cache/
+deploy-staging/
+reference-theme.css
+reference-theme.png
+
