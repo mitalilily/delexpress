@@ -51,6 +51,7 @@ export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPass
   })
 
   const [termsChecked, setTermsChecked] = useState(false)
+  const [verificationCode, setVerificationCode] = useState('')
 
   const validateEmail = (email: string): string => {
     if (!email) return 'Email is required.'
@@ -67,6 +68,7 @@ export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPass
 
   const handleChange = (field: 'email' | 'password', value: string) => {
     setEmailForm((prev) => ({ ...prev, [field]: value }))
+    if (field === 'email') setVerificationCode('')
 
     if (touched[field]) {
       const error = field === 'email' ? validateEmail(value) : validatePassword(value)
@@ -130,7 +132,7 @@ export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPass
               toast.open({
                 message:
                   inlineVerificationToken || message.includes('Verification code generated')
-                    ? 'Verification code generated. Open the browser console to copy it.'
+                    ? 'Verification code generated and shown below.'
                     : message,
                 severity: 'success',
                 position: { vertical: 'top', horizontal: 'center' },
@@ -138,9 +140,9 @@ export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPass
             }
 
             if (typeof inlineVerificationToken === 'string') {
-              console.info(
-                `[DelExpress Auth] Password verification code for ${emailForm.email.toLowerCase().trim()}: ${inlineVerificationToken}`,
-              )
+              setVerificationCode(inlineVerificationToken)
+            } else {
+              setVerificationCode('')
             }
 
             if (message.includes('Verification email sent') || message.includes('Verification code generated')) {
@@ -175,7 +177,8 @@ export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPass
         }}
       >
         <Typography variant="body2" sx={{ color: '#6A616A', lineHeight: 1.6, fontWeight: 500 }}>
-          Enter your registered email and password. If verification is needed, the code will be logged in the browser console.
+          Enter your registered email and password. If verification is needed, the code will
+          appear directly on this screen.
         </Typography>
       </Box>
 
@@ -263,6 +266,7 @@ export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPass
       email={emailForm?.email}
       resendMail={handleSubmit}
       password={emailForm?.password}
+      verificationCode={verificationCode}
     />
   )
 }

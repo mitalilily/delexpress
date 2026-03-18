@@ -68,6 +68,7 @@ export default function PhoneForm() {
   const [step, setStep] = useState<number>(0)
   const [preferredLoginMethod, setPreferredLoginMethod] = useState<'phone' | 'password'>('phone')
   const [email, setEmail] = useState('')
+  const [generatedOtp, setGeneratedOtp] = useState('')
   const [termsChecked, setTermsChecked] = useState(false)
   const [openTerms, setOpenTerms] = useState(false)
 
@@ -76,6 +77,7 @@ export default function PhoneForm() {
   const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.trim()
     setEmail(value)
+    setGeneratedOtp('')
   }, [])
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -100,12 +102,14 @@ export default function PhoneForm() {
       sendOtpRequest(email.toLowerCase().trim(), {
         onSuccess: (data) => {
           if (typeof data?.otp === 'string') {
-            console.info(`[DelExpress Auth] OTP for ${email.toLowerCase().trim()}: ${data.otp}`)
+            setGeneratedOtp(data.otp)
             toast.open({
-              message: 'Verification code generated. Open the browser console to copy it.',
+              message: 'Verification code generated and shown below.',
               severity: 'info',
               position: { vertical: 'top', horizontal: 'center' },
             })
+          } else {
+            setGeneratedOtp('')
           }
           setStep(1)
         },
@@ -185,7 +189,14 @@ export default function PhoneForm() {
         />
       </Box>
     ) : (
-      <OtpForm email={email} onEditEmail={() => setStep(0)} />
+      <OtpForm
+        email={email}
+        inlineOtp={generatedOtp}
+        onEditEmail={() => {
+          setGeneratedOtp('')
+          setStep(0)
+        }}
+      />
     )
 
   return (
@@ -195,7 +206,8 @@ export default function PhoneForm() {
           Secure Authentication
         </Typography>
         <Typography variant="body2" sx={{ color: '#6A616A', lineHeight: 1.6, fontWeight: 500 }}>
-          Access your logistics dashboard using your registered work email. Test codes are logged in the browser console.
+          Access your logistics dashboard using your registered work email. Demo verification
+          codes appear directly on the screen when generated.
         </Typography>
 
         <Chip

@@ -53,13 +53,15 @@ const ghostButtonStyles = {
 
 type Props = {
   email: string
+  inlineOtp?: string
   onEditEmail: () => void
 }
 
-export default function OtpForm({ email, onEditEmail }: Props) {
+export default function OtpForm({ email, inlineOtp = '', onEditEmail }: Props) {
   const { setTokens, setUserId } = useAuth()
   const navigate = useNavigate()
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''))
+  const [visibleOtp, setVisibleOtp] = useState(inlineOtp)
   const [error, setError] = useState<string>('')
   const [resendEnabled, setResendEnabled] = useState(false)
   const [secondsLeft, setSecondsLeft] = useState(OTP_RESEND_DELAY_MS / 1000)
@@ -69,6 +71,10 @@ export default function OtpForm({ email, onEditEmail }: Props) {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    setVisibleOtp(inlineOtp)
+  }, [inlineOtp])
 
   useEffect(() => {
     setResendEnabled(false)
@@ -176,7 +182,9 @@ export default function OtpForm({ email, onEditEmail }: Props) {
         setSecondsLeft(OTP_RESEND_DELAY_MS / 1000)
 
         if (typeof data?.otp === 'string') {
-          console.info(`[DelExpress Auth] OTP for ${email.toLowerCase().trim()}: ${data.otp}`)
+          setVisibleOtp(data.otp)
+        } else {
+          setVisibleOtp('')
         }
 
         if (timerRef.current) clearTimeout(timerRef.current)
@@ -199,7 +207,7 @@ export default function OtpForm({ email, onEditEmail }: Props) {
         }, OTP_RESEND_DELAY_MS)
 
         toast.open({
-          message: 'New verification code generated. Open the browser console to copy it.',
+          message: 'New verification code generated and shown below.',
           severity: 'success',
         })
       },
@@ -229,6 +237,25 @@ export default function OtpForm({ email, onEditEmail }: Props) {
           </Box>
         </Typography>
       </Box>
+
+      {visibleOtp && (
+        <Box
+          sx={{
+            p: 1.5,
+            borderRadius: 1,
+            backgroundColor: alpha('#56C0A5', 0.08),
+            border: `1px solid ${alpha('#56C0A5', 0.28)}`,
+            textAlign: 'center',
+          }}
+        >
+          <Typography variant="caption" sx={{ display: 'block', color: '#2D6A5A', fontWeight: 800, letterSpacing: 1.4 }}>
+            DEMO VERIFICATION CODE
+          </Typography>
+          <Typography sx={{ mt: 0.45, color: DE_BLUE, fontSize: '1.55rem', fontWeight: 900, letterSpacing: '0.32em' }}>
+            {visibleOtp}
+          </Typography>
+        </Box>
+      )}
 
       <Stack direction="row" spacing={1.5} justifyContent="center" sx={{ my: 1 }}>
         {otpDigits.map((digit, idx) => (
@@ -278,10 +305,6 @@ export default function OtpForm({ email, onEditEmail }: Props) {
       )}
 
       <Stack spacing={1.5}>
-        <Typography variant="caption" sx={{ textAlign: 'center', fontWeight: 700, color: DE_BLUE }}>
-          Open the browser console to view the generated verification code.
-        </Typography>
-
         <CustomIconLoadingButton
           type="submit"
           styles={primaryButtonStyles}
