@@ -8,7 +8,7 @@ import {
   Container,
   Typography,
 } from "@mui/material";
-import { faqItems, testimonials } from "../../utils/landingContent";
+import { clientAppUrl, faqItems, testimonials } from "../../utils/landingContent";
 import { fadeUp, MotionDiv, SectionHeader } from "./LandingPrimitives";
 
 export default function SocialSections() {
@@ -119,6 +119,8 @@ export default function SocialSections() {
 
               <div className="flex flex-col items-start gap-4 lg:items-end">
                 <Button
+                  component="a"
+                  href={clientAppUrl}
                   variant="contained"
                   endIcon={<EastRoundedIcon />}
                   sx={{

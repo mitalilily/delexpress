@@ -1,3 +1,7 @@
+const defaultClientAppUrl = "https://delexpress-client.vercel.app/";
+
+export const clientAppUrl = import.meta.env.VITE_CLIENT_APP_URL?.trim() || defaultClientAppUrl;
+
 export const navigationLinks = [
   { label: "Features", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },

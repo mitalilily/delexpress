@@ -1,5 +1,6 @@
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import { Box, Button, Container, IconButton, Typography } from "@mui/material";
+import { clientAppUrl } from "../../utils/landingContent";
 
 export default function LandingHeader({
   menuOpen,
@@ -58,7 +59,7 @@ export default function LandingHeader({
             </Button>
             <Button
               component="a"
-              href="#get-started"
+              href={clientAppUrl}
               variant="contained"
               sx={{
                 borderRadius: "999px",
@@ -98,7 +99,7 @@ export default function LandingHeader({
               ))}
               <Button
                 component="a"
-                href="#get-started"
+                href={clientAppUrl}
                 variant="contained"
                 sx={{
                   mt: 1,

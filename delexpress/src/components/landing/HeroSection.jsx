@@ -1,6 +1,7 @@
 import EastRoundedIcon from "@mui/icons-material/EastRounded";
 import { Button, Chip, Container, Typography } from "@mui/material";
 import {
+  clientAppUrl,
   heroContent,
   heroHighlights,
   heroQuickTools,
@@ -37,7 +38,7 @@ export default function HeroSection() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button
                 component="a"
-                href="#get-started"
+                href={clientAppUrl}
                 variant="contained"
                 endIcon={<EastRoundedIcon />}
                 sx={{
