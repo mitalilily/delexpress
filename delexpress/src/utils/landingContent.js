@@ -1,4 +1,4 @@
-const defaultClientAppUrl = "https://delexpress-client.vercel.app/";
+const defaultClientAppUrl = "https://app.expressopro.in/";
 
 export const clientAppUrl = import.meta.env.VITE_CLIENT_APP_URL?.trim() || defaultClientAppUrl;
 

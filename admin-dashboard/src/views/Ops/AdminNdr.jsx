@@ -305,7 +305,7 @@ export default function AdminNdr() {
           merchant_id: (v, row) => {
             const id = v
             const name = row?.merchant_name || 'View Merchant'
-            const href = `http://localhost:3000/admin/users-management/${id}/overview`
+            const href = `https://admin.expressopro.in/admin/users-management/${id}/overview`
             return (
               <a
                 href={href}

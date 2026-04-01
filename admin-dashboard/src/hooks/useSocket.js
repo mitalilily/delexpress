@@ -9,7 +9,7 @@ export const useSocket = () => {
   const socketUrl =
     process.env.REACT_APP_SOCKET_URL ||
     process.env.REACT_APP_API_BASE_URL?.replace(/\/api\/?$/, '') ||
-    'https://delexpress-backend.onrender.com'
+    'https://api.expressopro.in'
 
   useEffect(() => {
     if (!userId) return

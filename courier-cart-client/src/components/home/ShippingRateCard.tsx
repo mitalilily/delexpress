@@ -6,11 +6,7 @@ const ShippingRateCard = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
 
   const handleNavigate = () => {
-    // ✅ full redirect
-    window.location.href = 'http://localhost:5173/tools/rate_calculator'
-
-    // Or if inside React Router context:
-    // navigate('/tools/rate_calculator')
+    window.location.href = 'https://app.expressopro.in/tools/rate_calculator'
   }
 
   return (

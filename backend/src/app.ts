@@ -90,8 +90,10 @@ const localOrigins = [
   'http://127.0.0.1:3001',
   'http://localhost:4173',
   'http://127.0.0.1:4173',
-  'https://admin.delexpress.in',
-  'https://app.delexpress.in',
+  'https://admin.expressopro.in',
+  'https://app.expressopro.in',
+  'https://expressopro.in',
+  'https://www.expressopro.in',
 ]
 
 const envOrigins = (process.env.CORS_ORIGINS || '')
