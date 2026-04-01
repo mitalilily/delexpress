@@ -201,7 +201,10 @@ export default function CalculatorSection({
 
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div className="weight-breakdown-card">
-                  <Typography className="text-xs uppercase tracking-[0.18em]" sx={{ color: '#8e7e86' }}>
+                  <Typography
+                    className="text-xs uppercase tracking-[0.18em]"
+                    sx={{ color: '#8e7e86' }}
+                  >
                     Actual weight
                   </Typography>
                   <Typography variant="h5" className="mt-3 text-[#171318]">
@@ -209,7 +212,10 @@ export default function CalculatorSection({
                   </Typography>
                 </div>
                 <div className="weight-breakdown-card">
-                  <Typography className="text-xs uppercase tracking-[0.18em]" sx={{ color: '#8e7e86' }}>
+                  <Typography
+                    className="text-xs uppercase tracking-[0.18em]"
+                    sx={{ color: '#8e7e86' }}
+                  >
                     Volumetric weight
                   </Typography>
                   <Typography variant="h5" className="mt-3 text-[#171318]">
@@ -219,7 +225,10 @@ export default function CalculatorSection({
                   </Typography>
                 </div>
                 <div className="weight-breakdown-card weight-breakdown-card-strong">
-                  <Typography className="text-xs uppercase tracking-[0.18em]" sx={{ color: '#8e7e86' }}>
+                  <Typography
+                    className="text-xs uppercase tracking-[0.18em]"
+                    sx={{ color: '#8e7e86' }}
+                  >
                     Applicable weight
                   </Typography>
                   <Typography variant="h5" className="mt-3 text-[#171318]">
@@ -252,10 +261,6 @@ export default function CalculatorSection({
               >
                 {isLoading ? 'Checking rates...' : 'Check courier rates'}
               </Button>
-
-              <Typography className="text-sm leading-7" sx={{ color: '#625b63' }}>
-                Results are fetched from the public guest endpoint after both pincodes are verified from your serviceability locations.
-              </Typography>
             </div>
           </MotionDiv>
 
