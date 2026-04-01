@@ -167,7 +167,14 @@ export interface B2COrder {
   shipment_id?: string | null
   is_insurance: boolean
   label?: string | null
+  label_url?: string | null
+  label_key?: string | null
   manifest?: string | null
+  manifest_url?: string | null
+  manifest_key?: string | null
+  invoice_link?: string | null
+  invoice_url?: string | null
+  invoice_key?: string | null
   manifest_error?: string | null
   manifest_retry_count?: number | null
   manifest_last_retry_at?: string | null
@@ -240,7 +247,14 @@ export interface B2BOrder {
   shipment_id?: string
   awb_number?: string
   label?: string
+  label_url?: string | null
+  label_key?: string | null
   manifest?: string
+  manifest_url?: string | null
+  manifest_key?: string | null
+  invoice_link?: string | null
+  invoice_url?: string | null
+  invoice_key?: string | null
   pickup_location_id?: string
   created_at: string // or Date
   updated_at: string // or Date

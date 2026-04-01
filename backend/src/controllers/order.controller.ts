@@ -8,11 +8,13 @@ import {
   getAllOrdersService,
   getB2BOrdersByUserService,
   getB2COrdersByUserService,
-  retryFailedManifestService,
   ShipmentParams,
+  retryFailedManifestService,
   trackByAwbService,
   trackByOrderService,
 } from '../models/services/shiprocket.service'
+import { getMerchantSafeOperationalError } from '../utils/merchantErrorMessages'
+import { regenerateOrderDocumentsServiceAdmin } from '../models/services/adminOrders.service'
 
 export const createB2CShipmentController = async (req: any, res: Response) => {
   try {
@@ -330,6 +332,44 @@ export const retryFailedManifestController = async (req: any, res: Response) => 
     return res.status(statusCode).json({
       success: false,
       message: error?.message || 'Failed to retry manifest.',
+    })
+  }
+}
+
+export const regenerateOrderDocumentsController = async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.sub
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' })
+    }
+
+    const orderId = String(req.params.orderId || '').trim()
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: 'Order ID is required' })
+    }
+
+    const regenerateLabel =
+      typeof req.body?.regenerateLabel === 'boolean' ? req.body.regenerateLabel : true
+    const regenerateInvoice =
+      typeof req.body?.regenerateInvoice === 'boolean' ? req.body.regenerateInvoice : true
+
+    const result = await regenerateOrderDocumentsServiceAdmin({
+      orderId,
+      regenerateLabel,
+      regenerateInvoice,
+      expectedUserId: userId,
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Order documents regenerated successfully',
+      data: result,
+    })
+  } catch (error: any) {
+    const statusCode = error?.message === 'Order not found' ? 404 : 400
+    return res.status(statusCode).json({
+      success: false,
+      message: error?.message || 'Failed to regenerate order documents',
     })
   }
 }

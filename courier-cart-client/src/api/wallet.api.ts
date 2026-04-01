@@ -48,12 +48,16 @@ export interface WalletTransactionsResponse {
     currency: string
   }
   transactions: WalletTransaction[]
+  totalCount: number
+  page: number
+  limit: number
 }
 
 interface WalletTransactionsParams {
   limit?: number
   page?: number
   type?: 'credit' | 'debit'
+  reason?: string
   dateFrom?: string
   dateTo?: string
 }

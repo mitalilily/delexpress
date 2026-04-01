@@ -190,10 +190,12 @@ export const regenerateOrderDocumentsServiceAdmin = async ({
   orderId,
   regenerateLabel = true,
   regenerateInvoice = true,
+  expectedUserId,
 }: {
   orderId: string
   regenerateLabel?: boolean
   regenerateInvoice?: boolean
+  expectedUserId?: string
 }) => {
   if (!regenerateLabel && !regenerateInvoice) {
     throw new Error('At least one document must be selected for regeneration')
@@ -210,6 +212,9 @@ export const regenerateOrderDocumentsServiceAdmin = async ({
   const orderType = b2cOrder ? 'b2c' : 'b2b'
   const userId = order.user_id
   if (!userId) throw new Error('Order user not found')
+  if (expectedUserId && userId !== expectedUserId) {
+    throw new Error('Order not found')
+  }
 
   let newLabelKey: string | null = null
   let newInvoiceKey: string | null = null

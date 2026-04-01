@@ -58,6 +58,7 @@ const OrdersTable = ({
   const captions = [
     'Order ID',
     'AWB Number',
+    'Docs',
     'Merchant',
     'Customer',
     'Status',
@@ -69,6 +70,7 @@ const OrdersTable = ({
   const columnKeys = [
     'order_number',
     'awb_number',
+    'documents',
     'merchantName',
     'buyer_name',
     'order_status',
@@ -257,6 +259,23 @@ const OrdersTable = ({
         )}
       </Flex>
     ),
+    documents: (_value, row) => {
+      const hasLabel = Boolean(String(row.label_url || row.label_key || row.label || '').trim())
+      const hasInvoice = Boolean(
+        String(row.invoice_url || row.invoice_key || row.invoice_link || '').trim(),
+      )
+
+      return (
+        <Stack direction="row" spacing={2} flexWrap="wrap">
+          <Badge colorScheme={hasLabel ? 'green' : 'orange'} borderRadius="md" px={2} py={1}>
+            {hasLabel ? 'Label Generated' : 'Label Pending'}
+          </Badge>
+          <Badge colorScheme={hasInvoice ? 'green' : 'orange'} borderRadius="md" px={2} py={1}>
+            {hasInvoice ? 'Invoice Generated' : 'Invoice Pending'}
+          </Badge>
+        </Stack>
+      )
+    },
     buyer_name: (value, row) => (
       <div>
         <div style={{ fontWeight: '500' }}>{value}</div>

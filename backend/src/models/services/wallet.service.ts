@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, ilike, lte, sql } from 'drizzle-orm'
 import { PgTransaction } from 'drizzle-orm/pg-core'
 import { db } from '../client'
 import { wallets, walletTransactions } from '../schema/wallet'
@@ -109,6 +109,7 @@ interface GetUserWalletTransactionsParams {
   limit?: number
   offset?: number
   type?: 'credit' | 'debit'
+  reason?: string
   dateFrom?: Date
   dateTo?: Date
 }
@@ -121,6 +122,7 @@ export const getUserWalletTransactions = async ({
   limit = 50,
   offset = 0,
   type,
+  reason,
   dateFrom,
   dateTo,
 }: GetUserWalletTransactionsParams) => {
@@ -131,25 +133,36 @@ export const getUserWalletTransactions = async ({
   }
   // 2️⃣ Build dynamic where clause
   let filter: any = eq(walletTransactions.wallet_id, userWallet[0].id)
-  if (type || dateFrom || dateTo) {
+  if (type || reason || dateFrom || dateTo) {
     const conditions: any[] = [eq(walletTransactions.wallet_id, userWallet[0].id)]
     if (type) conditions.push(eq(walletTransactions.type, type))
+    if (reason) conditions.push(ilike(walletTransactions.reason, `%${reason}%`))
     if (dateFrom) conditions.push(gte(walletTransactions.created_at, dateFrom))
     if (dateTo) conditions.push(lte(walletTransactions.created_at, dateTo))
     filter = and(...conditions)
   }
+
+  const totalCountResult = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(walletTransactions)
+    .where(filter)
+
+  const totalCount = Number(totalCountResult[0]?.count || 0)
 
   // 3️⃣ Fetch transactions
   const transactions = await db
     .select()
     .from(walletTransactions)
     .where(filter)
-    .orderBy(sql`${walletTransactions.created_at} DESC`)
+    .orderBy(desc(walletTransactions.created_at))
     .limit(limit)
     .offset(offset)
 
   return {
     wallet: userWallet[0],
     transactions,
+    totalCount,
+    limit,
+    page: Math.floor(offset / limit) + 1,
   }
 }

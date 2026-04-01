@@ -7,6 +7,7 @@ import {
   getAllOrdersController,
   getB2BOrdersController,
   getB2COrdersController,
+  regenerateOrderDocumentsController,
   retryFailedManifestController,
   trackOrderController,
 } from '../controllers/order.controller'
@@ -22,6 +23,7 @@ router.get('/b2c/list', requireAuth, getB2COrdersController)
 router.get('/b2b/list', requireAuth, getB2BOrdersController)
 router.post('/b2c/manifest', requireAuth, generateManifestController)
 router.post('/b2c/:orderId/retry-manifest', requireAuth, retryFailedManifestController)
+router.post('/:orderId/regenerate-documents', requireAuth, regenerateOrderDocumentsController)
 router.get('/all', requireAuth, getAllOrdersController)
 
 router.get('/track', trackOrderController)

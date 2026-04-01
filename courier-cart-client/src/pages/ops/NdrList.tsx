@@ -1,6 +1,6 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, Typography } from '@mui/material'
 import CustomInput from '../../components/UI/inputs/CustomInput'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchMyNdr, submitNdrReattempt, fetchMyNdrTimeline, submitNdrChangePhone, submitNdrChangeAddress } from '../../api/ndr'
 import { FilterBar, type FilterField } from '../../components/FilterBar'
 import DataTable, { type Column } from '../../components/UI/table/DataTable'
@@ -40,28 +40,30 @@ export default function NdrList() {
   const [address2, setAddress2] = useState('')
   const [pincode, setPincode] = useState('')
 
+  const loadNdrEvents = useCallback(async () => {
+    try {
+      setLoading(true)
+      const resp = await fetchMyNdr({
+        page,
+        limit: rowsPerPage,
+        search: filters.search,
+        fromDate: filters.fromDate,
+        toDate: filters.toDate,
+      })
+      setRows(resp?.data || [])
+      setTotalCount(resp?.totalCount || 0)
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } }; message?: string }
+      const msg = error?.response?.data?.message || error?.message || 'Failed to load NDR events'
+      toast.open({ message: msg, severity: 'error' })
+    } finally {
+      setLoading(false)
+    }
+  }, [filters, page, rowsPerPage])
+
   useEffect(() => {
-    ;(async () => {
-      try {
-        setLoading(true)
-        const resp = await fetchMyNdr({
-          page,
-          limit: rowsPerPage,
-          search: filters.search,
-          fromDate: filters.fromDate,
-          toDate: filters.toDate,
-        })
-        setRows(resp?.data || [])
-        setTotalCount(resp?.totalCount || 0)
-      } catch (err: unknown) {
-        const error = err as { response?: { data?: { message?: string } }; message?: string }
-        const msg = error?.response?.data?.message || error?.message || 'Failed to load NDR events'
-        toast.open({ message: msg, severity: 'error' })
-      } finally {
-        setLoading(false)
-      }
-    })()
-  }, [page, rowsPerPage, filters])
+    loadNdrEvents()
+  }, [loadNdrEvents])
 
   const columns: Column<TableRow>[] = useMemo(
     () => [
@@ -257,8 +259,8 @@ export default function NdrList() {
                 await submitNdrReattempt({ awb: selectedAwb || undefined, nextAttemptDate, comments })
                 toast.open({ message: 'Reattempt requested successfully', severity: 'success' })
                 setReattemptOpen(false)
-                // refresh
                 setPage(1)
+                await loadNdrEvents()
               } catch (err: unknown) {
                 const error = err as { response?: { data?: { message?: string } }; message?: string }
                 const msg = error?.response?.data?.message || error?.message || 'Failed to request reattempt'
@@ -294,6 +296,7 @@ export default function NdrList() {
                 toast.open({ message: 'Phone update submitted', severity: 'success' })
                 setChangePhoneOpen(false)
                 setPage(1)
+                await loadNdrEvents()
               } catch (err: unknown) {
                 const error = err as { response?: { data?: { message?: string } }; message?: string }
                 const msg = error?.response?.data?.message || error?.message || 'Failed to update phone'
@@ -332,6 +335,7 @@ export default function NdrList() {
                 toast.open({ message: 'Address update submitted', severity: 'success' })
                 setChangeAddressOpen(false)
                 setPage(1)
+                await loadNdrEvents()
               } catch (err: unknown) {
                 const error = err as { response?: { data?: { message?: string } }; message?: string }
                 const msg = error?.response?.data?.message || error?.message || 'Failed to update address'

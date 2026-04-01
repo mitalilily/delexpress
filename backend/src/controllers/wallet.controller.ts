@@ -25,6 +25,7 @@ export const getWalletTransactionsController = async (req: any, res: Response) =
       limit = 50,
       page = 1,
       type, // 'credit' | 'debit'
+      reason,
       dateFrom, // ISO string
       dateTo, // ISO string
     } = req.query
@@ -36,6 +37,7 @@ export const getWalletTransactionsController = async (req: any, res: Response) =
       limit: Number(limit),
       offset,
       type: type as 'credit' | 'debit' | undefined,
+      reason: typeof reason === 'string' ? reason : undefined,
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
       dateTo: dateTo ? new Date(dateTo) : undefined,
     })

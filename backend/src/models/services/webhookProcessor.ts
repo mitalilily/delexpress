@@ -6,6 +6,7 @@ import { sendWebhookEvent } from '../../services/webhookDelivery.service'
 import { db } from '../client'
 import { b2c_orders } from '../schema/b2cOrders'
 import { invoicePreferences } from '../schema/invoicePreferences'
+import { ndr_events } from '../schema/ndr'
 import { rto_events } from '../schema/rto'
 import { userProfiles } from '../schema/userProfile'
 import { wallets, walletTransactions } from '../schema/wallet'
@@ -31,7 +32,166 @@ import { createWalletTransaction } from './wallet.service'
 import { createWeightDiscrepancy } from './weightReconciliation.service'
 import { resolveInvoiceNumber } from './invoiceNumber.service'
 import { syncShopifyStatusForLocalOrder } from './shopify.service'
-import { computeB2CFreightForOrder } from './shiprocket.service'
+import {
+  computeB2CFreightForOrder,
+  getCancellationRefundReason,
+  getOrderRefundOutstanding,
+  ORIGINAL_WALLET_DEBIT_REASONS,
+} from './shiprocket.service'
+import { generateLabelForOrder } from './generateCustomLabelService'
+
+const WEBHOOK_INVOICE_UPLOAD_TIMEOUT_MS = 60000
+
+const normalizeWebhookText = (...parts: unknown[]) =>
+  parts
+    .map((part) => String(part || '').trim().toLowerCase())
+    .filter(Boolean)
+    .join(' | ')
+
+const hasNdrSignal = (...parts: unknown[]) => {
+  const text = normalizeWebhookText(...parts)
+  if (!text) return false
+
+  const ndrMarkers = [
+    'ndr',
+    'undelivered',
+    'not delivered',
+    'delivery attempted',
+    'attempted',
+    'attempt failed',
+    'customer not available',
+    'consignee not available',
+    'future delivery request',
+    'future delivery requested',
+    'door locked',
+    'premises closed',
+    'address issue',
+    'address incomplete',
+    'incorrect address',
+    'refused',
+    'otp not shared',
+    'otp failed',
+  ]
+
+  return ndrMarkers.some((marker) => text.includes(marker))
+}
+
+const normalizeComparableText = (value: unknown) => String(value || '').trim().toLowerCase()
+
+const resolveNdrStatus = (status: unknown, ...signalParts: unknown[]) => {
+  const normalizedStatus = normalizeComparableText(status)
+  if (normalizedStatus === 'undelivered') return 'undelivered'
+  if (normalizedStatus === 'ndr') return 'ndr'
+
+  const signalText = normalizeWebhookText(...signalParts)
+  if (signalText.includes('undelivered') || signalText.includes('not delivered')) {
+    return 'undelivered'
+  }
+
+  return 'ndr'
+}
+
+const shouldSkipDuplicateNdrEvent = async (params: {
+  orderId: string
+  status: string
+  reason?: string | null
+  remarks?: string | null
+  attemptNo?: string | null
+}) => {
+  const [latest] = await db
+    .select({
+      id: ndr_events.id,
+      created_at: ndr_events.created_at,
+      status: ndr_events.status,
+      reason: ndr_events.reason,
+      remarks: ndr_events.remarks,
+      attempt_no: ndr_events.attempt_no,
+    })
+    .from(ndr_events)
+    .where(eq(ndr_events.order_id, params.orderId))
+    .orderBy(sql`${ndr_events.created_at} desc`)
+    .limit(1)
+
+  if (!latest?.created_at) return false
+
+  const ageMs = Date.now() - new Date(latest.created_at).getTime()
+  const withinDuplicateWindow = ageMs >= 0 && ageMs <= 10 * 60 * 1000
+  if (!withinDuplicateWindow) return false
+
+  return (
+    normalizeComparableText(latest.status) === normalizeComparableText(params.status) &&
+    normalizeComparableText(latest.reason) === normalizeComparableText(params.reason) &&
+    normalizeComparableText(latest.remarks) === normalizeComparableText(params.remarks) &&
+    normalizeComparableText(latest.attempt_no) === normalizeComparableText(params.attemptNo)
+  )
+}
+
+const captureNdrEventFromWebhook = async (params: {
+  order: any
+  awbNumber?: string | null
+  status?: string | null
+  reason?: string | null
+  remarks?: string | null
+  attemptNo?: string | null
+  payload?: any
+  courierLabel: string
+  signalParts?: unknown[]
+}) => {
+  const {
+    order,
+    awbNumber,
+    status,
+    reason,
+    remarks,
+    attemptNo,
+    payload,
+    courierLabel,
+    signalParts = [],
+  } = params
+
+  const finalStatus = resolveNdrStatus(status, reason, remarks, ...signalParts)
+  const duplicate = await shouldSkipDuplicateNdrEvent({
+    orderId: order.id,
+    status: finalStatus,
+    reason,
+    remarks,
+    attemptNo,
+  })
+
+  if (duplicate) {
+    console.log(`ℹ️ Skipping duplicate NDR event for ${courierLabel}`, {
+      order_number: order.order_number,
+      awb_number: awbNumber || order.awb_number || null,
+      status: finalStatus,
+    })
+    return { skipped: true, status: finalStatus }
+  }
+
+  await recordNdrEvent({
+    orderId: order.id,
+    userId: order.user_id,
+    awbNumber: awbNumber || order.awb_number || undefined,
+    status: finalStatus,
+    reason: reason || null,
+    remarks: remarks || null,
+    attemptNo: attemptNo || null,
+    payload,
+  })
+
+  await createNotificationService({
+    targetRole: 'user',
+    userId: order.user_id,
+    title: `Delivery attempt issue (${courierLabel})`,
+    message: `Order ${order.order_number} marked as ${finalStatus}.`,
+  })
+  await createNotificationService({
+    targetRole: 'admin',
+    title: `NDR captured (${courierLabel})`,
+    message: `User ${order.user_id} order ${order.order_number} status ${finalStatus}`,
+  })
+
+  return { skipped: false, status: finalStatus }
+}
 
 // Helper function to generate invoice for an order
 const generateInvoiceForOrderWebhook = async (
@@ -211,6 +371,79 @@ const generateInvoiceForOrderWebhook = async (
       err?.message || err,
     )
     return null
+  }
+}
+
+const ensureOrderDocumentsAfterWebhook = async (
+  order: any,
+  tx: any,
+  courierLabel: string,
+) => {
+  if (!order) return
+
+  let nextLabelKey = typeof order.label === 'string' && order.label.trim() ? order.label.trim() : null
+  let nextInvoiceKey =
+    typeof order.invoice_link === 'string' && order.invoice_link.trim()
+      ? order.invoice_link.trim()
+      : null
+  let invoiceNumberToStore = order.invoice_number
+  let invoiceDateToStore = order.invoice_date
+  let invoiceAmountToStore = order.invoice_amount
+
+  if (!nextLabelKey && order.awb_number) {
+    try {
+      console.log(`🖨️ Recovering missing label for ${courierLabel} order ${order.order_number}`)
+      const generatedLabelKey = await generateLabelForOrder(order, order.user_id, tx)
+      if (generatedLabelKey && typeof generatedLabelKey === 'string' && generatedLabelKey.trim()) {
+        nextLabelKey = generatedLabelKey.trim()
+        console.log(`✅ Label recovered for ${courierLabel} order ${order.order_number}`)
+      } else {
+        console.warn(`⚠️ Label recovery returned empty key for ${courierLabel} order ${order.order_number}`)
+      }
+    } catch (labelErr: any) {
+      console.error(
+        `❌ Failed to recover label for ${courierLabel} order ${order.order_number}:`,
+        labelErr?.message || labelErr,
+      )
+    }
+  }
+
+  if (!nextInvoiceKey) {
+    try {
+      const invoiceResult = await generateInvoiceForOrderWebhook(order, tx)
+      if (invoiceResult && typeof invoiceResult === 'object' && 'key' in invoiceResult) {
+        nextInvoiceKey = invoiceResult.key
+        invoiceNumberToStore = invoiceResult.invoiceNumber
+        invoiceDateToStore = invoiceResult.invoiceDate
+        invoiceAmountToStore = invoiceResult.invoiceAmount
+        console.log(`✅ Invoice recovered for ${courierLabel} order ${order.order_number}`)
+      }
+    } catch (invoiceErr: any) {
+      console.error(
+        `❌ Failed to recover invoice for ${courierLabel} order ${order.order_number}:`,
+        invoiceErr?.message || invoiceErr,
+      )
+    }
+  }
+
+  if (
+    nextLabelKey !== order.label ||
+    nextInvoiceKey !== order.invoice_link ||
+    invoiceNumberToStore !== order.invoice_number ||
+    invoiceDateToStore !== order.invoice_date ||
+    invoiceAmountToStore !== order.invoice_amount
+  ) {
+    await tx
+      .update(b2c_orders)
+      .set({
+        label: nextLabelKey ?? undefined,
+        invoice_link: nextInvoiceKey ?? undefined,
+        invoice_number: invoiceNumberToStore ?? undefined,
+        invoice_date: invoiceDateToStore ?? undefined,
+        invoice_amount: invoiceAmountToStore ?? undefined,
+        updated_at: new Date(),
+      })
+      .where(eq(b2c_orders.id, order.id))
   }
 }
 
@@ -939,6 +1172,70 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
     }
   })
 
+  if (shouldRunManifestSideEffects) {
+    try {
+      const [freshOrder] = await db.select().from(b2c_orders).where(eq(b2c_orders.id, order.id))
+
+      if (!freshOrder) {
+        console.warn(`⚠️ Order ${order.order_number} not found after webhook commit`)
+        return { success: true }
+      }
+
+      try {
+        await logTrackingEvent({
+          orderId: order.id,
+          userId: order.user_id,
+          awbNumber: freshOrder.awb_number || order.awb_number,
+          courier: 'Delhivery',
+          statusCode: internalStatus,
+          statusText: status,
+          location,
+          raw: payload,
+        })
+      } catch (e) {
+        console.error('Failed to log tracking event (Delhivery):', e)
+      }
+
+      const hadManifestBeforeWebhook = Boolean(freshOrder.manifest)
+      await ensureOrderDocumentsAfterWebhook(freshOrder, db, 'Delhivery')
+
+      const [documentsRefreshedOrder] = await db
+        .select()
+        .from(b2c_orders)
+        .where(eq(b2c_orders.id, order.id))
+      const documentOrder = documentsRefreshedOrder || freshOrder
+
+      await db
+        .update(b2c_orders)
+        .set({
+          manifest: shipment?.upload_wbn ?? shipment?.UploadWBN ?? documentOrder.manifest ?? null,
+          updated_at: new Date(),
+        })
+        .where(eq(b2c_orders.id, order.id))
+
+      console.log(`✅ Documents/manifest saved for order ${order.order_number}`)
+
+      if (!hadManifestBeforeWebhook) {
+        void new DelhiveryService()
+          .triggerDelhiveryPickupRequest(freshOrder.pickup_details?.warehouse_name ?? '', 1)
+          .then(() => {
+            console.log(`🚚 Pickup request triggered for ${order.order_number}`)
+          })
+          .catch((pickupErr: any) => {
+            console.error(
+              `❌ Failed to trigger pickup request for ${order.order_number}:`,
+              pickupErr?.message || pickupErr,
+            )
+          })
+      }
+    } catch (err: any) {
+      console.error(
+        `❌ Failed post-commit Delhivery webhook work for ${order.order_number}:`,
+        err?.message || err,
+        err?.stack,
+      )
+    }
+  }
   return { success: true }
 }
 
@@ -1193,7 +1490,11 @@ export async function processEkartWebhook(payload: any, tx = db) {
       console.error('❌ Failed to log Ekart tracking event:', err)
     }
 
-    if (internalStatus === 'booked' || internalStatus === 'pickup_initiated') {
+    if (
+      ['booked', 'pickup_initiated', 'shipment_created', 'in_transit', 'out_for_delivery', 'delivered'].includes(
+        internalStatus,
+      )
+    ) {
       try {
         const [freshOrder] = await innerTx
           .select()
@@ -1205,48 +1506,9 @@ export async function processEkartWebhook(payload: any, tx = db) {
           return
         }
 
-        let invoiceKey = freshOrder.invoice_link
-        let invoiceNumberToStore = freshOrder.invoice_number
-        let invoiceDateToStore = freshOrder.invoice_date
-        let invoiceAmountToStore = freshOrder.invoice_amount
-
-        if (!invoiceKey) {
-          console.log(`🧾 Generating invoice for Ekart order ${order.order_number}`)
-          try {
-            const invoiceResult = await generateInvoiceForOrderWebhook(freshOrder, innerTx)
-            if (invoiceResult) {
-              invoiceKey = invoiceResult.key
-              invoiceNumberToStore = invoiceResult.invoiceNumber
-              invoiceDateToStore = invoiceResult.invoiceDate
-              invoiceAmountToStore = invoiceResult.invoiceAmount
-              console.log(`✅ Invoice generated for Ekart order ${order.order_number}: ${invoiceKey}`)
-            } else {
-              console.warn(
-                `⚠️ Invoice generation returned empty key for Ekart order ${order.order_number}`,
-              )
-            }
-          } catch (invoiceErr: any) {
-            console.error(
-              `❌ Failed to generate invoice for Ekart order ${order.order_number}:`,
-              invoiceErr?.message || invoiceErr,
-            )
-          }
-        } else {
-          console.log(`ℹ️ Invoice already exists for order ${order.order_number}`)
-        }
-
-        await innerTx
-          .update(b2c_orders)
-          .set({
-            invoice_link: invoiceKey ?? undefined,
-            invoice_number: invoiceNumberToStore ?? undefined,
-            invoice_date: invoiceDateToStore ?? undefined,
-            invoice_amount: invoiceAmountToStore ?? undefined,
-            updated_at: new Date(),
-          })
-          .where(eq(b2c_orders.id, order.id))
+        await ensureOrderDocumentsAfterWebhook(freshOrder, innerTx, 'Ekart')
       } catch (err: any) {
-        console.error(`❌ Ekart invoice flow error for ${order.order_number}:`, err)
+        console.error(`❌ Ekart document recovery flow error for ${order.order_number}:`, err)
       }
     }
   })
@@ -1448,7 +1710,11 @@ export async function processXpressbeesWebhook(payload: any, tx = db) {
       console.error('❌ Failed to log Xpressbees tracking event:', err)
     }
 
-    if (internalStatus === 'booked' || internalStatus === 'pickup_initiated') {
+    if (
+      ['booked', 'pickup_initiated', 'shipment_created', 'in_transit', 'out_for_delivery', 'delivered'].includes(
+        internalStatus,
+      )
+    ) {
       try {
         const [freshOrder] = await innerTx
           .select()
@@ -1456,34 +1722,9 @@ export async function processXpressbeesWebhook(payload: any, tx = db) {
           .where(eq(b2c_orders.id, order.id))
 
         if (!freshOrder) return
-
-        let invoiceKey = freshOrder.invoice_link
-        let invoiceNumberToStore = freshOrder.invoice_number
-        let invoiceDateToStore = freshOrder.invoice_date
-        let invoiceAmountToStore = freshOrder.invoice_amount
-
-        if (!invoiceKey) {
-          const invoiceResult = await generateInvoiceForOrderWebhook(freshOrder, innerTx)
-          if (invoiceResult) {
-            invoiceKey = invoiceResult.key
-            invoiceNumberToStore = invoiceResult.invoiceNumber
-            invoiceDateToStore = invoiceResult.invoiceDate
-            invoiceAmountToStore = invoiceResult.invoiceAmount
-          }
-        }
-
-        await innerTx
-          .update(b2c_orders)
-          .set({
-            invoice_link: invoiceKey ?? undefined,
-            invoice_number: invoiceNumberToStore ?? undefined,
-            invoice_date: invoiceDateToStore ?? undefined,
-            invoice_amount: invoiceAmountToStore ?? undefined,
-            updated_at: new Date(),
-          })
-          .where(eq(b2c_orders.id, order.id))
+        await ensureOrderDocumentsAfterWebhook(freshOrder, innerTx, 'Xpressbees')
       } catch (err: any) {
-        console.error(`❌ Xpressbees invoice flow error for ${order.order_number}:`, err)
+        console.error(`❌ Xpressbees document recovery flow error for ${order.order_number}:`, err)
       }
     }
   })

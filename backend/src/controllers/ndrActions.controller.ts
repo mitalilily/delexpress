@@ -56,12 +56,24 @@ const hasXpressbeesActionAccepted = (resp: any): boolean => {
   })
 }
 
+const getMerchantOrderWhere = (userId: string | undefined, orderId?: string, awb?: string) => {
+  if (!userId) return null
+  if (orderId) {
+    return and(eq(b2c_orders.id, orderId), eq(b2c_orders.user_id, userId))
+  }
+  if (awb) {
+    return and(eq(b2c_orders.awb_number, awb), eq(b2c_orders.user_id, userId))
+  }
+  return null
+}
+
 /**
  * POST /ndr/reattempt
  * Body: { orderId?: string, awb?: string, nextAttemptDate: string (YYYY-MM-DD), comments?: string, alternateAddress?, alternateNumber? }
  */
 export const ndrReattemptController = async (req: Request, res: Response) => {
   try {
+    const userId = (req as any).user?.sub as string | undefined
     const { orderId, awb, nextAttemptDate, comments, alternateAddress, alternateNumber } =
       req.body as {
         orderId?: string
@@ -80,9 +92,10 @@ export const ndrReattemptController = async (req: Request, res: Response) => {
     }
 
     // Fetch order
-    const where = orderId
-      ? eq(b2c_orders.id, orderId)
-      : and(eq(b2c_orders.awb_number, awb as string))
+    const where = getMerchantOrderWhere(userId, orderId, awb)
+    if (!where) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' })
+    }
     const [order] = await db.select().from(b2c_orders).where(where)
     if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found' })
@@ -153,8 +166,16 @@ export const ndrReattemptController = async (req: Request, res: Response) => {
         userId: order.user_id,
         awbNumber: order.awb_number || undefined,
         status: 'ndr_action',
+        reason: 'merchant_reattempt_requested',
         remarks: 'reattempt',
-        payload: { provider: provider, action: 'RE-ATTEMPT', response: resp },
+        payload: {
+          source: 'merchant',
+          provider: provider,
+          action: 'RE-ATTEMPT',
+          next_attempt_date: nextAttemptDate,
+          comments,
+          response: resp,
+        },
       })
       return res.status(200).json({ success: true, data: resp })
     }
@@ -184,8 +205,15 @@ export const ndrReattemptController = async (req: Request, res: Response) => {
         userId: order.user_id,
         awbNumber: order.awb_number || undefined,
         status: 'ndr_action',
+        reason: 'merchant_reattempt_requested',
         remarks: 'reattempt',
-        payload: { provider: 'xpressbees', action: 're-attempt', response: resp },
+        payload: {
+          source: 'merchant',
+          provider: 'xpressbees',
+          action: 're-attempt',
+          next_attempt_date: nextAttemptDate,
+          response: resp,
+        },
       })
       return res.status(200).json({ success: true, data: resp })
     }
@@ -203,6 +231,7 @@ export const ndrReattemptController = async (req: Request, res: Response) => {
  */
 export const ndrChangeAddressController = async (req: Request, res: Response) => {
   try {
+    const userId = (req as any).user?.sub as string | undefined
     const { orderId, awb, name, address_1, address_2, pincode } = req.body as {
       orderId?: string
       awb?: string
@@ -219,9 +248,10 @@ export const ndrChangeAddressController = async (req: Request, res: Response) =>
       return res.status(400).json({ success: false, message: 'address_1 is required' })
     }
 
-    const where = orderId
-      ? eq(b2c_orders.id, orderId)
-      : and(eq(b2c_orders.awb_number, awb as string))
+    const where = getMerchantOrderWhere(userId, orderId, awb)
+    if (!where) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' })
+    }
     const [order] = await db.select().from(b2c_orders).where(where)
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' })
 
@@ -281,8 +311,17 @@ export const ndrChangeAddressController = async (req: Request, res: Response) =>
         userId: order.user_id,
         awbNumber: order.awb_number || undefined,
         status: 'ndr_action',
+        reason: 'merchant_change_address_requested',
         remarks: 'change-address',
-        payload: { provider: 'delhivery', action: 'EDIT_DETAILS', response: resp },
+        payload: {
+          source: 'merchant',
+          provider: 'delhivery',
+          action: 'EDIT_DETAILS',
+          address_1,
+          address_2,
+          pincode,
+          response: resp,
+        },
       })
 
       return res.status(200).json({ success: true, data: resp })
@@ -320,8 +359,17 @@ export const ndrChangeAddressController = async (req: Request, res: Response) =>
         userId: order.user_id,
         awbNumber: order.awb_number || undefined,
         status: 'ndr_action',
+        reason: 'merchant_change_address_requested',
         remarks: 'change-address',
-        payload: { provider: 'ekart', action: 'EDIT_DETAILS', response: resp },
+        payload: {
+          source: 'merchant',
+          provider: 'ekart',
+          action: 'EDIT_DETAILS',
+          address_1,
+          address_2,
+          pincode,
+          response: resp,
+        },
       })
 
       return res.status(200).json({ success: true, data: resp })
@@ -357,8 +405,17 @@ export const ndrChangeAddressController = async (req: Request, res: Response) =>
         userId: order.user_id,
         awbNumber: order.awb_number || undefined,
         status: 'ndr_action',
+        reason: 'merchant_change_address_requested',
         remarks: 'change-address',
-        payload: { provider: 'xpressbees', action: 'change_address', response: resp },
+        payload: {
+          source: 'merchant',
+          provider: 'xpressbees',
+          action: 'change_address',
+          address_1,
+          address_2,
+          pincode,
+          response: resp,
+        },
       })
 
       return res.status(200).json({ success: true, data: resp })
@@ -377,6 +434,7 @@ export const ndrChangeAddressController = async (req: Request, res: Response) =>
  */
 export const ndrChangePhoneController = async (req: Request, res: Response) => {
   try {
+    const userId = (req as any).user?.sub as string | undefined
     const { orderId, awb, phone } = req.body as { orderId?: string; awb?: string; phone: string }
 
     if (!orderId && !awb) {
@@ -388,9 +446,10 @@ export const ndrChangePhoneController = async (req: Request, res: Response) => {
         .json({ success: false, message: 'Valid phone (10+ digits) is required' })
     }
 
-    const where = orderId
-      ? eq(b2c_orders.id, orderId)
-      : and(eq(b2c_orders.awb_number, awb as string))
+    const where = getMerchantOrderWhere(userId, orderId, awb)
+    if (!where) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' })
+    }
     const [order] = await db.select().from(b2c_orders).where(where)
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' })
 
@@ -447,8 +506,15 @@ export const ndrChangePhoneController = async (req: Request, res: Response) => {
         userId: order.user_id,
         awbNumber: order.awb_number || undefined,
         status: 'ndr_action',
+        reason: 'merchant_change_phone_requested',
         remarks: 'change-phone',
-        payload: { provider: 'delhivery', action: 'EDIT_DETAILS', response: resp },
+        payload: {
+          source: 'merchant',
+          provider: 'delhivery',
+          action: 'EDIT_DETAILS',
+          phone,
+          response: resp,
+        },
       })
 
       return res.status(200).json({ success: true, data: resp })
@@ -478,8 +544,15 @@ export const ndrChangePhoneController = async (req: Request, res: Response) => {
         userId: order.user_id,
         awbNumber: order.awb_number || undefined,
         status: 'ndr_action',
+        reason: 'merchant_change_phone_requested',
         remarks: 'change-phone',
-        payload: { provider: 'ekart', action: 'EDIT_DETAILS', response: resp },
+        payload: {
+          source: 'merchant',
+          provider: 'ekart',
+          action: 'EDIT_DETAILS',
+          phone,
+          response: resp,
+        },
       })
 
       return res.status(200).json({ success: true, data: resp })
@@ -513,8 +586,15 @@ export const ndrChangePhoneController = async (req: Request, res: Response) => {
         userId: order.user_id,
         awbNumber: order.awb_number || undefined,
         status: 'ndr_action',
+        reason: 'merchant_change_phone_requested',
         remarks: 'change-phone',
-        payload: { provider: 'xpressbees', action: 'change_phone', response: resp },
+        payload: {
+          source: 'merchant',
+          provider: 'xpressbees',
+          action: 'change_phone',
+          phone,
+          response: resp,
+        },
       })
 
       return res.status(200).json({ success: true, data: resp })

@@ -10,6 +10,7 @@ import {
   MdShoppingBag,
 } from 'react-icons/md'
 import { usePresignedDownloadMutation } from '../../hooks/Uploads/usePresignedDownloadUrls'
+import { useRegenerateOrderDocuments } from '../../hooks/Orders/useOrders'
 import { toast } from '../UI/Toast'
 
 interface OrderExpandedRowProps {
@@ -24,6 +25,29 @@ export const OrderExpandedRow = ({ row, type = 'b2c' }: OrderExpandedRowProps) =
   const sortCodeValue = String(row?.sort_code || '').trim()
 
   const { mutateAsync, isPending } = usePresignedDownloadMutation()
+  const { mutateAsync: regenerateDocuments, isPending: isRegeneratingDocuments } =
+    useRegenerateOrderDocuments()
+
+  const hasLabelDocument = Boolean(String(row?.label_url || row?.label_key || row?.label || '').trim())
+  const hasInvoiceDocument = Boolean(
+    String(row?.invoice_url || row?.invoice_key || row?.invoice_link || '').trim(),
+  )
+  const normalizedStatus = String(row?.order_status || '').trim().toLowerCase()
+  const isManifestedOrOperational =
+    Boolean(String(row?.manifest_key || row?.manifest || row?.awb_number || '').trim()) ||
+    [
+      'booked',
+      'shipment_created',
+      'pickup_initiated',
+      'in_transit',
+      'out_for_delivery',
+      'delivered',
+      'ndr',
+      'undelivered',
+      'rto',
+      'rto_in_transit',
+      'rto_delivered',
+    ].includes(normalizedStatus)
 
   const handleDownload = async (
     key: string,
@@ -166,6 +190,26 @@ export const OrderExpandedRow = ({ row, type = 'b2c' }: OrderExpandedRowProps) =
         </Stack>
       </Paper>
     )
+  }
+
+  const handleRegenerateMissingDocuments = async () => {
+    try {
+      const regenerateLabel = !hasLabelDocument
+      const regenerateInvoice = !hasInvoiceDocument
+
+      if (!regenerateLabel && !regenerateInvoice) {
+        toast.open({ message: 'Label and invoice are already available.', severity: 'info' })
+        return
+      }
+
+      await regenerateDocuments({
+        orderId: String(row.id),
+        regenerateLabel,
+        regenerateInvoice,
+      })
+    } catch (err) {
+      console.error('Document regeneration failed', err)
+    }
   }
 
   return (
@@ -315,6 +359,17 @@ export const OrderExpandedRow = ({ row, type = 'b2c' }: OrderExpandedRowProps) =
           <Typography fontWeight={700} fontSize={14} mb={1.25}>
             Documents
           </Typography>
+          {isManifestedOrOperational && (!hasLabelDocument || !hasInvoiceDocument) && (
+            <Button
+              size="small"
+              variant="contained"
+              sx={{ alignSelf: 'flex-start', mb: 1.25, textTransform: 'none' }}
+              onClick={handleRegenerateMissingDocuments}
+              disabled={isRegeneratingDocuments}
+            >
+              {isRegeneratingDocuments ? 'Generating...' : 'Generate Missing Documents'}
+            </Button>
+          )}
           <Stack spacing={1}>
             {renderDocAction({
               title: 'Label',
@@ -340,6 +395,41 @@ export const OrderExpandedRow = ({ row, type = 'b2c' }: OrderExpandedRowProps) =
           </Stack>
         </Paper>
       )}
+
+      {!(row.label ||
+        row.label_url ||
+        row.label_key ||
+        row.manifest ||
+        row.manifest_url ||
+        row.manifest_key ||
+        row.invoice_link ||
+        row.invoice_url ||
+        row.invoice_key) &&
+        isManifestedOrOperational && (
+          <Paper
+            elevation={0}
+            sx={{
+              mt: 0.5,
+              p: 2,
+              borderRadius: 2.5,
+              border: `1px solid ${alpha(ACCENT, 0.16)}`,
+              backgroundColor: alpha(ACCENT, 0.03),
+            }}
+          >
+            <Typography fontWeight={700} fontSize={14} mb={1.25}>
+              Documents
+            </Typography>
+            <Button
+              size="small"
+              variant="contained"
+              sx={{ textTransform: 'none' }}
+              onClick={handleRegenerateMissingDocuments}
+              disabled={isRegeneratingDocuments}
+            >
+              {isRegeneratingDocuments ? 'Generating...' : 'Generate Label & Invoice'}
+            </Button>
+          </Paper>
+        )}
 
       {/* Actions moved to Actions column in list */}
     </Stack>

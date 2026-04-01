@@ -553,9 +553,14 @@ export default function AdminCodRemittancePage() {
         renderers={{
           orderNumber: (value, row) => (
             <Tooltip label={`AWB: ${row.awbNumber || 'N/A'}`}>
-              <Text fontWeight="600" fontSize="sm">
-                {value}
-              </Text>
+              <Box>
+                <Text fontWeight="600" fontSize="sm">
+                  {value}
+                </Text>
+                <Text fontSize="xs" color="gray.500">
+                  AWB: {row.awbNumber || 'N/A'}
+                </Text>
+              </Box>
             </Tooltip>
           ),
           userEmail: (value, row) => (

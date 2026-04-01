@@ -239,6 +239,17 @@ export const retryFailedManifestService = async (orderId: string) => {
   return res.data
 }
 
+export const regenerateOrderDocumentsService = async (
+  orderId: string,
+  { regenerateLabel = true, regenerateInvoice = true } = {},
+) => {
+  const res = await axiosInstance.post(`/orders/${orderId}/regenerate-documents`, {
+    regenerateLabel,
+    regenerateInvoice,
+  })
+  return res.data
+}
+
 interface FetchOrdersParams {
   page?: number
   limit?: number

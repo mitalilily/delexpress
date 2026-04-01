@@ -21,9 +21,21 @@ import { useWalletTransactions } from '../../hooks/useWalletBalance'
 
 interface WalletFilter {
   type?: 'credit' | 'debit' | ''
+  reason?: string
   dateFrom?: string
   dateTo?: string
 }
+
+const WALLET_DEBIT_FILTER_OPTIONS = [
+  { label: 'All Debit Types', value: '' },
+  { label: 'B2C Prepaid Charges', value: 'B2C Prepaid Order Payment' },
+  { label: 'B2C COD Charges', value: 'B2C COD Service Charges' },
+  { label: 'Reverse Shipment', value: 'reverse_shipment' },
+  { label: 'Invoice Payment', value: 'invoice_payment' },
+  { label: 'Invoice Credits/Waivers', value: 'invoice_credits_waivers' },
+  { label: 'Weight Discrepancy', value: 'Weight discrepancy accepted by customer' },
+  { label: 'Dispute Rejected', value: 'Dispute rejected by admin' },
+]
 
 const WalletTransactions = () => {
   const [page, setPage] = useState(1)
@@ -33,11 +45,14 @@ const WalletTransactions = () => {
     limit: 10,
     page,
     type: filters.type || undefined,
+    reason: filters.type === 'debit' ? filters.reason || undefined : undefined,
     dateFrom: filters.dateFrom || undefined,
     dateTo: filters.dateTo || undefined,
   })
 
   const transactions = data?.transactions ?? []
+  const totalCount = data?.totalCount ?? 0
+  const hasNextPage = page * 10 < totalCount
 
   const filterFields: FilterField[] = [
     {
@@ -49,6 +64,12 @@ const WalletTransactions = () => {
         { label: 'Credit', value: 'credit' },
         { label: 'Debit', value: 'debit' },
       ],
+    },
+    {
+      name: 'reason',
+      label: 'Debit Type',
+      type: 'select',
+      options: WALLET_DEBIT_FILTER_OPTIONS,
     },
     { name: 'dateFrom', label: 'From Date', type: 'date' },
     { name: 'dateTo', label: 'To Date', type: 'date' },
@@ -160,17 +181,23 @@ const WalletTransactions = () => {
                       </Stack>
                     }
                     secondary={
-                      <Stack
-                        direction="row"
-                        justifyContent="space-between"
-                        alignItems="center"
-                        mt={0.5}
-                      >
-                        <Typography variant="body2" color="#6B7280">
-                          {txn.ref ? `Ref: ${txn.ref}` : '—'}
-                        </Typography>
+                      <Stack mt={0.5} gap={0.5}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Typography variant="body2" color="#6B7280">
+                            {txn.meta?.order_number
+                              ? `Order: ${txn.meta.order_number}`
+                              : txn.ref
+                                ? `Ref: ${txn.ref}`
+                                : '—'}
+                          </Typography>
+                          <Typography variant="caption" color="#6B7280">
+                            {new Date(txn.created_at).toLocaleString()}
+                          </Typography>
+                        </Stack>
                         <Typography variant="caption" color="#6B7280">
-                          {new Date(txn.created_at).toLocaleString()}
+                          {txn.meta?.order_number
+                            ? `Breakdown: Freight ₹${Number(txn.meta?.freight_charges || 0).toFixed(2)} | Other ₹${Number(txn.meta?.other_charges || 0).toFixed(2)} | COD ₹${Number(txn.meta?.cod_charges || 0).toFixed(2)}`
+                            : ' '}
                         </Typography>
                       </Stack>
                     }
@@ -198,7 +225,7 @@ const WalletTransactions = () => {
         </Button>
         <Button
           variant="outlined"
-          disabled={transactions.length < 10 || isLoading}
+          disabled={!hasNextPage || isLoading}
           onClick={() => setPage((p) => p + 1)}
         >
           Next

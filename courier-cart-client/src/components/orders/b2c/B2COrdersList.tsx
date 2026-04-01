@@ -569,6 +569,12 @@ const B2COrdersList = () => {
     return providerSupports && cancellableStatuses.has(status)
   }
 
+  const hasLabelGenerated = (row: B2COrder) =>
+    Boolean(String(row.label_url || row.label_key || row.label || '').trim())
+
+  const hasInvoiceGenerated = (row: B2COrder) =>
+    Boolean(String(row.invoice_url || row.invoice_key || row.invoice_link || '').trim())
+
   const columns: Column<B2COrder>[] = [
     {
       label: 'Source',
@@ -582,6 +588,22 @@ const B2COrdersList = () => {
     },
     { label: 'Order #', id: 'order_number' },
     { label: 'AWB', id: 'awb_number' },
+    {
+      label: 'Docs',
+      id: 'id',
+      render: (_v, row) => (
+        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+          <StatusChip
+            label={hasLabelGenerated(row) ? 'Label Generated' : 'Label Pending'}
+            status={hasLabelGenerated(row) ? 'success' : 'pending'}
+          />
+          <StatusChip
+            label={hasInvoiceGenerated(row) ? 'Invoice Generated' : 'Invoice Pending'}
+            status={hasInvoiceGenerated(row) ? 'success' : 'pending'}
+          />
+        </Stack>
+      ),
+    },
     { label: 'Buyer', id: 'buyer_name' },
     {
       label: 'Order Total',

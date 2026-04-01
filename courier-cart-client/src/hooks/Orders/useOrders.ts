@@ -6,6 +6,7 @@ import {
   fetchB2BOrdersByUser,
   fetchB2COrdersByUser,
   generateManifestService,
+  regenerateOrderDocumentsService,
   retryFailedManifestService,
   type CreateB2BShipmentParams,
   type CreateShipmentParams,
@@ -132,6 +133,33 @@ export const useRetryFailedManifest = () => {
         error?.response?.data?.message || error?.message || 'Failed to retry manifest'
       toast.open({ message, severity: 'error' })
       console.error('Manifest retry error:', error)
+    },
+  })
+}
+
+export const useRegenerateOrderDocuments = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      regenerateLabel = true,
+      regenerateInvoice = true,
+    }: {
+      orderId: string
+      regenerateLabel?: boolean
+      regenerateInvoice?: boolean
+    }) => regenerateOrderDocumentsService(orderId, { regenerateLabel, regenerateInvoice }),
+    onSuccess: () => {
+      toast.open({ message: 'Documents regenerated successfully.', severity: 'success' })
+      queryClient.invalidateQueries({ queryKey: ['b2cOrdersByUser'] })
+      queryClient.invalidateQueries({ queryKey: ['b2bOrdersByUser'] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message || error?.message || 'Failed to regenerate documents'
+      toast.open({ message, severity: 'error' })
     },
   })
 }

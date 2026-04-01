@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Alert, AlertTitle, Box, Button, Stack, Typography } from '@mui/material'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { generateManifestService } from '../../api/order.service'
 import { useAllOrders } from '../../hooks/Orders/useOrders'
@@ -21,10 +21,12 @@ import {
   getB2CManifestProvider,
   getDocumentReference,
   getDownloadFileName,
+  getOrderDocumentLabel,
   isB2CManifestEligible,
   summarizeMessages,
   summarizeOrderNumbers,
 } from './bulkActionUtils'
+import ManifestPickupScheduleDialog from './ManifestPickupScheduleDialog'
 import { OrderExpandedRow } from './OrderExpandedRow'
 
 interface Order {
@@ -46,6 +48,49 @@ type BulkFeedback = {
   title: string
   message: string
 }
+
+type PickupSchedulePayload = {
+  pickup_date: string
+  pickup_time: string
+}
+
+const getDefaultPickupDateInput = () => new Date().toISOString().split('T')[0]
+
+const getDefaultPickupTimeInput = () => {
+  const nextHour = new Date(Date.now() + 60 * 60 * 1000)
+  return `${String(nextHour.getHours()).padStart(2, '0')}:${String(nextHour.getMinutes()).padStart(2, '0')}`
+}
+
+const parsePickupDetails = (value: unknown) => {
+  if (!value) return {}
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return {}
+    }
+  }
+  return value as Record<string, unknown>
+}
+
+const hasLabelGenerated = (order: Order) =>
+  Boolean(String(order.label_url || order.label_key || order.label || '').trim())
+
+const hasInvoiceGenerated = (order: Order) =>
+  Boolean(String(order.invoice_url || order.invoice_key || order.invoice_link || '').trim())
+
+const renderDocumentTags = (order: Order) => (
+  <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+    <StatusChip
+      label={hasLabelGenerated(order) ? 'Label Generated' : 'Label Pending'}
+      status={hasLabelGenerated(order) ? 'success' : 'pending'}
+    />
+    <StatusChip
+      label={hasInvoiceGenerated(order) ? 'Invoice Generated' : 'Invoice Pending'}
+      status={hasInvoiceGenerated(order) ? 'success' : 'pending'}
+    />
+  </Stack>
+)
 const isManifestEligible = (order: Order) => {
   return order.type === 'b2c' ? isB2CManifestEligible(order) : false
 }
@@ -61,6 +106,14 @@ const AllOrders = () => {
   )
   const [bulkManifesting, setBulkManifesting] = useState(false)
   const [bulkFeedback, setBulkFeedback] = useState<BulkFeedback | null>(null)
+  const [pickupDialogOpen, setPickupDialogOpen] = useState(false)
+  const [pickupDialogTitle, setPickupDialogTitle] = useState('Confirm pickup schedule')
+  const [pickupDialogDescription, setPickupDialogDescription] = useState('')
+  const [pickupDialogDate, setPickupDialogDate] = useState(getDefaultPickupDateInput())
+  const [pickupDialogTime, setPickupDialogTime] = useState(getDefaultPickupTimeInput())
+  const pickupDialogResolverRef = useRef<((value: PickupSchedulePayload | null) => void) | null>(
+    null,
+  )
   const [filters, setFilters] = useState<OrdersFilters>({
     status: undefined,
     fromDate: undefined,
@@ -73,6 +126,32 @@ const AllOrders = () => {
   const clearSelection = () => {
     setSelectedOrderIds([])
     setSelectionResetToken((current) => current + 1)
+  }
+
+  const requestDelhiveryPickupSchedule = (ordersForPickup: Order[], label: string) =>
+    new Promise<PickupSchedulePayload | null>((resolve) => {
+      const details = parsePickupDetails(ordersForPickup[0]?.pickup_details)
+      const initialDate =
+        typeof details?.pickup_date === 'string' && details.pickup_date.trim()
+          ? details.pickup_date.slice(0, 10)
+          : getDefaultPickupDateInput()
+      const initialTimeRaw =
+        typeof details?.pickup_time === 'string' && details.pickup_time.trim()
+          ? details.pickup_time.trim()
+          : getDefaultPickupTimeInput()
+
+      pickupDialogResolverRef.current = resolve
+      setPickupDialogTitle('Confirm Pickup Before Manifest')
+      setPickupDialogDescription(label)
+      setPickupDialogDate(initialDate)
+      setPickupDialogTime(initialTimeRaw.slice(0, 5))
+      setPickupDialogOpen(true)
+    })
+
+  const closePickupDialog = (value: PickupSchedulePayload | null) => {
+    setPickupDialogOpen(false)
+    pickupDialogResolverRef.current?.(value)
+    pickupDialogResolverRef.current = null
   }
 
   useEffect(() => {
@@ -192,7 +271,25 @@ const AllOrders = () => {
         if (!identifiers.length) continue
 
         try {
-          const response = await generateManifestService({ awbs: identifiers, type: 'b2c' })
+          const pickupSchedule =
+            providerKey === 'delhivery'
+              ? await requestDelhiveryPickupSchedule(
+                  providerOrders,
+                  `Set the pickup date and time for ${providerOrders.length} Delhivery order(s) before manifesting.`,
+                )
+              : null
+
+          if (providerKey === 'delhivery' && !pickupSchedule) {
+            failedOrders.push(...providerOrders)
+            failureReasons.push(`${providerKey}: Manifest cancelled before pickup confirmation.`)
+            continue
+          }
+
+          const response = await generateManifestService({
+            awbs: identifiers,
+            type: 'b2c',
+            ...(pickupSchedule || {}),
+          })
           successCount += providerOrders.length
           if (response.warnings?.length) {
             warningMessages.push(...response.warnings)
@@ -292,6 +389,7 @@ const AllOrders = () => {
           key,
           url,
           fileName: getDownloadFileName(order, type, source),
+          orderLabel: getOrderDocumentLabel(order),
         })
         return entries
       }, [])
@@ -325,25 +423,44 @@ const AllOrders = () => {
 
       let downloadedCount = 0
       let skippedCount = documentEntries.length - uniqueEntries.length
+      const unavailableOrders: string[] = []
 
       for (const entry of directEntries) {
-        await downloadFile(String(entry.url), entry.fileName)
-        downloadedCount += 1
+        try {
+          await downloadFile(String(entry.url), entry.fileName)
+          downloadedCount += 1
+        } catch (error) {
+          skippedCount += 1
+          unavailableOrders.push(entry.orderLabel)
+          console.warn(`Skipping unavailable ${type} file for order ${entry.orderLabel}:`, error)
+        }
       }
 
       for (const [index, entry] of keyEntries.entries()) {
         const resolvedUrl = Array.isArray(presignedUrls) ? presignedUrls[index] : null
-        if (!resolvedUrl) {
+        const downloadUrl = resolvedUrl || (entry.url ? String(entry.url) : null)
+        if (!downloadUrl) {
           skippedCount += 1
+          unavailableOrders.push(entry.orderLabel)
           continue
         }
 
-        await downloadFile(resolvedUrl, entry.fileName)
-        downloadedCount += 1
+        try {
+          await downloadFile(downloadUrl, entry.fileName)
+          downloadedCount += 1
+        } catch (error) {
+          skippedCount += 1
+          unavailableOrders.push(entry.orderLabel)
+          console.warn(`Skipping unavailable ${type} file for order ${entry.orderLabel}:`, error)
+        }
       }
 
       if (!downloadedCount) {
-        const message = `No ${type} files could be downloaded for the selected orders.`
+        const unavailableSummary =
+          unavailableOrders.length > 0
+            ? ` Files are not ready for: ${summarizeOrderNumbers(unavailableOrders)}.`
+            : ''
+        const message = `No ${type} files could be downloaded for the selected orders.${unavailableSummary}`
         setBulkFeedback({
           severity: 'error',
           title: `${type[0].toUpperCase()}${type.slice(1)} download failed`,
@@ -355,7 +472,7 @@ const AllOrders = () => {
 
       const summaryMessage =
         skippedCount > 0
-          ? `Downloaded ${downloadedCount} ${type} file(s). Skipped ${skippedCount} missing or duplicate file(s).`
+          ? `Downloaded ${downloadedCount} ${type} file(s). ${skippedCount} file(s) were skipped because they were duplicates or not available yet.${unavailableOrders.length ? ` Orders: ${summarizeOrderNumbers(unavailableOrders)}.` : ''}`
           : `Downloaded ${downloadedCount} ${type} file(s).`
 
       setBulkFeedback({
@@ -391,6 +508,7 @@ const AllOrders = () => {
     { id: 'city', label: 'City' },
     { id: 'state', label: 'State' },
     { id: 'order_amount', label: 'Amount' },
+    { id: 'id', label: 'Docs', render: (_v, row) => renderDocumentTags(row) },
     {
       label: 'Status',
       id: 'order_status',
@@ -596,6 +714,23 @@ const AllOrders = () => {
           />
         )}
       </Box>
+      <ManifestPickupScheduleDialog
+        open={pickupDialogOpen}
+        title={pickupDialogTitle}
+        description={pickupDialogDescription}
+        pickupDate={pickupDialogDate}
+        pickupTime={pickupDialogTime}
+        minDate={getDefaultPickupDateInput()}
+        onPickupDateChange={setPickupDialogDate}
+        onPickupTimeChange={setPickupDialogTime}
+        onCancel={() => closePickupDialog(null)}
+        onConfirm={() =>
+          closePickupDialog({
+            pickup_date: pickupDialogDate,
+            pickup_time: pickupDialogTime,
+          })
+        }
+      />
     </Stack>
   )
 }

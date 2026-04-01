@@ -102,9 +102,10 @@ export default function DataTable<T extends { id: string | number }>(props: Data
 
   const page = currentPage ?? localPage
   const rowsPerPage = localRowsPerPage
+  const paginationPage = currentPage !== undefined ? Math.max(page - 1, 0) : page
 
   const handleChangePage = (_: unknown, newPage: number) => {
-    if (onPageChange) onPageChange(newPage)
+    if (onPageChange) onPageChange(newPage + 1)
     else setLocalPage(newPage)
   }
 
@@ -238,7 +239,7 @@ export default function DataTable<T extends { id: string | number }>(props: Data
               <TablePagination
                 component="div"
                 count={totalCount}
-                page={page - 1}
+                page={paginationPage}
                 rowsPerPage={rowsPerPage}
                 rowsPerPageOptions={rowsPerPageOptions}
                 onPageChange={handleChangePage}

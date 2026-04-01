@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import express from 'express'
 import http from 'http'
 import path from 'path'
+import { randomUUID } from 'crypto'
 import { initSocketServer } from './config/socketServer'
 import {
   delhiveryDocumentPushHandler,
@@ -70,38 +71,73 @@ const env = process.env.NODE_ENV || 'development'
 dotenv.config({ path: path.resolve(__dirname, `../.env.${env}`) })
 
 const app = express()
-const server = http.createServer(app) // âœ… HTTP server for socket.io
+const server = http.createServer(app) // ✅ HTTP server for socket.io
 
 // Init socket.io server
 initSocketServer(server)
 
+app.use((req: any, res, next) => {
+  const startedAt = process.hrtime.bigint()
+  const requestId = randomUUID()
+  req.requestId = requestId
+  res.setHeader('X-Request-Id', requestId)
+
+  res.on('finish', () => {
+    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000
+    if (durationMs >= 1000 || res.statusCode >= 500) {
+      console.log('[HTTP]', {
+        requestId,
+        method: req.method,
+        path: req.originalUrl || req.url,
+        statusCode: res.statusCode,
+        durationMs: Number(durationMs.toFixed(2)),
+      })
+    }
+  })
+
+  next()
+})
+
 app.use(cookieParser())
 
-const localOrigins = [
+const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, '').toLowerCase()
+
+const configuredAllowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+  .map(normalizeOrigin)
+
+const allowedOrigins = new Set([
+  'http://localhost:3000',
+  'http://localhost:3001',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:5176',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174',
   'http://127.0.0.1:5176',
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:3001',
   'http://localhost:4173',
   'http://127.0.0.1:4173',
   'https://admin.expressopro.in',
   'https://app.expressopro.in',
   'https://expressopro.in',
   'https://www.expressopro.in',
-]
+  ...configuredAllowedOrigins,
+])
 
-const envOrigins = (process.env.CORS_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean)
+const isAllowedOrigin = (origin: string) => {
+  const normalizedOrigin = normalizeOrigin(origin)
 
-const allowedOrigins = [...new Set([...localOrigins, ...envOrigins])]
+  if (allowedOrigins.has(normalizedOrigin)) {
+    return true
+  }
+
+  // Allow first-party HTTPS subdomains like preview or alternate app hosts.
+  return /^https:\/\/([a-z0-9-]+\.)*expressopro\.in$/.test(normalizedOrigin)
+}
 
 app.use(
   cors({
@@ -113,6 +149,7 @@ app.use(
           origin.endsWith('.onrender.com'))
 
       if (!origin || allowedOrigins.includes(origin) || isPlatformPreview) {
+      if (!origin || isAllowedOrigin(origin) || isPlatformPreview) {
         callback(null, true)
       } else {
         callback(new Error(`Not allowed by CORS: ${origin}`))
@@ -215,4 +252,33 @@ app.post('/api/webhook/delhivery/scan', express.json(), delhiveryScanPushHandler
 app.post('/api/webhook/delhivery/document', express.json(), delhiveryDocumentPushHandler) // Document Push (POD, Sorter Image, QC Image)
 // Legacy unified endpoint (auto-detects type) - kept for backward compatibility
 app.post('/api/webhook/delhivery/order', express.json(), delhiveryWebhookHandler)
-export { app, server } // âœ… named exports
+
+app.use((err: any, req: any, res: any, next: any) => {
+  if (res.headersSent) {
+    return next(err)
+  }
+
+  const statusCode =
+    err?.message?.startsWith('Not allowed by CORS')
+      ? 403
+      : typeof err?.statusCode === 'number'
+        ? err.statusCode
+        : 500
+
+  console.error('❌ Unhandled request error', {
+    requestId: req?.requestId ?? null,
+    method: req?.method,
+    path: req?.originalUrl || req?.url,
+    statusCode,
+    message: err?.message || String(err),
+    stack: err?.stack,
+  })
+
+  return res.status(statusCode).json({
+    success: false,
+    message: statusCode === 500 ? 'Internal server error' : err?.message || 'Request failed',
+    requestId: req?.requestId ?? null,
+  })
+})
+
+export { app, server } // ✅ named exports

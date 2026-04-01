@@ -17,6 +17,7 @@ interface UseWalletTransactionsOptions {
   limit?: number
   page?: number
   type?: 'credit' | 'debit'
+  reason?: string
   dateFrom?: string
   dateTo?: string
   enabled?: boolean
@@ -26,17 +27,19 @@ export const useWalletTransactions = ({
   limit = 50,
   page = 0,
   type,
+  reason,
   dateFrom,
   dateTo,
   enabled = true,
 }: UseWalletTransactionsOptions = {}) => {
   return useQuery({
-    queryKey: ['walletTransactions', page, limit, type, dateFrom, dateTo],
+    queryKey: ['walletTransactions', page, limit, type, reason, dateFrom, dateTo],
     queryFn: () =>
       fetchWalletTransactions({
         limit,
         page,
         type,
+        reason,
         dateFrom,
         dateTo,
       }),
