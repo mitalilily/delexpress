@@ -35,6 +35,7 @@ jobs:
             --exclude 'node_modules' \
             --exclude 'dist' \
             --exclude 'build' \
+            --exclude '.env.production' \
             ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/srv/expressopro/current/"
 
       - name: Build and restart services
