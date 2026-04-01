@@ -60,7 +60,7 @@ export default function UserOnboarding() {
   const progressPercent = useMemo(() => Math.round((step / steps.length) * 100), [step])
 
   useEffect(() => {
-    if (!userData) return
+    if (fetchingUserData || !userData?.id) return
 
     if (userData.onboardingComplete) {
       navigate('/home')
@@ -73,7 +73,7 @@ export default function UserOnboarding() {
     const clamped = Math.min(Math.max(resumeStep, 1), steps.length)
     setStep(clamped)
     hasInitializedStep.current = true
-  }, [userData, navigate])
+  }, [fetchingUserData, userData, navigate])
 
   useEffect(() => {
     if (!userData || !Object.keys(userData).length) return
