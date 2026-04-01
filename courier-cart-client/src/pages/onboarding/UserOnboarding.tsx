@@ -1,7 +1,7 @@
 import { Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FiCheckCircle } from 'react-icons/fi'
 import { MdArrowBack, MdArrowForward } from 'react-icons/md'
 import { useNavigate } from 'react-router-dom'
@@ -11,6 +11,7 @@ import StepTwoForm from '../../components/onboarding/StepTwoForm'
 import SwitchAccountButton from '../../components/onboarding/SwitchAccountButton'
 import CustomIconLoadingButton from '../../components/UI/button/CustomLoadingButton'
 import FullScreenLoader from '../../components/UI/loader/FullScreenLoader'
+import { toast } from '../../components/UI/Toast'
 import { useAuth } from '../../context/auth/AuthContext'
 import { useCompleteUserOnboarding } from '../../hooks/useCompleteUserOnboarding'
 import type { UserInfoData } from '../../types/user.types'
@@ -33,12 +34,24 @@ const steps = [
   { key: 3, title: 'Integrations', helper: 'Storefront and future channel setup' },
 ]
 
+const getFirstErrorMessage = (value: unknown): string => {
+  if (typeof value === 'string' && value.trim()) return value
+  if (typeof value === 'object' && value !== null) {
+    for (const nested of Object.values(value)) {
+      const message = getFirstErrorMessage(nested)
+      if (message) return message
+    }
+  }
+  return ''
+}
+
 export default function UserOnboarding() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
-  const { user: userData, loading: fetchingUserData } = useAuth()
+  const { user: userData, loading: fetchingUserData, refetchUser } = useAuth()
   const { mutateAsync: completeOnboarding, isPending } = useCompleteUserOnboarding()
+  const hasInitializedStep = useRef(false)
 
   const [step, setStep] = useState<number>(1)
   const [formData, setFormData] = useState<UserInfoData>({ ...initialFormData })
@@ -54,9 +67,12 @@ export default function UserOnboarding() {
       return
     }
 
+    if (hasInitializedStep.current) return
+
     const resumeStep = (userData.onboardingStep ?? 0) + 1
     const clamped = Math.min(Math.max(resumeStep, 1), steps.length)
     setStep(clamped)
+    hasInitializedStep.current = true
   }, [userData, navigate])
 
   useEffect(() => {
@@ -126,7 +142,17 @@ export default function UserOnboarding() {
     const errors = validateOnboardingFields(formData, step)
     setFormErrors(errors)
 
-    if (hasValidationErrors(errors)) return
+    if (hasValidationErrors(errors)) {
+      const firstError = getFirstErrorMessage(errors)
+      if (firstError) {
+        toast.open({
+          message: firstError,
+          severity: 'warning',
+          position: { vertical: 'top', horizontal: 'center' },
+        })
+      }
+      return
+    }
 
     let response: any
     try {
@@ -136,11 +162,13 @@ export default function UserOnboarding() {
       return
     }
 
-    if (response?.user) {
+    if (response && !response.error) {
       if (step < steps.length) {
-        setStep((prev) => prev + 1)
+        setStep(step + 1)
+        refetchUser()
       } else {
-        queryClient.invalidateQueries({ queryKey: ['currentUser'] })
+        queryClient.invalidateQueries({ queryKey: ['userProfile'] })
+        refetchUser()
         navigate('/home')
       }
     }

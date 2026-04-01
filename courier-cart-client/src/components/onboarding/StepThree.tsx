@@ -89,7 +89,7 @@ export default function StepThree({ formData, errors, onChange, setErrors }: ISt
         }}
       >
         <CustomInput
-          onChange={(e) => onChange(e, 'businessLegal')}
+          onChange={(e) => onChange(e, 'basicInfo')}
           onBlur={(e) => {
             const value = e.target.value?.trim()
             const isValidURL =
@@ -98,18 +98,20 @@ export default function StepThree({ formData, errors, onChange, setErrors }: ISt
 
             setErrors((prev) => ({
               ...prev,
-              businessLegal: {
-                ...prev.businessLegal,
-                websiteUrl: isValidURL ? '' : 'Invalid URL. Example: https://www.yourstore.com',
+              basicInfo: {
+                ...prev.basicInfo,
+                personalWebsite: isValidURL
+                  ? ''
+                  : 'Invalid URL. Example: https://www.yourstore.com',
               },
             }))
           }}
-          name="websiteUrl"
-          value={formData?.businessLegal?.websiteUrl}
+          name="personalWebsite"
+          value={formData?.basicInfo?.personalWebsite}
           label="Business Website (Optional)"
           placeholder="https://www.yourstore.com"
-          error={!!errors.businessLegal?.websiteUrl}
-          helperText={errors.businessLegal?.websiteUrl}
+          error={!!errors.basicInfo?.personalWebsite}
+          helperText={errors.basicInfo?.personalWebsite}
           fullWidth
           prefix={<FiLink color={PLUM} />}
         />
