@@ -591,6 +591,9 @@ const B2COrdersList = () => {
     {
       label: 'Docs',
       id: 'id',
+      minWidth: 220,
+      sticky: 'right',
+      stickyOffset: 140,
       render: (_v, row) => (
         <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
           <StatusChip
@@ -652,6 +655,9 @@ const B2COrdersList = () => {
     {
       label: 'Actions',
       id: 'id',
+      minWidth: 140,
+      sticky: 'right',
+      stickyOffset: 0,
       render: (_, row) => {
         // 1) Build actions compactly; include Reverse + Manifest + Cancel where applicable
         const actions: ReactNode[] = []

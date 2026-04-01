@@ -12,6 +12,8 @@ const TablesTableRow = ({
   actionsStickyLeft = false,
   hasCheckbox = false,
   actionsColumnWidth = '180px',
+  stickyRightColumnKeys = [],
+  stickyRightOffsets = {},
 }) => {
   const bg = useColorModeValue('white', 'gray.800')
 
@@ -23,7 +25,21 @@ const TablesTableRow = ({
         const content = renderers[key] ? renderers[key](value, row) : value
 
         return (
-          <Td key={idx} ps={8} minW={columnWidths[key] || 'auto'} overflow="visible">
+          <Td
+            key={idx}
+            ps={8}
+            minW={columnWidths[key] || 'auto'}
+            overflow="visible"
+            position={stickyRightColumnKeys.includes(key) ? 'sticky' : 'static'}
+            right={stickyRightColumnKeys.includes(key) ? stickyRightOffsets[key] || 0 : undefined}
+            zIndex={stickyRightColumnKeys.includes(key) ? 2 : undefined}
+            bg={stickyRightColumnKeys.includes(key) ? bg : undefined}
+            boxShadow={
+              stickyRightColumnKeys.includes(key) && (stickyRightOffsets[key] || 0) === 0
+                ? '-6px 0 10px rgba(13, 59, 142, 0.08)'
+                : undefined
+            }
+          >
             {content ?? '—'}
           </Td>
         )

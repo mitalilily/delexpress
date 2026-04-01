@@ -36,10 +36,12 @@ export async function createCodRemittance(params: {
     collectedAt,
   } = params
 
-  // COD remittance should deduct merchant-facing platform charges, not customer-facing label charges.
-  const normalizedFreightCharges = Number(freightCharges)
-  const deductions = Number(codCharges) + normalizedFreightCharges
-  const remittableAmount = Number(codAmount) - deductions
+  // COD remittance should default to full COD payable.
+  // Sellers already recharge wallet separately, so we do not auto-deduct platform charges here.
+  const normalizedFreightCharges = 0
+  const normalizedCodCharges = 0
+  const deductions = 0
+  const remittableAmount = Number(codAmount)
 
   // Idempotency guard: delivered webhooks can be retried.
   const [existingRemittance] = await db
@@ -72,8 +74,8 @@ export async function createCodRemittance(params: {
       awbNumber: awbNumber || null,
       courierPartner: courierPartner || null,
       codAmount: codAmount.toString(),
-      codCharges: codCharges.toString(),
-      // Legacy column name; stores freight/platform deduction amount for COD settlement math.
+      codCharges: normalizedCodCharges.toString(),
+      // Legacy column name retained for compatibility; defaulted to zero for COD remittance flow.
       shippingCharges: normalizedFreightCharges.toString(),
       deductions: deductions.toString(),
       remittableAmount: remittableAmount.toString(),
@@ -81,7 +83,7 @@ export async function createCodRemittance(params: {
       collectedAt: collectedAt || new Date(),
       notes: `COD collected by ${
         courierPartner || 'courier'
-      }. Awaiting settlement from courier partner.`,
+      }. No deduction applied by default. Awaiting settlement from courier partner.`,
     })
     .returning()
 

@@ -43,6 +43,8 @@ export const GenericTable = ({
   selectedRows = [],
   perPageOptions,
   actionsColumnWidth = '180px',
+  stickyRightColumnKeys = [],
+  stickyRightOffsets = {},
 }) => {
   const textColor = useColorModeValue('gray.800', 'gray.100')
   const headerBg = useColorModeValue('#F8FAFC', '#17243E')
@@ -138,6 +140,14 @@ export const GenericTable = ({
                     zIndex={2}
                     bg={headerBg}
                     fontWeight="700"
+                    position={stickyRightColumnKeys.includes(key) ? 'sticky' : 'sticky'}
+                    right={stickyRightColumnKeys.includes(key) ? stickyRightOffsets[key] || 0 : undefined}
+                    zIndex={stickyRightColumnKeys.includes(key) ? 4 : 2}
+                    boxShadow={
+                      stickyRightColumnKeys.includes(key) && (stickyRightOffsets[key] || 0) === 0
+                        ? '-6px 0 10px rgba(13, 59, 142, 0.08)'
+                        : undefined
+                    }
                   >
                     {captions[idx]}
                   </Th>
@@ -196,6 +206,8 @@ export const GenericTable = ({
                     columnWidths={columnWidths}
                     isScrolled={isScrolled}
                     actionsColumnWidth={actionsColumnWidth}
+                    stickyRightColumnKeys={stickyRightColumnKeys}
+                    stickyRightOffsets={stickyRightOffsets}
                   />
                 ))
               )}

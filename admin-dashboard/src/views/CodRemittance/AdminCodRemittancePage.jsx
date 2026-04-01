@@ -44,16 +44,18 @@ import {
 } from '@chakra-ui/react'
 import StatusBadge from 'components/Badge/StatusBadge'
 import Card from 'components/Card/Card'
+import { SellerAutocomplete } from 'components/Input/SellerAutocomplete'
 import TableFilters from 'components/Tables/TableFilters'
 import {
   useAllCodRemittances,
   useCodPlatformStats,
   useConfirmCourierSettlement,
-  useManualCreditWallet,
+  useManualMarkSettlement,
   usePreviewCourierSettlement,
+  useUserCodRemittances,
   useUpdateRemittanceNotes,
 } from 'hooks/useCodRemittance'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useHistory } from 'react-router-dom'
 import {
   downloadSettlementCsvTemplate,
@@ -106,11 +108,34 @@ export default function AdminCodRemittancePage() {
   const [csvPreviewData, setCsvPreviewData] = useState(null)
   const [selectedForCredit, setSelectedForCredit] = useState([])
   const [utrNumber, setUtrNumber] = useState('')
+  const [settlementAmountEdits, setSettlementAmountEdits] = useState({})
+  const [settlementNotes, setSettlementNotes] = useState('')
   const [settlementDate, setSettlementDate] = useState(new Date().toISOString().split('T')[0])
+  const [manualSettlementDate, setManualSettlementDate] = useState(
+    new Date().toISOString().split('T')[0],
+  )
+  const [manualCodAmount, setManualCodAmount] = useState('')
+  const [manualFreightCharges, setManualFreightCharges] = useState('')
+  const [manualCodCharges, setManualCodCharges] = useState('')
+  const [manualTotalDeductions, setManualTotalDeductions] = useState('')
+  const [manualSettlementAmount, setManualSettlementAmount] = useState('')
+  const [manualSettlementUtr, setManualSettlementUtr] = useState('')
+  const [manualSettlementNotes, setManualSettlementNotes] = useState('Settlement marked by admin')
   const [reviewTabIndex, setReviewTabIndex] = useState(0)
+  const [bulkSellerId, setBulkSellerId] = useState('')
+  const [bulkSelectedRemittanceIds, setBulkSelectedRemittanceIds] = useState([])
+  const [bulkSettlementAmountEdits, setBulkSettlementAmountEdits] = useState({})
+  const [bulkSettlementUtr, setBulkSettlementUtr] = useState('')
+  const [bulkSettlementNotes, setBulkSettlementNotes] = useState('Bulk settlement marked by admin')
+  const [bulkSettlementDate, setBulkSettlementDate] = useState(new Date().toISOString().split('T')[0])
 
   const { isOpen: isNotesOpen, onOpen: onNotesOpen, onClose: onNotesClose } = useDisclosure()
   const { isOpen: isCreditOpen, onOpen: onCreditOpen, onClose: onCreditClose } = useDisclosure()
+  const {
+    isOpen: isBulkSettlementOpen,
+    onOpen: onBulkSettlementOpen,
+    onClose: onBulkSettlementClose,
+  } = useDisclosure()
   const {
     isOpen: isCsvUploadOpen,
     onOpen: onCsvUploadOpen,
@@ -129,13 +154,36 @@ export default function AdminCodRemittancePage() {
     limit: perPage,
     ...filters,
   })
-  const manualCreditMutation = useManualCreditWallet()
+  const { data: sellerRemittanceData, isLoading: sellerRemittancesLoading } =
+    useUserCodRemittances(bulkSellerId)
+  const manualSettlementMutation = useManualMarkSettlement()
   const updateNotesMutation = useUpdateRemittanceNotes()
   const previewCsvMutation = usePreviewCourierSettlement()
   const confirmSettlementMutation = useConfirmCourierSettlement()
 
   const remittances = remittanceData?.data?.remittances || []
   const totalCount = remittanceData?.data?.totalCount || 0
+  const sellerInfo = sellerRemittanceData?.data?.user || null
+  const sellerPendingRemittances = useMemo(
+    () =>
+      (sellerRemittanceData?.data?.remittances || []).filter((item) => item.status === 'pending'),
+    [sellerRemittanceData],
+  )
+
+  useEffect(() => {
+    if (!bulkSellerId) {
+      setBulkSelectedRemittanceIds([])
+      setBulkSettlementAmountEdits({})
+      return
+    }
+
+    const nextEdits = {}
+    sellerPendingRemittances.forEach((item) => {
+      nextEdits[item.id] = item.remittableAmount ?? ''
+    })
+    setBulkSettlementAmountEdits(nextEdits)
+    setBulkSelectedRemittanceIds(sellerPendingRemittances.map((item) => item.id))
+  }, [bulkSellerId, sellerPendingRemittances])
 
   // Handlers
   const handleExport = async () => {
@@ -177,14 +225,176 @@ export default function AdminCodRemittancePage() {
 
   const handleOpenCredit = (remittance) => {
     setSelectedRemittance(remittance)
+    setManualSettlementDate(new Date().toISOString().split('T')[0])
+    setManualCodAmount(remittance?.codAmount ? String(remittance.codAmount) : '')
+    setManualFreightCharges(remittance?.shippingCharges ? String(remittance.shippingCharges) : '')
+    setManualCodCharges(remittance?.codCharges ? String(remittance.codCharges) : '')
+    setManualTotalDeductions(remittance?.deductions ? String(remittance.deductions) : '')
+    setManualSettlementAmount(remittance?.remittableAmount ? String(remittance.remittableAmount) : '')
+    setManualSettlementUtr('')
+    setManualSettlementNotes('Settlement marked by admin')
     onCreditOpen()
   }
 
-  const handleManualCredit = async () => {
+  const handleOpenBulkSettlement = () => {
+    setBulkSellerId('')
+    setBulkSelectedRemittanceIds([])
+    setBulkSettlementAmountEdits({})
+    setBulkSettlementUtr('')
+    setBulkSettlementNotes('Bulk settlement marked by admin')
+    setBulkSettlementDate(new Date().toISOString().split('T')[0])
+    onBulkSettlementOpen()
+  }
+
+  const handleManualSettlement = async () => {
     if (selectedRemittance) {
-      await manualCreditMutation.mutateAsync(selectedRemittance.id)
+      const payload = {
+        settledDate: manualSettlementDate,
+        utrNumber: manualSettlementUtr || undefined,
+        settledAmount: manualSettlementAmount ? Number(manualSettlementAmount) : undefined,
+        notes: manualSettlementNotes || 'Settlement marked by admin',
+      }
+
+      if (payload.settledAmount !== undefined && (!Number.isFinite(payload.settledAmount) || payload.settledAmount <= 0)) {
+        toast({
+          title: 'Invalid amount',
+          description: 'Settled amount must be a positive number.',
+          status: 'warning',
+          duration: 3000,
+        })
+        return
+      }
+
+      await manualSettlementMutation.mutateAsync({
+        remittanceId: selectedRemittance.id,
+        payload,
+      })
       onCreditClose()
     }
+  }
+
+  const handleBulkToggleSelect = (remittanceId) => {
+    setBulkSelectedRemittanceIds((prev) =>
+      prev.includes(remittanceId)
+        ? prev.filter((id) => id !== remittanceId)
+        : [...prev, remittanceId],
+    )
+  }
+
+  const handleBulkSelectAll = () => {
+    const ids = sellerPendingRemittances.map((item) => item.id)
+    const allSelected = ids.length > 0 && ids.every((id) => bulkSelectedRemittanceIds.includes(id))
+    setBulkSelectedRemittanceIds(allSelected ? [] : ids)
+  }
+
+  const getBulkEditedAmount = (remittance) => {
+    const editValue = bulkSettlementAmountEdits[remittance.id]
+    if (editValue === '' || editValue === undefined || editValue === null) {
+      return toAmount(remittance.remittableAmount)
+    }
+    const parsed = Number(editValue)
+    return Number.isFinite(parsed) ? parsed : toAmount(remittance.remittableAmount)
+  }
+
+  const handleBulkAmountChange = (remittanceId, value) => {
+    setBulkSettlementAmountEdits((prev) => ({
+      ...prev,
+      [remittanceId]: value,
+    }))
+  }
+
+  const handleBulkSellerSettlement = async () => {
+    if (!bulkSellerId) {
+      toast({
+        title: 'Seller required',
+        description: 'Please select a seller first.',
+        status: 'warning',
+        duration: 3000,
+      })
+      return
+    }
+
+    if (bulkSelectedRemittanceIds.length === 0) {
+      toast({
+        title: 'No remittances selected',
+        description: 'Please select at least one pending remittance.',
+        status: 'warning',
+        duration: 3000,
+      })
+      return
+    }
+
+    if (!bulkSettlementUtr.trim()) {
+      toast({
+        title: 'UTR Required',
+        description: 'Please enter the UTR/Transaction number for this seller settlement.',
+        status: 'warning',
+        duration: 3000,
+      })
+      return
+    }
+
+    const remittancesToSettle = sellerPendingRemittances
+      .filter((item) => bulkSelectedRemittanceIds.includes(item.id))
+      .map((item) => ({
+        remittanceId: item.id,
+        awb: item.awbNumber,
+        orderNumber: item.orderNumber,
+        courierAmount: getBulkEditedAmount(item),
+        notes: bulkSettlementNotes,
+      }))
+
+    const invalidRow = remittancesToSettle.find(
+      (item) => !Number.isFinite(Number(item.courierAmount)) || Number(item.courierAmount) <= 0,
+    )
+
+    if (invalidRow) {
+      toast({
+        title: 'Invalid Amount',
+        description: 'Each selected remittance must have a valid positive settlement amount.',
+        status: 'warning',
+        duration: 3500,
+      })
+      return
+    }
+
+    const apiResult = await confirmSettlementMutation.mutateAsync({
+      remittances: remittancesToSettle,
+      utrNumber: bulkSettlementUtr,
+      settlementDate: bulkSettlementDate,
+      courierPartner: 'manual-admin',
+      settlementNotes: bulkSettlementNotes,
+    })
+
+    const credited = apiResult?.data?.results?.credited || []
+    const failed = apiResult?.data?.results?.failed || []
+    const creditedIds = new Set(credited.map((item) => item.remittanceId))
+
+    if (failed.length > 0) {
+      setBulkSelectedRemittanceIds((prev) => prev.filter((id) => !creditedIds.has(id)))
+      toast({
+        title: 'Bulk settlement partially processed',
+        description: `Settled ${credited.length}, failed ${failed.length}. Review the remaining rows and retry.`,
+        status: 'warning',
+        duration: 6000,
+      })
+      return
+    }
+
+    toast({
+      title: 'Bulk settlement complete',
+      description: `Successfully settled ${credited.length} remittances for this seller.`,
+      status: 'success',
+      duration: 5000,
+    })
+
+    onBulkSettlementClose()
+    setBulkSellerId('')
+    setBulkSelectedRemittanceIds([])
+    setBulkSettlementAmountEdits({})
+    setBulkSettlementUtr('')
+    setBulkSettlementNotes('Bulk settlement marked by admin')
+    setBulkSettlementDate(new Date().toISOString().split('T')[0])
   }
 
   const handleViewUser = (userId) => {
@@ -258,6 +468,12 @@ export default function AdminCodRemittancePage() {
 
         // Auto-select all matched orders
         const matchedIds = result.data.results.matched.map((m) => m.remittanceId)
+        const updatedSettlementEdits = {}
+        ;[...result.data.results.matched, ...result.data.results.discrepancies].forEach((item) => {
+          updatedSettlementEdits[item.remittanceId] = item.courierAmount ?? ''
+        })
+        setSettlementAmountEdits(updatedSettlementEdits)
+        setSettlementNotes('')
         setSelectedForCredit(matchedIds)
 
         onCsvUploadClose()
@@ -298,7 +514,7 @@ export default function AdminCodRemittancePage() {
     if (selectedForCredit.length === 0) {
       toast({
         title: 'No orders selected',
-        description: 'Please select at least one order to credit',
+        description: 'Please select at least one order to settle',
         status: 'warning',
         duration: 3000,
       })
@@ -320,13 +536,38 @@ export default function AdminCodRemittancePage() {
       const remittancesToCredit = [
         ...csvPreviewData.results.matched,
         ...csvPreviewData.results.discrepancies,
-      ].filter((item) => selectedForCredit.includes(item.remittanceId))
+      ]
+        .filter((item) => selectedForCredit.includes(item.remittanceId))
+        .map((item) => ({
+          ...item,
+          courierAmount:
+            settlementAmountEdits[item.remittanceId] !== undefined &&
+            settlementAmountEdits[item.remittanceId] !== ''
+              ? Number(settlementAmountEdits[item.remittanceId])
+              : item.courierAmount,
+          notes: settlementNotes,
+        }))
+
+      const invalidRow = remittancesToCredit.find(
+        (item) => !Number.isFinite(Number(item.courierAmount)) || Number(item.courierAmount) <= 0,
+      )
+
+      if (invalidRow) {
+        toast({
+          title: 'Invalid Amount',
+          description: 'All selected settlement amounts must be valid positive numbers.',
+          status: 'warning',
+          duration: 3500,
+        })
+        return
+      }
 
       const apiResult = await confirmSettlementMutation.mutateAsync({
         remittances: remittancesToCredit,
         utrNumber,
         settlementDate,
         courierPartner,
+        settlementNotes,
       })
 
       const credited = apiResult?.data?.results?.credited || []
@@ -337,7 +578,7 @@ export default function AdminCodRemittancePage() {
         setSelectedForCredit((prev) => prev.filter((id) => !creditedIds.has(id)))
         toast({
           title: 'Settlement partially processed',
-          description: `Credited ${credited.length}, failed ${failed.length}. Review and retry failed rows.`,
+          description: `Settled ${credited.length}, failed ${failed.length}. Review and retry failed rows.`,
           status: 'warning',
           duration: 6000,
         })
@@ -346,7 +587,7 @@ export default function AdminCodRemittancePage() {
 
       toast({
         title: 'Settlement Confirmed',
-        description: `Successfully credited ${credited.length} orders`,
+        description: `Successfully settled ${credited.length} orders`,
         status: 'success',
         duration: 5000,
       })
@@ -407,30 +648,21 @@ export default function AdminCodRemittancePage() {
     return Number.isFinite(n) ? n : 0
   }
 
-  const formatInr = (value) => `₹${toAmount(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-
-  const creditPreview = useMemo(() => {
-    const codAmount = toAmount(selectedRemittance?.codAmount)
-    const freightCharges = toAmount(selectedRemittance?.shippingCharges)
-    const codCharges = toAmount(selectedRemittance?.codCharges)
-    const deductions =
-      selectedRemittance?.deductions !== undefined && selectedRemittance?.deductions !== null
-        ? toAmount(selectedRemittance?.deductions)
-        : freightCharges + codCharges
-    const remittableAmount =
-      selectedRemittance?.remittableAmount !== undefined &&
-      selectedRemittance?.remittableAmount !== null
-        ? toAmount(selectedRemittance?.remittableAmount)
-        : codAmount - deductions
-
-    return {
-      codAmount,
-      freightCharges,
-      codCharges,
-      deductions,
-      remittableAmount,
+  const getEditedAmount = (item) => {
+    const editValue = settlementAmountEdits[item.remittanceId]
+    if (editValue === '' || editValue === undefined || editValue === null) {
+      return toAmount(item.courierAmount)
     }
-  }, [selectedRemittance])
+    const parsed = Number(editValue)
+    return Number.isFinite(parsed) ? parsed : toAmount(item.courierAmount)
+  }
+
+  const handleEditedAmountChange = (remittanceId, value) => {
+    setSettlementAmountEdits((prev) => ({
+      ...prev,
+      [remittanceId]: value,
+    }))
+  }
 
   return (
     <Flex direction="column" pt={{ base: '120px', md: '75px' }}>
@@ -505,6 +737,9 @@ export default function AdminCodRemittancePage() {
 
       {/* Actions */}
       <Flex mb="20px" gap={3}>
+        <Button colorScheme="green" size="sm" onClick={handleOpenBulkSettlement}>
+          Bulk Settle Seller
+        </Button>
         <Button colorScheme="purple" size="sm" onClick={onCsvUploadOpen}>
           Upload Settlement CSV
         </Button>
@@ -532,9 +767,9 @@ export default function AdminCodRemittancePage() {
         renderActions={(row) => (
           <HStack spacing={2}>
             {row.status === 'pending' && (
-              <Tooltip label="Manually credit wallet">
+              <Tooltip label="Mark settlement">
                 <Button size="xs" colorScheme="green" onClick={() => handleOpenCredit(row)}>
-                  Credit
+                  Settle
                 </Button>
               </Tooltip>
             )}
@@ -631,14 +866,14 @@ export default function AdminCodRemittancePage() {
         </ModalContent>
       </Modal>
 
-      {/* Manual Credit Confirmation Modal */}
+      {/* Manual Settlement Modal */}
       <Modal isOpen={isCreditOpen} onClose={onCreditClose}>
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>Manual Wallet Credit</ModalHeader>
+          <ModalHeader>Manual COD Settlement</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <Text mb="12px">Please review the COD settlement breakup before crediting wallet:</Text>
+            <Text mb="12px">Please review the COD settlement breakup before marking settlement:</Text>
             <Box p="12px" bg="gray.50" borderRadius="md" mb="12px">
               <Text fontSize="sm" fontWeight="600">
                 Order: {selectedRemittance?.orderNumber}
@@ -651,56 +886,123 @@ export default function AdminCodRemittancePage() {
             </Box>
 
             <Box p="12px" border="1px solid" borderColor="gray.200" borderRadius="md" mb="12px">
-              <Flex justify="space-between" mb="6px">
+              <Flex align="center" justify="space-between" mb="6px">
                 <Text fontSize="sm" color="gray.700">
                   COD Collected
                 </Text>
-                <Text fontSize="sm" fontWeight="600">
-                  {formatInr(creditPreview.codAmount)}
-                </Text>
+                <Input
+                  type="number"
+                  step="0.01"
+                  size="sm"
+                  width="180px"
+                  value={manualCodAmount}
+                  onChange={(e) => setManualCodAmount(e.target.value)}
+                  onBlur={() => setManualCodAmount(String(toAmount(manualCodAmount) || ''))}
+                />
               </Flex>
-              <Flex justify="space-between" mb="6px">
+              <Flex align="center" justify="space-between" mb="6px">
                 <Text fontSize="sm" color="gray.700">
                   Less: Freight Charges
                 </Text>
-                <Text fontSize="sm" fontWeight="600" color="red.500">
-                  - {formatInr(creditPreview.freightCharges)}
-                </Text>
+                <Input
+                  type="number"
+                  step="0.01"
+                  size="sm"
+                  width="180px"
+                  color="red.500"
+                  value={manualFreightCharges}
+                  onChange={(e) => setManualFreightCharges(e.target.value)}
+                  onBlur={() => setManualFreightCharges(String(toAmount(manualFreightCharges) || ''))}
+                />
               </Flex>
-              <Flex justify="space-between" mb="6px">
+              <Flex align="center" justify="space-between" mb="6px">
                 <Text fontSize="sm" color="gray.700">
                   Less: COD Charges
                 </Text>
-                <Text fontSize="sm" fontWeight="600" color="red.500">
-                  - {formatInr(creditPreview.codCharges)}
-                </Text>
+                <Input
+                  type="number"
+                  step="0.01"
+                  size="sm"
+                  width="180px"
+                  color="red.500"
+                  value={manualCodCharges}
+                  onChange={(e) => setManualCodCharges(e.target.value)}
+                  onBlur={() => setManualCodCharges(String(toAmount(manualCodCharges) || ''))}
+                />
               </Flex>
-              <Flex justify="space-between" mb="6px">
+              <Flex align="center" justify="space-between" mb="6px">
                 <Text fontSize="sm" color="gray.700">
                   Total Deductions
                 </Text>
-                <Text fontSize="sm" fontWeight="700" color="red.600">
-                  - {formatInr(creditPreview.deductions)}
-                </Text>
+                <Input
+                  type="number"
+                  step="0.01"
+                  size="sm"
+                  width="180px"
+                  color="red.600"
+                  value={manualTotalDeductions}
+                  onChange={(e) => setManualTotalDeductions(e.target.value)}
+                  onBlur={() => setManualTotalDeductions(String(toAmount(manualTotalDeductions) || ''))}
+                />
               </Flex>
-              <Flex justify="space-between" pt="8px" borderTop="1px solid" borderColor="gray.200">
+              <Flex align="center" justify="space-between" pt="8px" borderTop="1px solid" borderColor="gray.200">
                 <Text fontSize="sm" fontWeight="700">
-                  Net Wallet Credit
+                  Net Settlement Amount
                 </Text>
-                <Text fontSize="lg" fontWeight="bold" color="green.600">
-                  {formatInr(creditPreview.remittableAmount)}
-                </Text>
+                <Input
+                  type="number"
+                  step="0.01"
+                  size="sm"
+                  width="180px"
+                  fontWeight="700"
+                  color="green.600"
+                  value={manualSettlementAmount}
+                  onChange={(e) => setManualSettlementAmount(e.target.value)}
+                  onBlur={() => setManualSettlementAmount(String(toAmount(manualSettlementAmount) || ''))}
+                />
               </Flex>
             </Box>
 
             <Box p="10px" bg="orange.50" borderRadius="md" mb="12px">
               <Text fontSize="xs" color="orange.800">
-                Reason: Courier collected COD from customer. Platform deducts freight + COD handling
-                charges and credits the net settlement amount to merchant wallet.
+                By default, COD remittance keeps deductions at zero because sellers recharge wallet
+                separately. Edit these fields only when you intentionally want a manual deduction.
               </Text>
             </Box>
+            <VStack align="stretch" spacing={3} mb="12px">
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="600">
+                  UTR / Transaction Number
+                </FormLabel>
+                <Input
+                  value={manualSettlementUtr}
+                  onChange={(e) => setManualSettlementUtr(e.target.value)}
+                  placeholder="Enter UTR/Reference number"
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="600">
+                  Settlement Date
+                </FormLabel>
+                <Input
+                  type="date"
+                  value={manualSettlementDate}
+                  onChange={(e) => setManualSettlementDate(e.target.value)}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="600">
+                  Settlement Notes
+                </FormLabel>
+                <Input
+                  value={manualSettlementNotes}
+                  onChange={(e) => setManualSettlementNotes(e.target.value)}
+                  placeholder="Optional settlement notes"
+                />
+              </FormControl>
+            </VStack>
             <Text fontSize="xs" color="red.500">
-              ⚠️ This action will credit the merchant's wallet immediately.
+              This action updates COD remittance only. It does not create any wallet transaction.
             </Text>
           </ModalBody>
           <ModalFooter>
@@ -709,11 +1011,207 @@ export default function AdminCodRemittancePage() {
             </Button>
             <Button
               colorScheme="green"
-              onClick={handleManualCredit}
-              isLoading={manualCreditMutation.isPending}
+              onClick={handleManualSettlement}
+              isLoading={manualSettlementMutation.isPending}
             >
-              Confirm Credit
+              Confirm Settlement
             </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Seller-wise Bulk Settlement Modal */}
+      <Modal isOpen={isBulkSettlementOpen} onClose={onBulkSettlementClose} size="6xl">
+        <ModalOverlay />
+        <ModalContent maxW="90vw">
+          <ModalHeader>Bulk COD Settlement by Seller</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody maxH="70vh" overflowY="auto">
+            <VStack spacing={4} align="stretch">
+              <Alert status="info" borderRadius="md">
+                <AlertIcon />
+                <Box>
+                  <AlertTitle fontSize="sm">Seller-wise manual settlement</AlertTitle>
+                  <AlertDescription fontSize="xs">
+                    Pick a seller, review pending remittances, edit settlement amounts if needed,
+                    then confirm one bulk settlement for that seller.
+                  </AlertDescription>
+                </Box>
+              </Alert>
+
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                <FormControl>
+                  <FormLabel fontSize="sm" fontWeight="600">
+                    Seller
+                  </FormLabel>
+                  <SellerAutocomplete
+                    value={bulkSellerId}
+                    onChange={setBulkSellerId}
+                    placeholder="Search seller by name or email..."
+                  />
+                </FormControl>
+
+                <Box
+                  borderWidth={1}
+                  borderColor="gray.200"
+                  borderRadius="md"
+                  p={3}
+                  bg="gray.50"
+                >
+                  <Text fontSize="xs" color="gray.500" mb={1}>
+                    Selected Seller
+                  </Text>
+                  <Text fontSize="sm" fontWeight="600">
+                    {sellerInfo?.email || 'Choose a seller to load pending COD remittances'}
+                  </Text>
+                  {bulkSellerId && (
+                    <Text fontSize="xs" color="gray.600" mt={1}>
+                      Pending remittances: {sellerPendingRemittances.length}
+                    </Text>
+                  )}
+                </Box>
+              </SimpleGrid>
+
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
+                <FormControl isRequired>
+                  <FormLabel fontSize="sm" fontWeight="600">
+                    UTR / Transaction Number
+                  </FormLabel>
+                  <Input
+                    value={bulkSettlementUtr}
+                    onChange={(e) => setBulkSettlementUtr(e.target.value)}
+                    placeholder="Enter UTR/Reference number"
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="sm" fontWeight="600">
+                    Settlement Date
+                  </FormLabel>
+                  <Input
+                    type="date"
+                    value={bulkSettlementDate}
+                    onChange={(e) => setBulkSettlementDate(e.target.value)}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="sm" fontWeight="600">
+                    Settlement Notes
+                  </FormLabel>
+                  <Input
+                    value={bulkSettlementNotes}
+                    onChange={(e) => setBulkSettlementNotes(e.target.value)}
+                    placeholder="Optional settlement notes"
+                  />
+                </FormControl>
+              </SimpleGrid>
+
+              {bulkSellerId && !sellerRemittancesLoading && sellerPendingRemittances.length === 0 && (
+                <Alert status="warning" borderRadius="md">
+                  <AlertIcon />
+                  <AlertDescription fontSize="sm">
+                    This seller has no pending COD remittances to settle right now.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {bulkSellerId && sellerPendingRemittances.length > 0 && (
+                <>
+                  <Flex align="center" justify="space-between">
+                    <HStack spacing={3}>
+                      <Checkbox
+                        isChecked={
+                          sellerPendingRemittances.length > 0 &&
+                          sellerPendingRemittances.every((item) =>
+                            bulkSelectedRemittanceIds.includes(item.id),
+                          )
+                        }
+                        onChange={handleBulkSelectAll}
+                      >
+                        <Text fontSize="sm" fontWeight="600">
+                          Select All Pending
+                        </Text>
+                      </Checkbox>
+                      <Text fontSize="xs" color="gray.500">
+                        {bulkSelectedRemittanceIds.length} selected
+                      </Text>
+                    </HStack>
+                    <Text fontSize="sm" fontWeight="600" color="green.600">
+                      Total Selected: ₹
+                      {sellerPendingRemittances
+                        .filter((item) => bulkSelectedRemittanceIds.includes(item.id))
+                        .reduce((sum, item) => sum + getBulkEditedAmount(item), 0)
+                        .toLocaleString('en-IN')}
+                    </Text>
+                  </Flex>
+
+                  <Box overflowX="auto" borderWidth={1} borderColor="gray.200" borderRadius="md">
+                    <Table size="sm" variant="simple">
+                      <Thead>
+                        <Tr>
+                          <Th>Select</Th>
+                          <Th>Order #</Th>
+                          <Th>AWB</Th>
+                          <Th>Courier</Th>
+                          <Th>Remittable</Th>
+                          <Th>Settle Amount</Th>
+                          <Th>Collected</Th>
+                        </Tr>
+                      </Thead>
+                      <Tbody>
+                        {sellerPendingRemittances.map((item) => (
+                          <Tr key={item.id}>
+                            <Td>
+                              <Checkbox
+                                isChecked={bulkSelectedRemittanceIds.includes(item.id)}
+                                onChange={() => handleBulkToggleSelect(item.id)}
+                              />
+                            </Td>
+                            <Td fontSize="xs">{item.orderNumber}</Td>
+                            <Td fontSize="xs">{item.awbNumber || 'N/A'}</Td>
+                            <Td fontSize="xs">{item.courierPartner || 'N/A'}</Td>
+                            <Td fontSize="xs" fontWeight="600">
+                              ₹{toAmount(item.remittableAmount).toLocaleString('en-IN')}
+                            </Td>
+                            <Td minW="160px">
+                              <Input
+                                size="xs"
+                                type="number"
+                                step="0.01"
+                                value={bulkSettlementAmountEdits[item.id] ?? ''}
+                                onChange={(e) => handleBulkAmountChange(item.id, e.target.value)}
+                              />
+                            </Td>
+                            <Td fontSize="xs">
+                              {item.collectedAt ? new Date(item.collectedAt).toLocaleDateString() : 'N/A'}
+                            </Td>
+                          </Tr>
+                        ))}
+                      </Tbody>
+                    </Table>
+                  </Box>
+                </>
+              )}
+            </VStack>
+          </ModalBody>
+          <ModalFooter bg="gray.50" borderTopWidth={1}>
+            <HStack spacing={3} width="100%" justify="space-between">
+              <Text fontSize="xs" color="gray.600">
+                This bulk action updates COD remittance records only. Wallet remains unchanged.
+              </Text>
+              <HStack>
+                <Button variant="ghost" onClick={onBulkSettlementClose}>
+                  Cancel
+                </Button>
+                <Button
+                  colorScheme="green"
+                  onClick={handleBulkSellerSettlement}
+                  isLoading={confirmSettlementMutation.isPending}
+                  isDisabled={!bulkSellerId || bulkSelectedRemittanceIds.length === 0 || !bulkSettlementUtr}
+                >
+                  Confirm Seller Settlement ({bulkSelectedRemittanceIds.length})
+                </Button>
+              </HStack>
+            </HStack>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -883,6 +1381,16 @@ export default function AdminCodRemittancePage() {
                       onChange={(e) => setSettlementDate(e.target.value)}
                     />
                   </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="sm" fontWeight="600">
+                      Settlement Notes
+                    </FormLabel>
+                    <Input
+                      value={settlementNotes}
+                      onChange={(e) => setSettlementNotes(e.target.value)}
+                      placeholder="Optional settlement notes"
+                    />
+                  </FormControl>
                 </SimpleGrid>
 
                 {csvPreviewData.summary.errors > 0 && (
@@ -969,13 +1477,19 @@ export default function AdminCodRemittancePage() {
                                     <Td fontSize="xs">{item.orderNumber}</Td>
                                     <Td fontSize="xs">{item.awb}</Td>
                                     <Td fontSize="xs" fontWeight="600">
-                                      ₹{item.courierAmount?.toLocaleString('en-IN')}
+                                      <Input
+                                        size="xs"
+                                        type="number"
+                                        step="0.01"
+                                        value={settlementAmountEdits[item.remittanceId] ?? ''}
+                                        onChange={(e) => handleEditedAmountChange(item.remittanceId, e.target.value)}
+                                      />
                                     </Td>
                                     <Td fontSize="xs">
                                       ₹{item.ourAmount?.toLocaleString('en-IN')}
                                     </Td>
                                     <Td fontSize="xs" color="green.600">
-                                      ₹{Math.abs(item.difference || 0)?.toFixed(2)}
+                                      ₹{Math.abs(getEditedAmount(item) - toAmount(item.ourAmount)).toFixed(2)}
                                     </Td>
                                     <Td>
                                       <StatusBadge status="MATCHED" type="success" />
@@ -1037,17 +1551,22 @@ export default function AdminCodRemittancePage() {
                                     <Td fontSize="xs">{item.orderNumber}</Td>
                                     <Td fontSize="xs">{item.awb}</Td>
                                     <Td fontSize="xs" fontWeight="600" color="orange.600">
-                                      {item.courierAmount !== null &&
-                                      item.courierAmount !== undefined
-                                        ? `₹${item.courierAmount?.toLocaleString('en-IN')}`
-                                        : 'Missing'}
+                                      <Input
+                                        size="xs"
+                                        type="number"
+                                        step="0.01"
+                                        value={settlementAmountEdits[item.remittanceId] ?? ''}
+                                        onChange={(e) => handleEditedAmountChange(item.remittanceId, e.target.value)}
+                                      />
                                     </Td>
                                     <Td fontSize="xs">
                                       ₹{item.ourAmount?.toLocaleString('en-IN')}
                                     </Td>
                                     <Td fontSize="xs" fontWeight="600" color="red.600">
                                       {item.difference !== null && item.difference !== undefined
-                                        ? `${item.difference > 0 ? '+' : ''}₹${item.difference?.toFixed(2)}`
+                                        ? `${getEditedAmount(item) - toAmount(item.ourAmount) > 0 ? '+' : ''}₹${(
+                                            getEditedAmount(item) - toAmount(item.ourAmount)
+                                          ).toFixed(2)}`
                                         : 'N/A'}
                                     </Td>
                                     <Td>
@@ -1178,8 +1697,8 @@ export default function AdminCodRemittancePage() {
                     ...(csvPreviewData?.results?.matched || []),
                     ...(csvPreviewData?.results?.discrepancies || []),
                   ]
-                    .filter((item) => selectedForCredit.includes(item.remittanceId))
-                    .reduce((sum, item) => sum + (item.courierAmount || 0), 0)
+                  .filter((item) => selectedForCredit.includes(item.remittanceId))
+                    .reduce((sum, item) => sum + getEditedAmount(item), 0)
                     .toLocaleString('en-IN')}
                 </Text>
               </Box>

@@ -508,7 +508,14 @@ const AllOrders = () => {
     { id: 'city', label: 'City' },
     { id: 'state', label: 'State' },
     { id: 'order_amount', label: 'Amount' },
-    { id: 'id', label: 'Docs', render: (_v, row) => renderDocumentTags(row) },
+    {
+      id: 'id',
+      label: 'Docs',
+      minWidth: 220,
+      sticky: 'right',
+      stickyOffset: 0,
+      render: (_v, row) => renderDocumentTags(row),
+    },
     {
       label: 'Status',
       id: 'order_status',

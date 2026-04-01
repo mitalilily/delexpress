@@ -25,9 +25,9 @@ import React, { useEffect, useRef } from 'react'
 import { MdExpandLess, MdExpandMore } from 'react-icons/md'
 import CustomCheckbox from '../inputs/CustomCheckbox'
 
-const DE_BLUE = '#0052CC'
-const DE_AMBER = '#FFAB00'
-const BRAND_GRADIENT = `linear-gradient(135deg, ${DE_BLUE} 0%, ${DE_AMBER} 100%)`
+const BRAND_NAVY = '#0D3B8E'
+const BRAND_ORANGE = '#FF7A00'
+const BRAND_GRADIENT = `linear-gradient(135deg, ${BRAND_NAVY} 0%, ${BRAND_ORANGE} 100%)`
 
 export interface Column<T> {
   id: keyof T
@@ -39,6 +39,9 @@ export interface Column<T> {
   minWidth?: number
   hiddenOnMobile?: boolean
   truncate?: boolean
+  sticky?: 'left' | 'right'
+  stickyOffset?: number
+  backgroundColor?: string
 }
 
 export interface DataTableProps<T extends { id: string | number }> {
@@ -180,12 +183,12 @@ export default function DataTable<T extends { id: string | number }>(props: Data
         width: '100%',
         overflow: 'hidden',
         background: `
-          radial-gradient(560px 180px at 0% 0%, ${alpha(DE_AMBER, 0.07)} 0%, transparent 75%),
-          radial-gradient(560px 180px at 100% 0%, ${alpha(DE_BLUE, 0.09)} 0%, transparent 75%),
+          radial-gradient(560px 180px at 0% 0%, ${alpha(BRAND_ORANGE, 0.07)} 0%, transparent 75%),
+          radial-gradient(560px 180px at 100% 0%, ${alpha(BRAND_NAVY, 0.09)} 0%, transparent 75%),
           #ffffff
         `,
-        border: `1px solid ${alpha(DE_BLUE, 0.16)}`,
-        borderRadius: 1,
+        border: `1px solid ${alpha(BRAND_NAVY, 0.16)}`,
+        borderRadius: 3,
         boxShadow: '0 8px 20px rgba(13, 59, 142, 0.08)',
       }}
     >
@@ -245,18 +248,18 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                 onPageChange={handleChangePage}
                 onRowsPerPageChange={handleChangeRowsPerPage}
                 sx={{
-                  color: DE_BLUE,
+                  color: BRAND_NAVY,
                   '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
                     fontSize: '13px',
                     color: '#6b82a8',
                   },
                   '& .MuiTablePagination-select': {
-                    color: DE_BLUE,
+                    color: BRAND_NAVY,
                   },
                   '& .MuiTablePagination-actions button': {
-                    color: DE_BLUE,
+                    color: BRAND_NAVY,
                     '&:hover': {
-                      backgroundColor: alpha(DE_BLUE, 0.08),
+                      backgroundColor: alpha(BRAND_NAVY, 0.08),
                     },
                   },
                 }}
@@ -294,7 +297,7 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                     checked={isAllSelected}
                     onChange={(e) => handleSelectAll(e.target.checked)}
                   />
-                  <Typography fontSize="12px" fontWeight={700} sx={{ color: DE_BLUE }}>
+                  <Typography fontSize="12px" fontWeight={700} sx={{ color: BRAND_NAVY }}>
                     Select all on this page
                   </Typography>
                 </Stack>
@@ -311,11 +314,11 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                   variant="outlined"
                   sx={{
                     background: '#FFFFFF',
-                    border: `1px solid ${alpha(DE_BLUE, 0.14)}`,
-                    borderRadius: 1,
+                    border: `1px solid ${alpha(BRAND_NAVY, 0.14)}`,
+                    borderRadius: 2.5,
                     px: 1.6,
                     py: 1.1,
-                    boxShadow: `0 2px 8px ${alpha(DE_BLUE, 0.06)}`,
+                    boxShadow: `0 2px 8px ${alpha(BRAND_NAVY, 0.06)}`,
                   }}
                 >
                   <CardContent sx={{ px: 0, py: 0.5 }}>
@@ -327,7 +330,7 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                               checked={selectedIds.includes(row.id)}
                               onChange={() => handleSelect(row.id)}
                             />
-                            <Typography fontSize="12px" fontWeight={700} sx={{ color: DE_BLUE }}>
+                            <Typography fontSize="12px" fontWeight={700} sx={{ color: BRAND_NAVY }}>
                               Select order
                             </Typography>
                           </Stack>
@@ -339,7 +342,7 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                         const value = col.render ? col.render(row[col.id], row) : row[col.id]
                         return (
                           <Box key={col.id as string}>
-                            <Typography fontSize="11px" fontWeight={700} sx={{ color: DE_BLUE }}>
+                            <Typography fontSize="11px" fontWeight={700} sx={{ color: BRAND_NAVY }}>
                               {col.label}
                             </Typography>
                             {col?.label_desc ? (
@@ -354,7 +357,7 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                                   ? JSON.stringify(value)
                                   : String(value)}
                             </Typography>
-                            <Divider sx={{ mt: 1, borderColor: alpha(DE_BLUE, 0.1) }} />
+                            <Divider sx={{ mt: 1, borderColor: alpha(BRAND_NAVY, 0.1) }} />
                           </Box>
                         )
                       })}
@@ -364,7 +367,7 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                       <IconButton
                         size="small"
                         onClick={() => toggleExpand(row.id)}
-                        sx={{ mt: 1, color: DE_BLUE, '&:hover': { backgroundColor: alpha(DE_BLUE, 0.08) } }}
+                        sx={{ mt: 1, color: BRAND_NAVY, '&:hover': { backgroundColor: alpha(BRAND_NAVY, 0.08) } }}
                       >
                         {isExpanded ? <MdExpandLess /> : <MdExpandMore />}
                       </IconButton>
@@ -386,11 +389,11 @@ export default function DataTable<T extends { id: string | number }>(props: Data
               component={Paper}
               sx={{
                 background: '#FFFFFF',
-                border: `1px solid ${alpha(DE_BLUE, 0.14)}`,
+                border: `1px solid ${alpha(BRAND_NAVY, 0.14)}`,
                 minWidth: '100%',
                 maxHeight,
-                boxShadow: `0 2px 12px ${alpha(DE_BLUE, 0.06)}`,
-                borderRadius: 1,
+                boxShadow: `0 2px 12px ${alpha(BRAND_NAVY, 0.06)}`,
+                borderRadius: 2.6,
               }}
             >
               <Table stickyHeader size="small">
@@ -403,7 +406,7 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                           position: 'sticky',
                           top: 0,
                           backgroundColor: '#f8fbff',
-                          borderBottom: `1.5px solid ${alpha(DE_BLUE, 0.2)}`,
+                          borderBottom: `1.5px solid ${alpha(BRAND_NAVY, 0.2)}`,
                           zIndex: theme.zIndex.appBar + 1,
                         }}
                       >
@@ -421,15 +424,30 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                           key={col.id as string}
                           align={col.align ?? 'left'}
                           sx={{
-                            position: 'sticky',
+                            position: col.sticky ? 'sticky' : 'sticky',
                             top: 0,
-                            backgroundColor: '#f8fbff',
-                            color: DE_BLUE,
+                            backgroundColor: col.backgroundColor || '#f8fbff',
+                            color: BRAND_NAVY,
                             minWidth: col.minWidth || 100,
                             fontWeight: 800,
                             fontSize: '12px',
-                            zIndex: theme.zIndex.appBar + 1,
-                            borderBottom: `1.5px solid ${alpha(DE_BLUE, 0.2)}`,
+                            zIndex: col.sticky ? theme.zIndex.appBar + 3 : theme.zIndex.appBar + 1,
+                            borderBottom: `1.5px solid ${alpha(BRAND_NAVY, 0.2)}`,
+                            ...(col.sticky === 'right'
+                              ? {
+                                  right: col.stickyOffset ?? 0,
+                                  boxShadow:
+                                    col.stickyOffset === 0
+                                      ? `-6px 0 10px ${alpha(BRAND_NAVY, 0.08)}`
+                                      : undefined,
+                                }
+                              : {}),
+                            ...(col.sticky === 'left'
+                              ? {
+                                  left: col.stickyOffset ?? 0,
+                                  boxShadow: `6px 0 10px ${alpha(BRAND_NAVY, 0.08)}`,
+                                }
+                              : {}),
                           }}
                         >
                           {col.label}
@@ -448,7 +466,7 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                           position: 'sticky',
                           top: 0,
                           backgroundColor: '#f8fbff',
-                          borderBottom: `1.5px solid ${alpha(DE_BLUE, 0.2)}`,
+                          borderBottom: `1.5px solid ${alpha(BRAND_NAVY, 0.2)}`,
                           width: 40,
                           zIndex: theme.zIndex.appBar + 1,
                         }}
@@ -467,11 +485,11 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                           onClick={onRowClick ? () => onRowClick(row) : undefined}
                           sx={{
                             backgroundColor: '#FFFFFF',
-                            borderBottom: `1px solid ${alpha(DE_BLUE, 0.08)}`,
+                            borderBottom: `1px solid ${alpha(BRAND_NAVY, 0.08)}`,
                             transition: 'background-color .18s ease',
                             '&:hover': onRowClick
                               ? {
-                                  backgroundColor: alpha(DE_BLUE, 0.05),
+                                  backgroundColor: alpha(BRAND_NAVY, 0.05),
                                   cursor: 'pointer',
                                 }
                               : undefined,
@@ -483,7 +501,7 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                               <CustomCheckbox
                                 checked={selectedIds.includes(row.id)}
                                 onChange={() => handleSelect(row.id)}
-                                sx={{ color: DE_BLUE }}
+                                sx={{ color: BRAND_NAVY }}
                               />
                             </TableCell>
                           )}
@@ -506,6 +524,7 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                                 key={col.id as string}
                                 align={col.align ?? 'left'}
                                 sx={{
+                                  position: col.sticky ? 'sticky' : 'static',
                                   color: '#1f3559',
                                   fontSize: '13px',
                                   fontWeight: 500,
@@ -515,6 +534,23 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                                   maxWidth: shouldTruncate ? 220 : 'none',
                                   py: 1.45,
                                   px: 2,
+                                  backgroundColor: col.sticky ? '#FFFFFF' : undefined,
+                                  zIndex: col.sticky ? 2 : 1,
+                                  ...(col.sticky === 'right'
+                                    ? {
+                                        right: col.stickyOffset ?? 0,
+                                        boxShadow:
+                                          col.stickyOffset === 0
+                                            ? `-6px 0 10px ${alpha(BRAND_NAVY, 0.08)}`
+                                            : undefined,
+                                      }
+                                    : {}),
+                                  ...(col.sticky === 'left'
+                                    ? {
+                                        left: col.stickyOffset ?? 0,
+                                        boxShadow: `6px 0 10px ${alpha(BRAND_NAVY, 0.08)}`,
+                                      }
+                                    : {}),
                                 }}
                               >
                                 {tooltipTitle ? (
@@ -533,7 +569,7 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                               <IconButton
                                 size="small"
                                 onClick={() => toggleExpand(row.id)}
-                                sx={{ color: DE_BLUE, '&:hover': { backgroundColor: alpha(DE_BLUE, 0.1) } }}
+                                sx={{ color: BRAND_NAVY, '&:hover': { backgroundColor: alpha(BRAND_NAVY, 0.1) } }}
                               >
                                 {isExpanded ? <MdExpandLess /> : <MdExpandMore />}
                               </IconButton>
@@ -547,8 +583,8 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                               colSpan={columns.length + (selectable ? 2 : 1)}
                               sx={{
                                 p: 0,
-                                backgroundColor: alpha(DE_BLUE, 0.03),
-                                borderTop: `1px solid ${alpha(DE_BLUE, 0.12)}`,
+                                backgroundColor: alpha(BRAND_NAVY, 0.03),
+                                borderTop: `1px solid ${alpha(BRAND_NAVY, 0.12)}`,
                               }}
                             >
                               <Collapse in={isExpanded} timeout="auto" unmountOnExit>

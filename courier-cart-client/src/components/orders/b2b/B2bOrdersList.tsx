@@ -73,6 +73,9 @@ const B2BOrdersList = ({
     {
       label: 'Docs',
       id: 'id',
+      minWidth: 220,
+      sticky: 'right',
+      stickyOffset: 140,
       render: (_v, row) => (
         <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
           <StatusChip
@@ -109,6 +112,9 @@ const B2BOrdersList = ({
     {
       label: 'Actions',
       id: 'id',
+      minWidth: 140,
+      sticky: 'right',
+      stickyOffset: 0,
       render: (_, row) => {
         const courierText = (row.courier_partner || '').toLowerCase()
         const integrationText = ((row.integration_type as string) || '').toLowerCase()

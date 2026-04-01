@@ -1,20 +1,38 @@
 import {
   Badge,
   Button,
+  FormControl,
+  FormLabel,
   Flex,
   Icon,
+  Input,
   Menu,
   MenuButton,
   MenuItem,
   MenuList,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
   Portal,
+  Select,
+  Stack,
+  Textarea,
   Tooltip,
   useDisclosure,
   useToast,
 } from '@chakra-ui/react'
-import { useCancelOrderMutation, useRegenerateOrderDocumentsMutation } from 'hooks/useOrders'
+import {
+  useCancelOrderMutation,
+  useRegenerateOrderDocumentsMutation,
+  useUpdateOrderStatusMutation,
+} from 'hooks/useOrders'
 import { useMemo, useState } from 'react'
 import {
+  FiAlertTriangle,
   FiCopy,
   FiDownload,
   FiEye,
@@ -38,12 +56,43 @@ const OrdersTable = ({
   onRefresh,
 }) => {
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const statusModal = useDisclosure()
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [statusOrder, setStatusOrder] = useState(null)
+  const [statusForm, setStatusForm] = useState({
+    status: '',
+    reason: '',
+    remarks: '',
+    attemptNo: '1',
+  })
   const history = useHistory()
   const toast = useToast()
   const { mutateAsync: cancelOrderMutation, isPending: isCancelling } = useCancelOrderMutation()
   const { mutateAsync: regenerateDocuments, isPending: isRegenerating } =
     useRegenerateOrderDocumentsMutation()
+  const { mutateAsync: updateOrderStatus, isPending: isUpdatingStatus } =
+    useUpdateOrderStatusMutation()
+
+  const adminStatusOptions = useMemo(
+    () => [
+      { value: 'pending', label: 'Pending' },
+      { value: 'booked', label: 'Booked' },
+      { value: 'shipment_created', label: 'Shipment Created' },
+      { value: 'pickup_initiated', label: 'Pickup Initiated' },
+      { value: 'in_transit', label: 'In Transit' },
+      { value: 'out_for_delivery', label: 'Out for Delivery' },
+      { value: 'ndr', label: 'NDR' },
+      { value: 'undelivered', label: 'Undelivered' },
+      { value: 'delivered', label: 'Delivered' },
+      { value: 'cancellation_requested', label: 'Cancellation Requested' },
+      { value: 'cancelled', label: 'Cancelled' },
+      { value: 'rto', label: 'RTO' },
+      { value: 'rto_in_transit', label: 'RTO In Transit' },
+      { value: 'rto_delivered', label: 'RTO Delivered' },
+      { value: 'manifest_failed', label: 'Manifest Failed' },
+    ],
+    [],
+  )
 
   const cancellableStatuses = useMemo(
     () => new Set(['pending', 'shipment_created', 'in_transit', 'pickup_initiated', 'booked']),
@@ -79,6 +128,8 @@ const OrdersTable = ({
     'courier_partner',
     'order_date',
   ]
+  const actionsColumnWidth = '180px'
+  const docsColumnWidth = '240px'
 
   const getStatusColor = (status) => {
     const statusColors = {
@@ -86,6 +137,8 @@ const OrdersTable = ({
       shipment_created: 'blue',
       in_transit: 'purple',
       out_for_delivery: 'cyan',
+      ndr: 'orange',
+      undelivered: 'orange',
       delivered: 'green',
       cancelled: 'red',
       cancellation_requested: 'yellow',
@@ -112,15 +165,78 @@ const OrdersTable = ({
     }
   }
 
-  const handleDownloadLabel = (order) => {
-    if (order.label) {
-      window.open(order.label, '_blank')
-    }
-  }
-
   const handleTrackShipment = (order) => {
     if (!order?.awb_number) return
     history.push(`/admin/order-tracking?awb=${encodeURIComponent(order.awb_number)}`)
+  }
+
+  const openStatusModal = (order, nextStatus = '') => {
+    setStatusOrder(order)
+    setStatusForm({
+      status: nextStatus || order?.order_status || '',
+      reason: '',
+      remarks: '',
+      attemptNo: '1',
+    })
+    statusModal.onOpen()
+  }
+
+  const isNdrStatus = ['ndr', 'undelivered'].includes((statusForm.status || '').toLowerCase())
+
+  const handleSubmitStatusUpdate = async () => {
+    if (!statusOrder?.id) return
+
+    if (!statusForm.status) {
+      toast({
+        title: 'Status is required',
+        description: 'Select the new order status before saving.',
+        status: 'warning',
+        duration: 4000,
+        isClosable: true,
+      })
+      return
+    }
+
+    if (isNdrStatus && !statusForm.reason.trim()) {
+      toast({
+        title: 'Reason is required',
+        description: 'Enter a reason for NDR or undelivered status.',
+        status: 'warning',
+        duration: 4000,
+        isClosable: true,
+      })
+      return
+    }
+
+    try {
+      await updateOrderStatus({
+        orderId: statusOrder.id,
+        status: statusForm.status,
+        reason: statusForm.reason,
+        remarks: statusForm.remarks,
+        attemptNo: isNdrStatus ? statusForm.attemptNo : undefined,
+      })
+      toast({
+        title: 'Status updated',
+        description: `Order ${statusOrder.order_number || statusOrder.id} was updated to ${statusForm.status}.`,
+        status: 'success',
+        duration: 4000,
+        isClosable: true,
+      })
+      statusModal.onClose()
+      setStatusOrder(null)
+      if (onRefresh) onRefresh()
+    } catch (error) {
+      const message =
+        error?.response?.data?.message || error?.message || 'Failed to update order status.'
+      toast({
+        title: 'Unable to update status',
+        description: message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    }
   }
 
   const canCancelShipment = (order) => {
@@ -332,14 +448,17 @@ const OrdersTable = ({
           >
             Regenerate Label & Invoice
           </MenuItem>
-          {order.label && (
-            <MenuItem icon={<FiDownload />} onClick={() => handleDownloadLabel(order)}>
-              Download Label
-            </MenuItem>
-          )}
+          <MenuItem icon={<FiRefreshCw />} onClick={() => openStatusModal(order)}>
+            Change Status
+          </MenuItem>
           {order.awb_number && (
             <MenuItem icon={<FiTruck />} onClick={() => handleTrackShipment(order)}>
               Track Shipment
+            </MenuItem>
+          )}
+          {order.type === 'b2c' && (
+            <MenuItem icon={<FiAlertTriangle />} onClick={() => openStatusModal(order, 'ndr')}>
+              Add NDR
             </MenuItem>
           )}
           {canCancelShipment(order) && (
@@ -349,14 +468,6 @@ const OrdersTable = ({
               isDisabled={isCancelling}
             >
               Cancel Shipment
-            </MenuItem>
-          )}
-          {order.invoice_link && (
-            <MenuItem
-              icon={<FiDownload />}
-              onClick={() => window.open(order.invoice_link, '_blank')}
-            >
-              Download Invoice
             </MenuItem>
           )}
         </MenuList>
@@ -381,9 +492,11 @@ const OrdersTable = ({
         perPage={perPage}
         setPerPage={setPerPage}
         perPageOptions={[10, 20, 50, 100]}
+        actionsColumnWidth={actionsColumnWidth}
         columnWidths={{
           order_id: '140px',
           awb_number: '180px',
+          documents: docsColumnWidth,
           buyer_name: '200px',
           order_status: '150px',
           order_type: '100px',
@@ -391,11 +504,99 @@ const OrdersTable = ({
           courier_partner: '150px',
           order_date: '120px',
         }}
+        stickyRightColumnKeys={['documents']}
+        stickyRightOffsets={{ documents: actionsColumnWidth }}
       />
 
       {selectedOrder && (
         <OrderDetailsModal isOpen={isOpen} onClose={onClose} order={selectedOrder} />
       )}
+
+      <Modal isOpen={statusModal.isOpen} onClose={statusModal.onClose} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Change Order Status</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Stack spacing={4}>
+              <FormControl>
+                <FormLabel>Order</FormLabel>
+                <Input
+                  value={`${statusOrder?.order_number || '—'}${statusOrder?.awb_number ? ` • ${statusOrder.awb_number}` : ''}`}
+                  isReadOnly
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Current Status</FormLabel>
+                <Input
+                  value={statusOrder?.order_status ? statusOrder.order_status.replace(/_/g, ' ') : '—'}
+                  isReadOnly
+                />
+              </FormControl>
+              <FormControl isRequired>
+                <FormLabel>New Status</FormLabel>
+                <Select
+                  value={statusForm.status}
+                  onChange={(e) => setStatusForm((prev) => ({ ...prev, status: e.target.value }))}
+                >
+                  <option value="">Select status</option>
+                  {adminStatusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl isRequired={isNdrStatus}>
+                <FormLabel>Reason</FormLabel>
+                <Input
+                  value={statusForm.reason}
+                  onChange={(e) => setStatusForm((prev) => ({ ...prev, reason: e.target.value }))}
+                  placeholder={
+                    isNdrStatus
+                      ? 'Customer unavailable, address issue, etc.'
+                      : 'Optional reason for the status change'
+                  }
+                />
+              </FormControl>
+              {isNdrStatus && (
+                <FormControl>
+                  <FormLabel>Attempt No</FormLabel>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={statusForm.attemptNo}
+                    onChange={(e) =>
+                      setStatusForm((prev) => ({ ...prev, attemptNo: e.target.value }))
+                    }
+                  />
+                </FormControl>
+              )}
+              <FormControl>
+                <FormLabel>Remarks</FormLabel>
+                <Textarea
+                  value={statusForm.remarks}
+                  onChange={(e) => setStatusForm((prev) => ({ ...prev, remarks: e.target.value }))}
+                  placeholder="Optional internal note"
+                />
+              </FormControl>
+            </Stack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={statusModal.onClose}>
+              Cancel
+            </Button>
+            <Button
+              colorScheme={isNdrStatus ? 'orange' : 'blue'}
+              onClick={handleSubmitStatusUpdate}
+              isLoading={isUpdatingStatus}
+              isDisabled={!statusForm.status || (isNdrStatus && !statusForm.reason.trim())}
+            >
+              Save Status
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </>
   )
 }
