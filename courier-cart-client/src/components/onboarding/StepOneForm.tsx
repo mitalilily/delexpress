@@ -30,6 +30,12 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
   const { user: userData } = useAuth()
   const [loadingPincode, setLoadingPincode] = useState(false)
   const [location, setLocation] = useState<{ city: string; state: string }>({ city: '', state: '' })
+  const emailVerified = Boolean(
+    userData?.companyInfo?.contactEmail && userData?.companyInfo?.POCEmailVerified,
+  )
+  const phoneVerified = Boolean(
+    userData?.companyInfo?.contactNumber && userData?.companyInfo?.POCPhoneVerified,
+  )
 
   useEffect(() => {
     async function fetchLocation() {
@@ -158,75 +164,40 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
         />
       </Box>
 
-      {userData?.companyInfo?.contactEmail && userData?.companyInfo?.POCEmailVerified ? (
-        <Grid container spacing={{ xs: 1.5, md: 2 }}>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={fieldCardSx}>
-              <CustomInput
-                label="Email"
-                name="email"
-                type="email"
-                value={formData?.basicInfo.email}
-                onChange={(e) => onChange(e, 'basicInfo')}
-                disabled
-                required
-                error={!!errors.basicInfo.email}
-                helperText={errors.basicInfo.email}
-                prefix={<MdEmail color={PLUM} />}
-              />
-            </Box>
-          </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={fieldCardSx}>
-              <CustomInput
-                label="Phone"
-                name="phone"
-                type="tel"
-                value={formData?.basicInfo?.phone}
-                onChange={(e) => onChange(createSyntheticEvent('phone', e.target.value), 'basicInfo')}
-                required
-                error={!!errors.basicInfo.phone}
-                helperText={errors.basicInfo.phone}
-                prefix={<MdPhone color={PLUM} />}
-              />
-            </Box>
-          </Grid>
+      <Grid container spacing={{ xs: 1.5, md: 2 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Box sx={fieldCardSx}>
+            <CustomInput
+              label="Email"
+              name="email"
+              type="email"
+              value={formData?.basicInfo.email}
+              onChange={(e) => onChange(e, 'basicInfo')}
+              disabled={emailVerified}
+              required
+              error={!!errors.basicInfo.email}
+              helperText={errors.basicInfo.email}
+              prefix={<MdEmail color={PLUM} />}
+            />
+          </Box>
         </Grid>
-      ) : userData?.companyInfo?.contactNumber && userData?.companyInfo?.POCPhoneVerified ? (
-        <Grid container spacing={{ xs: 1.5, md: 2 }}>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={fieldCardSx}>
-              <CustomInput
-                label="Email"
-                name="email"
-                type="email"
-                value={formData?.basicInfo.email}
-                onChange={(e) => onChange(e, 'basicInfo')}
-                required
-                error={!!errors.basicInfo.email}
-                helperText={errors.basicInfo.email}
-                prefix={<MdEmail color={PLUM} />}
-              />
-            </Box>
-          </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={fieldCardSx}>
-              <CustomInput
-                label="Phone"
-                name="phone"
-                type="tel"
-                value={formData?.basicInfo?.phone}
-                onChange={(e) => onChange(e, 'basicInfo')}
-                disabled
-                required
-                error={!!errors.basicInfo.phone}
-                helperText={errors.basicInfo.phone}
-                prefix={<MdPhone color={PLUM} />}
-              />
-            </Box>
-          </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Box sx={fieldCardSx}>
+            <CustomInput
+              label="Phone"
+              name="phone"
+              type="tel"
+              value={formData?.basicInfo?.phone}
+              onChange={(e) => onChange(createSyntheticEvent('phone', e.target.value), 'basicInfo')}
+              disabled={phoneVerified}
+              required
+              error={!!errors.basicInfo.phone}
+              helperText={errors.basicInfo.phone}
+              prefix={<MdPhone color={PLUM} />}
+            />
+          </Box>
         </Grid>
-      ) : null}
+      </Grid>
 
       <Box sx={fieldCardSx}>
         <CustomInput

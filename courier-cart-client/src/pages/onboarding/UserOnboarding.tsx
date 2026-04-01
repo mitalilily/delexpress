@@ -128,8 +128,13 @@ export default function UserOnboarding() {
 
     if (hasValidationErrors(errors)) return
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response: any = await completeOnboarding({ step, data: formData })
+    let response: any
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      response = await completeOnboarding({ step, data: formData })
+    } catch {
+      return
+    }
 
     if (response?.user) {
       if (step < steps.length) {
@@ -421,24 +426,30 @@ export default function UserOnboarding() {
             )}
 
             <CustomIconLoadingButton
-              variant="contained"
               fullWidth
               loading={isPending}
               onClick={handleNext}
-              endIcon={step < steps.length ? <MdArrowForward /> : <FiCheckCircle />}
-              sx={{
+              text={step < steps.length ? 'Continue' : 'Complete Setup'}
+              loadingText={step < steps.length ? 'Saving...' : 'Finishing...'}
+              icon={step < steps.length ? <MdArrowForward /> : <FiCheckCircle />}
+              textColor="#FFF8F3"
+              styles={{
                 flex: 1,
                 bgcolor: PLUM,
                 borderRadius: 2,
                 fontWeight: 800,
                 fontSize: '1rem',
                 py: 1.25,
+                minHeight: 52,
                 boxShadow: `0 14px 30px ${alpha(PLUM, 0.24)}`,
                 '&:hover': { bgcolor: PLUM_DARK },
+                '& .MuiTypography-root': {
+                  fontWeight: 800,
+                  fontSize: '0.98rem',
+                  letterSpacing: '0.01em',
+                },
               }}
-            >
-              {step < steps.length ? 'Continue' : 'Complete Setup'}
-            </CustomIconLoadingButton>
+            />
           </Stack>
           </Box>
         </Box>
