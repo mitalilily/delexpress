@@ -519,6 +519,9 @@ const AllOrders = () => {
     {
       label: 'Status',
       id: 'order_status',
+      minWidth: 150,
+      sticky: 'right',
+      stickyOffset: 220,
       render: (v) => <StatusChip label={v} status={statusColorMap[v] || 'info'} />,
     },
   ]

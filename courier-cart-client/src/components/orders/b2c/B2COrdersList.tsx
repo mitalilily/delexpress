@@ -648,6 +648,9 @@ const B2COrdersList = () => {
     {
       label: 'Status',
       id: 'order_status',
+      minWidth: 150,
+      sticky: 'right',
+      stickyOffset: 360,
       render: (v) => <StatusChip label={v} status={statusColorMap[v] || 'info'} />,
     },
     { label: 'Created At', id: 'created_at', render: (v) => moment(v).format('DD MMM YYYY, hh:mm A') },
