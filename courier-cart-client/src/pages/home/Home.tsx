@@ -80,7 +80,7 @@ const Home = () => {
               <Box
                 component="img"
                 src="/logo/delexpress-logo.svg"
-                alt="DelExpress"
+                alt="Delexpress"
                 sx={{ width: { xs: 132, md: 152 }, height: 'auto', display: 'block' }}
               />
               <Typography
@@ -136,7 +136,7 @@ const Home = () => {
                     <TbBolt size={20} />
                   </Box>
                   <Typography sx={{ fontWeight: 800, fontSize: '12px', letterSpacing: 2, textTransform: 'uppercase', color: PLUM }}>
-                    DelExpress control layer
+                    Delexpress control layer
                   </Typography>
                 </Stack>
               </motion.div>
@@ -183,7 +183,7 @@ const Home = () => {
                       transition: 'all 0.2s'
                     }}
                   >
-                    Start Shipping
+                    Get Started
                   </Button>
                   <Button 
                     variant="outlined" 

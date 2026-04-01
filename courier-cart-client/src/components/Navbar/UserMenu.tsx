@@ -170,7 +170,7 @@ const UserMenu = () => {
             </Avatar>
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="subtitle1" fontWeight={800} noWrap color={TEXT_PRIMARY}>
-                {user?.companyInfo?.contactPerson || user?.name || 'DelExpress User'}
+                {user?.companyInfo?.contactPerson || user?.name || 'Delexpress User'}
               </Typography>
               <Typography variant="body2" color="text.secondary" noWrap sx={{ fontSize: '12px', fontWeight: 500 }}>
                 {user?.companyInfo?.contactEmail || user?.email}

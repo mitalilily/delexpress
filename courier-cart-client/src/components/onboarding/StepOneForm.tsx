@@ -21,8 +21,10 @@ interface StepOneProps {
   setErrors: React.Dispatch<React.SetStateAction<FormErrors>>
 }
 
-const DE_BLUE = '#8A1F43'
-const BRAND_ORANGE = '#56C0A5'
+const PLUM = '#8A1F43'
+const MINT = '#56C0A5'
+const TEXT_PRIMARY = '#161219'
+const TEXT_SECONDARY = '#6A616A'
 
 export default function StepOneForm({ formData, onChange, errors, setFormData, setErrors }: StepOneProps) {
   const { user: userData } = useAuth()
@@ -91,10 +93,10 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
   }, [location?.state, location?.city, setFormData])
 
   const fieldCardSx = {
-    p: { xs: 1.6, md: 2 },
-    borderRadius: 1,
-    border: `1px solid ${alpha(DE_BLUE, 0.12)}`,
-    backgroundColor: '#fff',
+    p: { xs: 1.15, md: 1.35 },
+    borderRadius: 2.5,
+    border: `1px solid ${alpha(PLUM, 0.1)}`,
+    background: `linear-gradient(180deg, ${alpha('#FFFFFF', 0.92)} 0%, ${alpha('#FFF8F3', 0.86)} 100%)`,
   }
 
   return (
@@ -102,11 +104,11 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
       <Box>
         <Typography
           variant="h5"
-          sx={{ fontWeight: 800, color: DE_BLUE, mb: 0.7, fontSize: { xs: '1.22rem', md: '1.5rem' } }}
+          sx={{ fontWeight: 800, color: TEXT_PRIMARY, mb: 0.7, fontSize: { xs: '1.32rem', md: '1.7rem' } }}
         >
           Contact & Company Details
         </Typography>
-        <Typography variant="body2" sx={{ color: '#6A616A', lineHeight: 1.55 }}>
+        <Typography variant="body2" sx={{ color: TEXT_SECONDARY, lineHeight: 1.7, maxWidth: 680 }}>
           Add primary contact information and your business location to start shipping setup.
         </Typography>
       </Box>
@@ -122,7 +124,7 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
               required
               error={!!errors.basicInfo.firstName}
               helperText={errors.basicInfo.firstName}
-              prefix={<FiUser color={DE_BLUE} />}
+              prefix={<FiUser color={PLUM} />}
             />
           </Box>
         </Grid>
@@ -137,7 +139,7 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
               required
               error={!!errors.basicInfo.lastName}
               helperText={errors.basicInfo.lastName}
-              prefix={<FiUser color={DE_BLUE} />}
+              prefix={<FiUser color={PLUM} />}
             />
           </Box>
         </Grid>
@@ -152,7 +154,7 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
           required
           error={!!errors.basicInfo.companyName}
           helperText={errors.basicInfo.companyName}
-          prefix={<MdBusiness color={DE_BLUE} />}
+          prefix={<MdBusiness color={PLUM} />}
         />
       </Box>
 
@@ -170,7 +172,7 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
                 required
                 error={!!errors.basicInfo.email}
                 helperText={errors.basicInfo.email}
-                prefix={<MdEmail color={DE_BLUE} />}
+                prefix={<MdEmail color={PLUM} />}
               />
             </Box>
           </Grid>
@@ -185,7 +187,7 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
                 required
                 error={!!errors.basicInfo.phone}
                 helperText={errors.basicInfo.phone}
-                prefix={<MdPhone color={DE_BLUE} />}
+                prefix={<MdPhone color={PLUM} />}
               />
             </Box>
           </Grid>
@@ -203,7 +205,7 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
                 required
                 error={!!errors.basicInfo.email}
                 helperText={errors.basicInfo.email}
-                prefix={<MdEmail color={DE_BLUE} />}
+                prefix={<MdEmail color={PLUM} />}
               />
             </Box>
           </Grid>
@@ -219,7 +221,7 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
                 required
                 error={!!errors.basicInfo.phone}
                 helperText={errors.basicInfo.phone}
-                prefix={<MdPhone color={DE_BLUE} />}
+                prefix={<MdPhone color={PLUM} />}
               />
             </Box>
           </Grid>
@@ -234,7 +236,7 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
           onChange={(e) => onChange(e, 'basicInfo')}
           error={!!errors.basicInfo.pincode}
           helperText={errors.basicInfo.pincode}
-          prefix={<MdLocationPin color={DE_BLUE} />}
+          prefix={<MdLocationPin color={PLUM} />}
         />
       </Box>
 
@@ -243,8 +245,8 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
           label="Validating pincode..."
           sx={{
             width: 'fit-content',
-            backgroundColor: alpha(DE_BLUE, 0.08),
-            color: DE_BLUE,
+            backgroundColor: alpha(PLUM, 0.08),
+            color: PLUM,
             fontWeight: 700,
           }}
         />
@@ -254,9 +256,9 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
         <Box
           sx={{
             p: 1.5,
-            borderRadius: 2,
-            backgroundColor: alpha(BRAND_ORANGE, 0.12),
-            border: `1px solid ${alpha(BRAND_ORANGE, 0.24)}`,
+            borderRadius: 2.5,
+            backgroundColor: alpha(MINT, 0.12),
+            border: `1px solid ${alpha(MINT, 0.24)}`,
           }}
         >
           <Typography variant="body2" sx={{ color: '#2F8E77', fontWeight: 700 }}>

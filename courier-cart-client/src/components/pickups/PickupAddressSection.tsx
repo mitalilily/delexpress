@@ -42,7 +42,7 @@ const GEOAPIFY_AUTOCOMPLETE_URL = 'https://api.geoapify.com/v1/geocode/autocompl
 const GEOAPIFY_REVERSE_URL = 'https://api.geoapify.com/v1/geocode/reverse'
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search'
 const NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse'
-const NOMINATIM_EMAIL = 'support@delexpress.in'
+const NOMINATIM_EMAIL = ''
 
 const mapGeoapifyFeatureToSuggestion = (feature: any): LocationSuggestion | null => {
   const props = feature?.properties

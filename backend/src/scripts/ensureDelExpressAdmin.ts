@@ -7,7 +7,7 @@ import { users } from '../models/schema/users'
 const ADMIN_EMAIL = 'admin@delexpress.in'
 const ADMIN_PASSWORD = 'Admin@12345!'
 
-async function ensureDelExpressAdmin() {
+async function ensureDelexpressAdmin() {
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10)
   const [existing] = await db.select().from(users).where(eq(users.email, ADMIN_EMAIL))
 
@@ -41,9 +41,9 @@ async function ensureDelExpressAdmin() {
   console.log(`Admin login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`)
 }
 
-ensureDelExpressAdmin()
+ensureDelexpressAdmin()
   .catch((error) => {
-    console.error('Failed to ensure DelExpress admin:', error)
+    console.error('Failed to ensure Delexpress admin:', error)
     process.exitCode = 1
   })
   .finally(async () => {

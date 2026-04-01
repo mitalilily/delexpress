@@ -13,7 +13,7 @@ const FullScreenLoader: React.FC<Props> = ({ night = false }) => {
     <Box className={`loader-overlay ${night ? 'night' : ''}`}>
       <Box className="loader-content">
         <div className="logo-container">
-          <img src={Logo} alt="DelExpress Logo" className="loader-logo" />
+          <img src={Logo} alt="Delexpress Logo" className="loader-logo" />
         </div>
         <div style={{ color: '#8A1F43', fontWeight: 900, letterSpacing: 2, fontSize: '0.8rem' }}>
           DELEXPRESS

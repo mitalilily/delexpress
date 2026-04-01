@@ -20,9 +20,10 @@ import { toast } from './UI/Toast'
 import CustomIconLoadingButton from './UI/button/CustomLoadingButton'
 import CustomDialog from './UI/modal/CustomModal'
 
-const DE_BLUE = '#0052CC'
-const DE_AMBER = '#FFAB00'
-const BRAND_GRADIENT = `linear-gradient(135deg, ${DE_BLUE} 0%, ${DE_AMBER} 100%)`
+const PLUM = '#8A1F43'
+const PLUM_DARK = '#5E1630'
+const MINT = '#56C0A5'
+const BRAND_GRADIENT = `linear-gradient(135deg, ${PLUM} 0%, #C86B5E 58%, ${MINT} 100%)`
 
 interface AddMoneyDialogProps {
   open: boolean
@@ -109,15 +110,15 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
             gap={1}
             alignItems={'center'}
             sx={{
-              bgcolor: alpha(DE_BLUE, 0.08),
+              bgcolor: alpha(PLUM, 0.08),
               px: 2,
               py: 1,
-              borderRadius: 1,
-              border: `1px solid ${alpha(DE_BLUE, 0.15)}`,
+              borderRadius: 2,
+              border: `1px solid ${alpha(PLUM, 0.15)}`,
             }}
           >
-            <BiWallet size={18} color={DE_BLUE} />
-            <Typography variant="body2" fontWeight={800} color={DE_BLUE}>
+            <BiWallet size={18} color={PLUM} />
+            <Typography variant="body2" fontWeight={800} color={PLUM}>
               ₹{currentBalance.toLocaleString('en-IN')}
             </Typography>
           </Box>
@@ -133,11 +134,11 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
           display={'flex'}
           justifyContent={'center'}
           sx={{
-            bgcolor: alpha(DE_BLUE, 0.04),
-            borderRadius: 1,
+            bgcolor: alpha(PLUM, 0.04),
+            borderRadius: 3,
             p: 3,
             mb: 3,
-            border: `1px solid ${alpha(DE_BLUE, 0.1)}`,
+            border: `1px solid ${alpha(PLUM, 0.1)}`,
           }}
         >
           <TextField
@@ -150,38 +151,38 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
               input: {
                 disableUnderline: true,
                 startAdornment: (
-                  <InputAdornment position="start" sx={{ fontSize: '2.5rem', color: DE_BLUE }}>
+                  <InputAdornment position="start" sx={{ fontSize: '2.5rem', color: PLUM }}>
                     ₹
                   </InputAdornment>
                 ),
                 sx: {
                   fontSize: '2.2rem',
                   fontWeight: 900,
-                  borderBottom: `2px solid ${alpha(DE_BLUE, 0.15)}`,
+                  borderBottom: `2px solid ${alpha(PLUM, 0.15)}`,
                   width: '100%',
                   maxWidth: 280,
-                  color: DE_BLUE,
+                  color: PLUM,
                   pb: 1,
                   mx: 'auto',
                   transition: 'all 0.3s ease',
                   '&:focus-within': {
-                    borderBottomColor: DE_BLUE,
+                    borderBottomColor: PLUM,
                   },
                 },
                 inputProps: {
-                  inputMode: 'numeric',
-                  pattern: '[0-9]*',
-                  style: {
-                    textAlign: 'center',
-                    color: DE_BLUE,
-                    MozAppearance: 'textfield',
+                    inputMode: 'numeric',
+                    pattern: '[0-9]*',
+                    style: {
+                      textAlign: 'center',
+                      color: PLUM,
+                      MozAppearance: 'textfield',
+                    },
                   },
-                },
               },
             }}
             sx={{
               '& .MuiInputBase-input::placeholder': {
-                color: alpha(DE_BLUE, 0.3),
+                color: alpha(PLUM, 0.3),
                 opacity: 0.7,
               },
               '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
@@ -196,7 +197,7 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
           <Typography
             variant="body2"
             fontWeight={700}
-            sx={{ color: '#42526E', mb: 1.5, textAlign: 'center', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 1 }}
+            sx={{ color: '#6A616A', mb: 1.5, textAlign: 'center', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 1 }}
           >
             Quick Select Amount
           </Typography>
@@ -207,27 +208,27 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
                 variant={amount === v ? 'contained' : 'outlined'}
                 onClick={() => setAmount(v)}
                 sx={{
-                  borderRadius: 1,
+                  borderRadius: 2,
                   minWidth: 85,
                   fontWeight: 800,
                   fontSize: '0.9rem',
                   px: 3,
                   py: 1.2,
-                  bgcolor: amount === v ? DE_BLUE : '#FFFFFF',
-                  color: amount === v ? '#FFFFFF' : DE_BLUE,
-                  border: amount === v ? 'none' : `1px solid ${alpha(DE_BLUE, 0.2)}`,
-                  background: amount === v ? DE_BLUE : '#FFFFFF',
-                  boxShadow: amount === v ? `0 8px 16px ${alpha(DE_BLUE, 0.25)}` : 'none',
+                  bgcolor: amount === v ? PLUM : '#FFFFFF',
+                  color: amount === v ? '#FFFFFF' : PLUM,
+                  border: amount === v ? 'none' : `1px solid ${alpha(PLUM, 0.16)}`,
+                  background: amount === v ? BRAND_GRADIENT : '#FFFFFF',
+                  boxShadow: amount === v ? `0 10px 22px ${alpha(PLUM, 0.2)}` : 'none',
                   transition: 'all 0.2s ease',
                   textTransform: 'none',
                   '&:hover': {
                     transform: 'translateY(-1px)',
                     boxShadow:
                       amount === v
-                        ? `0 10px 20px ${alpha(DE_BLUE, 0.35)}`
-                        : `0 4px 12px ${alpha(DE_BLUE, 0.15)}`,
-                    bgcolor: amount === v ? '#0043A4' : alpha(DE_BLUE, 0.06),
-                    borderColor: amount === v ? undefined : DE_BLUE,
+                        ? `0 12px 24px ${alpha(PLUM, 0.28)}`
+                        : `0 8px 18px ${alpha(PLUM, 0.08)}`,
+                    bgcolor: amount === v ? PLUM_DARK : alpha(PLUM, 0.05),
+                    borderColor: amount === v ? undefined : PLUM,
                   },
                 }}
               >
@@ -270,7 +271,7 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
           </Collapse>
         )} */}
 
-        <Divider sx={{ my: 3, borderColor: alpha(DE_BLUE, 0.1) }} />
+        <Divider sx={{ my: 3, borderColor: alpha(PLUM, 0.1) }} />
 
         {isKycBlocked && (
           <Alert
@@ -295,8 +296,8 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
         <Box
           sx={{
             bgcolor: alpha(DE_BLUE, 0.04),
-            border: `1px solid ${alpha(DE_BLUE, 0.1)}`,
-            borderRadius: 1,
+            border: `1px solid ${alpha(PLUM, 0.1)}`,
+            borderRadius: 3,
             p: 2.5,
             mb: 3,
           }}
@@ -337,12 +338,12 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
             fullWidth
             styles={{
               py: 1.6,
-              borderRadius: 1,
-              bgcolor: DE_BLUE,
+              borderRadius: 2,
+              bgcolor: PLUM,
               fontWeight: 800,
               fontSize: '1rem',
-              boxShadow: `0 8px 20px ${alpha(DE_BLUE, 0.3)}`,
-              '&:hover': { bgcolor: '#0043A4' },
+              boxShadow: `0 14px 28px ${alpha(PLUM, 0.22)}`,
+              '&:hover': { bgcolor: PLUM_DARK },
             }}
           />
           <Typography variant="caption" sx={{ color: '#6B778C', textAlign: 'center', display: 'block', mt: 2, fontWeight: 500 }}>

@@ -2,9 +2,10 @@ import { Dialog, DialogActions, DialogContent, DialogTitle, IconButton } from '@
 import React from 'react'
 import { FiX } from 'react-icons/fi'
 
-const DE_BLUE = '#0052CC'
-const DE_AMBER = '#FFAB00'
-const BRAND_GRADIENT = `linear-gradient(135deg, ${DE_BLUE} 0%, ${DE_AMBER} 100%)`
+const PLUM = '#8A1F43'
+const MINT = '#56C0A5'
+const TEXT_PRIMARY = '#161219'
+const BRAND_GRADIENT = `linear-gradient(135deg, ${PLUM} 0%, #C86B5E 58%, ${MINT} 100%)`
 
 interface CustomDialogProps {
   open: boolean
@@ -37,16 +38,16 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
       maxWidth={width ? false : maxWidth}
       PaperProps={{
         sx: {
-          borderRadius: 1,
+          borderRadius: { xs: 3, sm: 4 },
           p: 0,
           background: `
-            radial-gradient(460px 180px at 0% 0%, rgba(255, 171, 0, 0.09) 0%, transparent 70%),
-            radial-gradient(460px 180px at 100% 0%, rgba(0, 82, 204, 0.10) 0%, transparent 72%),
-            #ffffff
+            radial-gradient(420px 180px at 0% 0%, rgba(138, 31, 67, 0.10) 0%, transparent 72%),
+            radial-gradient(420px 180px at 100% 0%, rgba(86, 192, 165, 0.10) 0%, transparent 70%),
+            linear-gradient(180deg, #FFFCF8 0%, #FFF7F1 100%)
           `,
-          border: '1px solid rgba(0, 82, 204, 0.16)',
-          color: '#1A1A1A',
-          boxShadow: '0 26px 60px rgba(0, 82, 204, 0.18)',
+          border: '1px solid rgba(138, 31, 67, 0.14)',
+          color: TEXT_PRIMARY,
+          boxShadow: '0 28px 64px rgba(22, 18, 25, 0.18)',
           minWidth: { xs: 'unset', sm: 360 },
           mx: { xs: 1, sm: 0 },
           width: width ? width : 'auto',
@@ -71,8 +72,8 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
           px: { xs: 2, sm: 2.8 },
           fontWeight: 800,
           fontSize: { xs: '1.04rem', sm: '1.18rem' },
-          color: DE_BLUE,
-          borderBottom: '1px solid rgba(0, 82, 204, 0.12)',
+          color: PLUM,
+          borderBottom: '1px solid rgba(138, 31, 67, 0.08)',
         }}
       >
         {title}
@@ -82,12 +83,13 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
             position: 'absolute',
             right: { xs: 8, sm: 12 },
             top: { xs: 9, sm: 11 },
-            color: DE_BLUE,
-            bgcolor: 'rgba(0, 82, 204, 0.06)',
+            color: PLUM,
+            bgcolor: 'rgba(138, 31, 67, 0.07)',
             width: { xs: 32, sm: 36 },
             height: { xs: 32, sm: 36 },
+            border: '1px solid rgba(138, 31, 67, 0.08)',
             '&:hover': {
-              bgcolor: 'rgba(0, 82, 204, 0.14)',
+              bgcolor: 'rgba(138, 31, 67, 0.12)',
               transform: 'rotate(90deg)',
             },
             transition: 'all 0.3s ease',
@@ -97,11 +99,23 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
           <FiX size={20} />
         </IconButton>
       </DialogTitle>
-      <DialogContent sx={{ px: { xs: 2, sm: 2.8 }, py: { xs: 1.8, sm: 2.2 }, borderBottom: footer ? '1px solid rgba(0, 82, 204, 0.08)' : 'none' }}>
+      <DialogContent
+        sx={{
+          px: { xs: 2, sm: 2.8 },
+          py: { xs: 1.8, sm: 2.2 },
+          borderBottom: footer ? '1px solid rgba(138, 31, 67, 0.06)' : 'none',
+        }}
+      >
         {children}
       </DialogContent>
       {footer && (
-        <DialogActions sx={{ p: { xs: 1.6, sm: 2 }, borderTop: 'none', bgcolor: 'rgba(0, 82, 204, 0.01)' }}>
+        <DialogActions
+          sx={{
+            p: { xs: 1.6, sm: 2 },
+            borderTop: 'none',
+            bgcolor: 'rgba(138, 31, 67, 0.015)',
+          }}
+        >
           {footer}
         </DialogActions>
       )}

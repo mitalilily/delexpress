@@ -222,7 +222,7 @@ const SidebarContent = ({ logoText, routes, sidebarWidth }) => {
             border="1px solid"
             borderColor={brandCardBorder}
           >
-            <Box as="img" src="/delexpress-logo.svg" alt="DelExpress" h="34px" w="132px" objectFit="contain" />
+            <Box as="img" src="/delexpress-logo.svg" alt="Delexpress" h="34px" w="132px" objectFit="contain" />
             <Box textAlign="left">
               <Text fontWeight="800" fontSize="15px" color={brandText}>
                 {logoText}
@@ -236,7 +236,7 @@ const SidebarContent = ({ logoText, routes, sidebarWidth }) => {
           <Box
             as="img"
             src="/delexpress-logo.svg"
-            alt="DelExpress"
+            alt="Delexpress"
             h="32px"
             w="48px"
             mx="auto"

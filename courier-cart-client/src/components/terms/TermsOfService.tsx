@@ -1,4 +1,4 @@
-import { Container, Link, Typography } from '@mui/material'
+import { Container, Typography } from '@mui/material'
 
 const TermsOfService = () => {
   return (
@@ -14,18 +14,18 @@ const TermsOfService = () => {
           other information needed in order to complete the signup process.
         </li>
         <li>
-          You are responsible for keeping your password secure. DelExpress cannot and will not be
+          You are responsible for keeping your password secure. Delexpress cannot and will not be
           liable for any loss or damage from your failure to maintain the security of your account
           and password.
         </li>
         <li>
-          You may not use the DelExpress service for any illegal or unauthorized purpose nor may
+          You may not use the Delexpress platform for any illegal or unauthorized purpose nor may
           you violate any laws in your jurisdiction (including copyright laws) as well as the laws
           of India.
         </li>
         <li>
           You are responsible for all activity and content (data, graphics, photos, links) uploaded
-          under your DelExpress account.
+          under your Delexpress account.
         </li>
         <li>You must not transmit any worms or viruses or any code of a destructive nature.</li>
         <li>
@@ -41,7 +41,7 @@ const TermsOfService = () => {
       <ul>
         <li>
           You must read, agree with, and accept all terms and conditions contained in this User
-          Agreement and the Privacy Policy before becoming a member of DelExpress.
+          Agreement and the Privacy Policy before becoming a member of Delexpress.
         </li>
         <li>
           We reserve the right to modify or terminate the Service for any reason, without notice at
@@ -53,11 +53,11 @@ const TermsOfService = () => {
           “as available” basis without any warranty or condition.
         </li>
         <li>
-          DelExpress does not warrant that the service will be uninterrupted, timely, secure, or
+          Delexpress does not warrant that the service will be uninterrupted, timely, secure, or
           error-free.
         </li>
         <li>
-          DelExpress does not warrant that the results obtained from the use of the service will
+          Delexpress does not warrant that the results obtained from the use of the service will
           be accurate or reliable.
         </li>
         <li>
@@ -69,7 +69,7 @@ const TermsOfService = () => {
           Terms of Service.
         </li>
         <li>
-          DelExpress shall not be liable for any direct, indirect, incidental, special, or
+          Delexpress shall not be liable for any direct, indirect, incidental, special, or
           consequential damages.
         </li>
         <li>
@@ -85,17 +85,14 @@ const TermsOfService = () => {
           We do not claim intellectual property rights over your material uploaded to the Service.
         </li>
         <li>
-          By uploading content, you agree to allow other users to view and DelExpress to store and
+          By uploading content, you agree to allow other users to view and Delexpress to store and
           review it.
         </li>
         <li>Failure to exercise any right does not constitute a waiver of that right.</li>
-        <li>The Terms of Service constitute the entire agreement between you and DelExpress.</li>
-        <li>You shall not purchase keywords or domains infringing on DelExpress trademarks.</li>
-        <li>DelExpress may refuse or remove any content at its discretion.</li>
-        <li>
-          Questions about Terms of Service should be sent to{' '}
-          <Link href="mailto:SUPPORT@DELEXPRESS.IN">SUPPORT@DELEXPRESS.IN</Link>
-        </li>
+        <li>The Terms of Service constitute the entire agreement between you and Delexpress.</li>
+        <li>You shall not purchase keywords or domains infringing on Delexpress trademarks.</li>
+        <li>Delexpress may refuse or remove any content at its discretion.</li>
+        <li>Questions about Terms of Service should be shared with our support team at 8200661530.</li>
       </ul>
 
       {/* Payment of Fees */}
@@ -112,7 +109,7 @@ const TermsOfService = () => {
           the online store.
         </li>
         <li>All fees are exclusive of applicable taxes, fees, or charges.</li>
-        <li>DelExpress does not provide refunds.</li>
+        <li>Delexpress does not provide refunds.</li>
       </ul>
 
       {/* Cancellation and Termination */}
@@ -134,9 +131,9 @@ const TermsOfService = () => {
       </Typography>
       <ul>
         <li>Prices may change with 14 days’ notice via posting on the site or announcement.</li>
-        <li>DelExpress reserves the right to modify or discontinue the Service at any time.</li>
+        <li>Delexpress reserves the right to modify or discontinue the Service at any time.</li>
         <li>
-          DelExpress shall not be liable for any modification, price change, suspension, or
+          Delexpress shall not be liable for any modification, price change, suspension, or
           discontinuance.
         </li>
       </ul>
@@ -151,7 +148,7 @@ const TermsOfService = () => {
           restricted items.
         </li>
         <li>
-          DelExpress does not permit hosting of the following:
+          Delexpress does not permit hosting of the following:
           <ul>
             <li>
               “Securities” including shares, bonds, debentures, or other financial instruments.

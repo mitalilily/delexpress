@@ -16,15 +16,38 @@ export const heroContent = {
     "Compare courier partners, automate shipping, and track every order from a single dashboard. Built for growing ecommerce sellers who want faster deliveries and lower shipping costs.",
   primaryCta: "Start Shipping",
   secondaryCta: "Calculate Shipping Cost",
-  trustLine: "Trusted by growing ecommerce brands and independent sellers across India.",
+  trustLine: "Built for growing ecommerce brands and independent sellers across India.",
 };
+
+export const heroStats = [
+  { value: "6+", label: "Courier partners" },
+  { value: "15%", label: "Average shipping savings" },
+  { value: "<10 min", label: "To book your first shipment" },
+];
+
+export const heroSpotlightCards = [
+  {
+    eyebrow: "Sample route",
+    title: "Delhi to Mumbai",
+    value: "Rs 78",
+    detail: "Express lane, estimated in 2-3 days",
+    tone: "warm",
+  },
+  {
+    eyebrow: "Platform view",
+    title: "Shipment overview",
+    value: "6+",
+    detail: "Courier options available in one dashboard",
+    tone: "cool",
+  },
+];
 
 export const heroQuickTools = [
   {
     icon: "calculator",
     title: "Shipping Cost Calculator",
     description: "Estimate shipping spend before you create a shipment.",
-    metric: "Live quote",
+    metric: "Quote preview",
   },
   {
     icon: "comparison",
@@ -36,13 +59,13 @@ export const heroQuickTools = [
     icon: "pincode",
     title: "Pincode Serviceability Check",
     description: "Check whether a delivery lane is covered before dispatch.",
-    metric: "Instant check",
+    metric: "Route check",
   },
 ];
 
 export const heroHighlights = [
   { value: "6+", label: "Courier partners", visualTitle: "Courier Rate Comparison" },
-  { value: "24/7", label: "Tracking visibility", visualTitle: "Real-Time Shipment Tracking" },
+  { value: "1", label: "Tracking dashboard", visualTitle: "Shipment Tracking" },
   { value: "1", label: "Unified dashboard", visualTitle: "Shipment Overview" },
 ];
 
@@ -105,14 +128,14 @@ export const featureList = [
   {
     title: "Courier Rate Comparison",
     description:
-      "Instantly compare shipping prices from multiple courier partners and choose the most cost-effective option.",
+      "Compare shipping prices from multiple courier partners and choose the most cost-effective option.",
   },
   {
     title: "Automated Shipping Labels",
     description: "Generate shipping labels and schedule pickups in seconds without manual work.",
   },
   {
-    title: "Real-Time Shipment Tracking",
+    title: "Shipment Tracking",
     description:
       "Track every shipment from one dashboard and keep customers informed about delivery progress.",
   },
@@ -149,7 +172,7 @@ export const workflowSteps = [
   {
     step: "Step 3",
     title: "Generate Shipping Label",
-    description: "Select the courier that works best and create your shipping label instantly.",
+    description: "Select the courier that works best and create your shipping label without extra steps.",
   },
   {
     step: "Step 4",
@@ -165,7 +188,7 @@ export const quickToolCards = [
     title: "Shipping Cost Calculator",
     description:
       "Estimate rates using package weight, pickup pincode, and delivery pincode before you book.",
-    stat: "Instant estimate",
+    stat: "Estimate preview",
   },
   {
     icon: "comparison",
@@ -183,6 +206,48 @@ export const quickToolCards = [
   },
 ];
 
+export const calculatorPresets = [
+  {
+    label: "Light parcel",
+    values: {
+      packageWeight: "0.5",
+      pickupPincode: "110001",
+      deliveryPincode: "400001",
+      orderAmount: "999",
+      paymentType: "prepaid",
+      length: "10",
+      breadth: "10",
+      height: "10",
+    },
+  },
+  {
+    label: "Regional shipment",
+    values: {
+      packageWeight: "1.2",
+      pickupPincode: "560001",
+      deliveryPincode: "600001",
+      orderAmount: "1499",
+      paymentType: "prepaid",
+      length: "18",
+      breadth: "14",
+      height: "10",
+    },
+  },
+  {
+    label: "Heavy COD order",
+    values: {
+      packageWeight: "2.5",
+      pickupPincode: "122001",
+      deliveryPincode: "700001",
+      orderAmount: "2499",
+      paymentType: "cod",
+      length: "24",
+      breadth: "20",
+      height: "14",
+    },
+  },
+];
+
 export const dashboardCapabilities = [
   {
     title: "Shipment Overview",
@@ -191,7 +256,7 @@ export const dashboardCapabilities = [
   {
     title: "Courier Performance Analytics",
     description:
-      "Compare delivery success rates and average delivery times across courier partners.",
+      "Compare courier performance and average delivery timelines across partners.",
   },
   {
     title: "Cost Tracking",
@@ -236,7 +301,7 @@ export const trackingStages = [
   },
   {
     title: "Delivered",
-    description: "Delivery is complete and the latest shipment status is updated instantly.",
+    description: "Delivery is complete and the shipment status is marked as delivered.",
   },
 ];
 
@@ -305,14 +370,14 @@ export const footerGroups = [
   },
   {
     title: "Contact",
-    links: ["Email Support: support@delexpress.in", "Business Inquiries: sales@delexpress.in"],
+    links: ["Phone: +91 8200661530", "Address: 311 Square One Commercial, Althan, Surat"],
   },
 ];
 
 export const footerMeta = {
-  address: "DelExpress Logistics Private Limited, 4th Floor, Sector 62, Noida, Uttar Pradesh 201309",
-  supportHours: "Mon-Sat, 9:00 AM to 7:00 PM",
-  contactNumber: "+91 98765 43210",
+  address: "Delexpress, 311 Square One Commercial, Althan, Surat",
+  supportHours: "",
+  contactNumber: "+91 8200661530",
 };
 
 export const mediaAssets = {

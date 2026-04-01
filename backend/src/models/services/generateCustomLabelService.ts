@@ -110,7 +110,7 @@ const DEFAULT_LABEL_SETTINGS = {
     deadWeight: false,
     otherCharges: true,
   },
-  powered_by: 'DelExpress',
+  powered_by: 'Delexpress',
 }
 
 function mergeSettings(prefs: any) {
@@ -169,7 +169,7 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
   }
 
   const adminPrefs = await getAdminInvoicePreferences()
-  // Always show DelExpress platform logo (Powered by ...)
+  // Always show Delexpress platform logo (Powered by ...)
   let platformLogoBase64: string | null = null
   try {
     const platformLogoKey = adminPrefs?.logoFile ?? 'logo-white.png'

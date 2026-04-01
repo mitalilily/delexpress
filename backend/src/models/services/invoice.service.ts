@@ -225,7 +225,7 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
 
   const adminPrefs = await getAdminInvoicePreferences()
 
-  // Platform (DelExpress) logo – try to load but don't fail if it doesn't work
+  // Platform (Delexpress) logo – try to load but don't fail if it doesn't work
   let platformLogoDataUrl: string | undefined
   try {
     const logoKey = adminPrefs?.logoFile ?? 'logo-white.png'
@@ -892,7 +892,7 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
   // Thermal Layout
   // -------------------
   const contentThermal: any[] = [
-    { text: invoice.companyName ?? 'DelExpress', alignment: 'center', bold: true },
+    { text: invoice.companyName ?? 'Delexpress', alignment: 'center', bold: true },
     { text: 'TAX INVOICE', alignment: 'center', bold: true, margin: [0, 2, 0, 2] },
     {
       text: 'ORIGINAL FOR RECIPIENT',
@@ -996,7 +996,7 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
       ? { image: 'platformLogo', width: 40, alignment: 'center', margin: [0, 4, 0, 0] }
       : null,
     {
-      text: 'Powered by DelExpress',
+      text: 'Powered by Delexpress',
       alignment: 'center',
       italics: true,
       margin: [0, 4, 0, 0],

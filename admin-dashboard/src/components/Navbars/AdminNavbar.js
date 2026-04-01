@@ -92,7 +92,7 @@ export default function AdminNavbar(props) {
           <Box
             as="img"
             src="/delexpress-logo.svg"
-            alt="DelExpress"
+            alt="Delexpress"
             h="34px"
             w="134px"
             objectFit="contain"
@@ -106,7 +106,7 @@ export default function AdminNavbar(props) {
             <Breadcrumb separator="/" spacing="8px" mb="3px">
               <BreadcrumbItem>
                 <BreadcrumbLink href="#" color={secondaryText} fontSize="xs" fontWeight="600" _hover={{ color: 'secondary.500', textDecoration: 'none' }}>
-                  DelExpress
+                  Delexpress
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbItem>

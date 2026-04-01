@@ -21,8 +21,6 @@ import path from 'path'
 // Load correct .env based on NODE_ENV
 const env = process.env.NODE_ENV || 'development'
 dotenv.config({ path: path.resolve(__dirname, `../../.env.${env}`) })
-const exposeAuthCodes = process.env.EXPOSE_AUTH_CODES !== 'false'
-
 // Define User and NewUser types for convenience
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
@@ -463,17 +461,14 @@ export const handleEmailVerificationRequest = async (
       await updateUserVerificationToken(normalizedEmail, token, expiresAt, tx)
       shouldSendEmail = true
 
-      if (shouldSendEmail && !exposeAuthCodes) {
+      if (shouldSendEmail) {
         sendVerificationEmail(normalizedEmail, token).catch(console.error)
       }
 
       return {
         status: 200,
         data: {
-          message: exposeAuthCodes
-            ? 'Verification code generated'
-            : 'Verification email sent',
-          ...(exposeAuthCodes ? { verificationToken: token } : {}),
+          message: 'Verification email sent',
         },
       }
     }
@@ -509,15 +504,14 @@ export const handleEmailVerificationRequest = async (
 
     shouldSendEmail = true
 
-    if (shouldSendEmail && !exposeAuthCodes) {
+    if (shouldSendEmail) {
       sendVerificationEmail(normalizedEmail, token).catch(console.error)
     }
 
     return {
       status: 201,
       data: {
-        message: exposeAuthCodes ? 'Verification code generated' : 'Verification email sent',
-        ...(exposeAuthCodes ? { verificationToken: token } : {}),
+        message: 'Verification email sent',
       },
     }
   })
@@ -590,7 +584,7 @@ export async function createUserWithWallet(data: Partial<IUser>, txn: any = db) 
       printer_type: 'thermal',
       char_limit: 25,
       max_items: 3,
-      powered_by: 'DelExpress',
+      powered_by: 'Delexpress',
       order_info: {
         orderId: true,
         invoiceNumber: true,

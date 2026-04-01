@@ -97,7 +97,7 @@ function SidebarResponsive(props) {
   const brand = (
     <Box pt="24px" mb="10px">
       <Flex align="center" justify="center" gap="10px" mb="16px" fontWeight="bold">
-        <Box as="img" src="/delexpress-logo.svg" alt="DelExpress" h="32px" w="126px" objectFit="contain" />
+        <Box as="img" src="/delexpress-logo.svg" alt="Delexpress" h="32px" w="126px" objectFit="contain" />
         <Text fontSize="sm" color={textColor} fontWeight="700">
           {logoText}
         </Text>

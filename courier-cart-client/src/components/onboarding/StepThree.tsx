@@ -17,8 +17,10 @@ interface IStepThree {
   setErrors: React.Dispatch<React.SetStateAction<FormErrors>>
 }
 
-const DE_BLUE = '#0052CC'
-const DE_AMBER = '#FFAB00'
+const PLUM = '#8A1F43'
+const MINT = '#56C0A5'
+const TEXT_PRIMARY = '#161219'
+const TEXT_SECONDARY = '#6A616A'
 
 export default function StepThree({ formData, errors, onChange, setErrors }: IStepThree) {
   return (
@@ -28,14 +30,14 @@ export default function StepThree({ formData, errors, onChange, setErrors }: ISt
           variant="h5"
           sx={{
             fontWeight: 800,
-            color: DE_BLUE,
+            color: TEXT_PRIMARY,
             mb: 0.8,
-            fontSize: { xs: '1.2rem', sm: '1.45rem', md: '1.65rem' },
+            fontSize: { xs: '1.3rem', sm: '1.5rem', md: '1.7rem' },
           }}
         >
           Integrations & Storefront
         </Typography>
-        <Typography variant="body2" sx={{ color: '#5f7498', fontSize: { xs: '0.82rem', sm: '0.9rem' } }}>
+        <Typography variant="body2" sx={{ color: TEXT_SECONDARY, fontSize: { xs: '0.86rem', sm: '0.96rem' }, lineHeight: 1.7, maxWidth: 680 }}>
           Add your website now. Direct platform integrations can be enabled later from settings.
         </Typography>
       </Box>
@@ -43,21 +45,21 @@ export default function StepThree({ formData, errors, onChange, setErrors }: ISt
       <Box
         sx={{
           p: { xs: 2, md: 2.6 },
-          borderRadius: 1,
-          border: `1px solid ${alpha(DE_AMBER, 0.25)}`,
-          background: `linear-gradient(180deg, ${alpha(DE_AMBER, 0.12)} 0%, ${alpha(
-            DE_AMBER,
+          borderRadius: 3,
+          border: `1px solid ${alpha(MINT, 0.25)}`,
+          background: `linear-gradient(180deg, ${alpha(MINT, 0.14)} 0%, ${alpha(
+            MINT,
             0.04,
           )} 100%)`,
         }}
       >
         <Stack direction="row" spacing={1} alignItems="center" mb={1.1}>
-          <FiTool size={16} color={DE_AMBER} />
-          <Typography sx={{ fontWeight: 700, color: '#9b4d00', fontSize: '0.95rem' }}>
+          <FiTool size={16} color="#2F8E77" />
+          <Typography sx={{ fontWeight: 700, color: '#2F8E77', fontSize: '0.95rem' }}>
             Shopify and channel integrations are currently unavailable
           </Typography>
         </Stack>
-        <Typography variant="body2" sx={{ color: '#7e5a34', lineHeight: 1.6 }}>
+        <Typography variant="body2" sx={{ color: '#3E6A60', lineHeight: 1.7 }}>
           You can finish onboarding now. Once integrations are enabled, connect Shopify,
           WooCommerce, Amazon, or other channels from the Integrations page.
         </Typography>
@@ -67,13 +69,13 @@ export default function StepThree({ formData, errors, onChange, setErrors }: ISt
             icon={<FiClock size={13} />}
             label="Available soon"
             size="small"
-            sx={{ backgroundColor: '#fff', border: `1px solid ${alpha('#9b4d00', 0.2)}`, color: '#9b4d00' }}
+            sx={{ backgroundColor: '#fff', border: `1px solid ${alpha('#2F8E77', 0.2)}`, color: '#2F8E77' }}
           />
           <Chip
             icon={<FiLink size={13} />}
             label="Connect later from Settings"
             size="small"
-            sx={{ backgroundColor: '#fff', border: `1px solid ${alpha('#9b4d00', 0.2)}`, color: '#9b4d00' }}
+            sx={{ backgroundColor: '#fff', border: `1px solid ${alpha('#2F8E77', 0.2)}`, color: '#2F8E77' }}
           />
         </Stack>
       </Box>
@@ -81,9 +83,9 @@ export default function StepThree({ formData, errors, onChange, setErrors }: ISt
       <Box
         sx={{
           p: { xs: 2, md: 2.6 },
-          borderRadius: 1,
-          border: `1px solid ${alpha(DE_BLUE, 0.14)}`,
-          backgroundColor: alpha(DE_BLUE, 0.02),
+          borderRadius: 3,
+          border: `1px solid ${alpha(PLUM, 0.12)}`,
+          background: `linear-gradient(180deg, ${alpha('#FFFFFF', 0.94)} 0%, ${alpha('#FFF8F3', 0.88)} 100%)`,
         }}
       >
         <CustomInput
@@ -109,7 +111,7 @@ export default function StepThree({ formData, errors, onChange, setErrors }: ISt
           error={!!errors.businessLegal?.websiteUrl}
           helperText={errors.businessLegal?.websiteUrl}
           fullWidth
-          prefix={<FiLink color={DE_BLUE} />}
+          prefix={<FiLink color={PLUM} />}
         />
       </Box>
     </Stack>

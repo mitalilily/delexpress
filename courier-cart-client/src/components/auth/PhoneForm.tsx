@@ -68,7 +68,6 @@ export default function PhoneForm() {
   const [step, setStep] = useState<number>(0)
   const [preferredLoginMethod, setPreferredLoginMethod] = useState<'phone' | 'password'>('phone')
   const [email, setEmail] = useState('')
-  const [generatedOtp, setGeneratedOtp] = useState('')
   const [termsChecked, setTermsChecked] = useState(false)
   const [openTerms, setOpenTerms] = useState(false)
 
@@ -77,7 +76,6 @@ export default function PhoneForm() {
   const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.trim()
     setEmail(value)
-    setGeneratedOtp('')
   }, [])
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -100,17 +98,7 @@ export default function PhoneForm() {
       sessionStorage.setItem('preferredMethod', 'phone')
 
       sendOtpRequest(email.toLowerCase().trim(), {
-        onSuccess: (data) => {
-          if (typeof data?.otp === 'string') {
-            setGeneratedOtp(data.otp)
-            toast.open({
-              message: 'Verification code generated and shown below.',
-              severity: 'info',
-              position: { vertical: 'top', horizontal: 'center' },
-            })
-          } else {
-            setGeneratedOtp('')
-          }
+        onSuccess: () => {
           setStep(1)
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -191,9 +179,7 @@ export default function PhoneForm() {
     ) : (
       <OtpForm
         email={email}
-        inlineOtp={generatedOtp}
         onEditEmail={() => {
-          setGeneratedOtp('')
           setStep(0)
         }}
       />
@@ -206,8 +192,8 @@ export default function PhoneForm() {
           Secure Authentication
         </Typography>
         <Typography variant="body2" sx={{ color: '#6A616A', lineHeight: 1.6, fontWeight: 500 }}>
-          Access your logistics dashboard using your registered work email. Demo verification
-          codes appear directly on the screen when generated.
+          Access your logistics dashboard using your registered work email. We will send a
+          verification code to your email when needed.
         </Typography>
 
         <Chip

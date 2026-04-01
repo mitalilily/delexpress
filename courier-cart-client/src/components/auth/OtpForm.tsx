@@ -53,15 +53,13 @@ const ghostButtonStyles = {
 
 type Props = {
   email: string
-  inlineOtp?: string
   onEditEmail: () => void
 }
 
-export default function OtpForm({ email, inlineOtp = '', onEditEmail }: Props) {
+export default function OtpForm({ email, onEditEmail }: Props) {
   const { setTokens, setUserId } = useAuth()
   const navigate = useNavigate()
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''))
-  const [visibleOtp, setVisibleOtp] = useState(inlineOtp)
   const [error, setError] = useState<string>('')
   const [resendEnabled, setResendEnabled] = useState(false)
   const [secondsLeft, setSecondsLeft] = useState(OTP_RESEND_DELAY_MS / 1000)
@@ -71,10 +69,6 @@ export default function OtpForm({ email, inlineOtp = '', onEditEmail }: Props) {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    setVisibleOtp(inlineOtp)
-  }, [inlineOtp])
 
   useEffect(() => {
     setResendEnabled(false)
@@ -175,17 +169,11 @@ export default function OtpForm({ email, inlineOtp = '', onEditEmail }: Props) {
     if (!resendEnabled || resending) return
 
     resendOtp(email.toLowerCase().trim(), {
-      onSuccess: (data) => {
+      onSuccess: () => {
         setOtpDigits(Array(OTP_LENGTH).fill(''))
         setError('')
         setResendEnabled(false)
         setSecondsLeft(OTP_RESEND_DELAY_MS / 1000)
-
-        if (typeof data?.otp === 'string') {
-          setVisibleOtp(data.otp)
-        } else {
-          setVisibleOtp('')
-        }
 
         if (timerRef.current) clearTimeout(timerRef.current)
         if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
@@ -207,7 +195,7 @@ export default function OtpForm({ email, inlineOtp = '', onEditEmail }: Props) {
         }, OTP_RESEND_DELAY_MS)
 
         toast.open({
-          message: 'New verification code generated and shown below.',
+          message: 'A new verification code has been sent to your email.',
           severity: 'success',
         })
       },
@@ -230,32 +218,13 @@ export default function OtpForm({ email, inlineOtp = '', onEditEmail }: Props) {
         }}
       >
         <Typography variant="body2" sx={{ color: '#6A616A', lineHeight: 1.6, fontWeight: 500 }}>
-          We generated a 6-digit code for <strong>{email}</strong>.
+          Enter the 6-digit code sent to <strong>{email}</strong>.
           <Box component="span" sx={{ ml: 0.7, display: 'inline-flex', alignItems: 'center', cursor: 'pointer', color: DE_BLUE }} onClick={onEditEmail}>
             <FiEdit2 size={13} style={{ marginRight: 4 }} />
             Edit
           </Box>
         </Typography>
       </Box>
-
-      {visibleOtp && (
-        <Box
-          sx={{
-            p: 1.5,
-            borderRadius: 1,
-            backgroundColor: alpha('#56C0A5', 0.08),
-            border: `1px solid ${alpha('#56C0A5', 0.28)}`,
-            textAlign: 'center',
-          }}
-        >
-          <Typography variant="caption" sx={{ display: 'block', color: '#2D6A5A', fontWeight: 800, letterSpacing: 1.4 }}>
-            DEMO VERIFICATION CODE
-          </Typography>
-          <Typography sx={{ mt: 0.45, color: DE_BLUE, fontSize: '1.55rem', fontWeight: 900, letterSpacing: '0.32em' }}>
-            {visibleOtp}
-          </Typography>
-        </Box>
-      )}
 
       <Stack direction="row" spacing={1.5} justifyContent="center" sx={{ my: 1 }}>
         {otpDigits.map((digit, idx) => (

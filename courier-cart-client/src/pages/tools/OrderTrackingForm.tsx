@@ -202,7 +202,7 @@ export default function OrderTrackingForm() {
                   <CustomInput
                     {...field}
                     id="contact"
-                    placeholder="you@example.com or +91 98765 43210"
+                    placeholder="your contact number"
                     prefix={isEmail ? <FaEnvelopeOpenText /> : <FaPhoneAlt />}
                     error={!isContactValid}
                     label="Email or Phone"

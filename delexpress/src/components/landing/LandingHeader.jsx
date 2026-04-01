@@ -11,19 +11,20 @@ export default function LandingHeader({
   return (
     <Box
       component="header"
-      className="sticky top-0 z-40 border-b border-[#d8cbc4]/70 bg-[#f7efe6]/90 backdrop-blur-xl"
+      className="sticky top-0 z-40 px-3 pt-3 sm:px-4"
     >
-      <Container maxWidth="xl" className="py-4">
+      <Container maxWidth="xl" className="header-shell py-4">
         <div className="flex items-center justify-between gap-4">
           <a href="#top" className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#181318] text-white shadow-[0_12px_24px_rgba(24,19,24,0.14)]">
-              <span className="font-['Plus_Jakarta_Sans'] text-lg font-extrabold tracking-[-0.08em]">
-                DE
-              </span>
-            </div>
+            <Box
+              component="img"
+              src="/delexpress-logo.svg"
+              alt="Delexpress"
+              sx={{ width: { xs: 126, sm: 156 }, height: "auto", display: "block" }}
+            />
             <div>
               <Typography variant="h6" className="brand-heading text-xl">
-                DelExpress
+                Delexpress
               </Typography>
               <Typography className="text-sm" sx={{ color: "#6d6067" }}>
                 Shipping operations for modern ecommerce teams
@@ -36,7 +37,7 @@ export default function LandingHeader({
               <a
                 key={item.href}
                 href={item.href}
-                className="text-sm font-medium text-[#4c4148] transition-colors hover:text-[#9b3150]"
+                className="header-link text-sm font-medium text-[#4c4148] transition-colors hover:text-[#9b3150]"
               >
                 {item.label}
               </a>
@@ -49,7 +50,8 @@ export default function LandingHeader({
               href="#calculator"
               variant="outlined"
               sx={{
-                borderColor: "rgba(155, 49, 80, 0.28)",
+                borderColor: "rgba(155, 49, 80, 0.24)",
+                backgroundColor: "rgba(255,255,255,0.7)",
                 color: "#181318",
                 borderRadius: "999px",
                 px: 2.4,
@@ -65,17 +67,18 @@ export default function LandingHeader({
                 borderRadius: "999px",
                 px: 2.6,
                 backgroundColor: "#181318",
+                boxShadow: "0 12px 24px rgba(24,19,24,0.16)",
                 "&:hover": { backgroundColor: "#30262e" },
               }}
             >
-              Start Shipping
+              Get Started
             </Button>
           </div>
 
           <IconButton
-            className="lg:hidden"
             onClick={onToggleMenu}
             sx={{
+              display: { xs: "inline-flex", lg: "none" },
               border: "1px solid rgba(155, 49, 80, 0.18)",
               backgroundColor: "rgba(255,255,255,0.7)",
             }}
@@ -108,7 +111,7 @@ export default function LandingHeader({
                   "&:hover": { backgroundColor: "#30262e" },
                 }}
               >
-                Start Shipping
+                Get Started
               </Button>
             </div>
           </div>

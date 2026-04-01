@@ -28,7 +28,7 @@ export default function Footer() {
           fontWeight="semibold"
           ms="6px"
         >
-          DelExpress shipping operations platform
+          Delexpress shipping operations platform
         </Link>
       </Text>
     </Flex>

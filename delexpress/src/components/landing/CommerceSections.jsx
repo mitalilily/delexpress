@@ -1,10 +1,5 @@
 import { Chip, Container, Typography } from "@mui/material";
-import {
-  courierPartners,
-  problemPoints,
-  quickToolCards,
-  mediaAssets,
-} from "../../utils/landingContent";
+import { problemPoints, quickToolCards, mediaAssets } from "../../utils/landingContent";
 import {
   fadeUp,
   LiteralVisual,
@@ -19,63 +14,66 @@ export default function CommerceSections() {
     <>
       <section id="network" className="py-14 sm:py-18">
         <Container maxWidth="xl">
-          <div className="grid gap-8 xl:grid-cols-[0.92fr_1.08fr]">
-            <MotionDiv {...fadeUp}>
-              <SectionHeader
-                eyebrow="Our Courier Network"
-                title="Our Courier Network"
-                description="Access a wide network of reliable courier partners from one platform. Compare rates, delivery times, and serviceability instantly to choose the best shipping option for every order."
-              />
+          <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
+            <MotionDiv {...fadeUp} className="dark-panel rounded-[36px] p-6 text-white sm:p-8">
+              <Typography className="text-[0.74rem] font-semibold uppercase tracking-[0.28em] text-[#f0cbb2]">
+                Our Courier Network
+              </Typography>
+              <Typography variant="h2" className="mt-4 text-4xl text-white sm:text-5xl">
+                Reliable delivery partners without the dashboard chaos
+              </Typography>
+              <Typography className="mt-4 text-base leading-8 text-white/70 sm:text-lg">
+                Access a wide network of reliable courier partners from one platform. Compare
+                rates, delivery times, and serviceability to choose the best shipping option for
+                every order.
+              </Typography>
 
-              <Typography className="mt-5 text-base leading-8" sx={{ color: "#625b63" }}>
+              <Typography className="mt-5 text-base leading-8 text-white/70">
                 Supported couriers include trusted logistics providers used by thousands of
                 ecommerce businesses.
               </Typography>
 
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                {courierPartners.map((partner, index) => (
-                  <MotionCard
-                    key={partner.name}
-                    delay={index * 0.05}
-                    className="surface-panel rounded-[24px] p-4"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className="grid h-14 w-14 place-items-center rounded-2xl border border-white/70"
-                        style={{ backgroundColor: partner.accent }}
-                      >
-                        <img
-                          src={partner.logoUrl}
-                          alt={`${partner.name} logo`}
-                          className="h-8 w-8 rounded-xl"
-                        />
-                      </div>
-                      <div>
-                        <Typography variant="h6" className="text-lg">
-                          {partner.name}
-                        </Typography>
-                        <Typography className="text-sm" sx={{ color: "#6a5f67" }}>
-                          Express, surface, COD, and tracking support
-                        </Typography>
-                      </div>
-                    </div>
-                  </MotionCard>
-                ))}
+              <div className="mt-8 rounded-[28px] border border-white/10 bg-white/8 p-5 sm:p-6">
+                <Typography className="text-sm leading-8 text-white/72 sm:text-base">
+                  Delhivery, Blue Dart, DTDC, Xpressbees, Ecom Express, and Shadowfax are among
+                  the courier partners merchants commonly compare when choosing the right shipping
+                  option for each order. Delexpress brings these choices into one workflow so teams
+                  can review coverage, pricing, and delivery timelines without switching between
+                  multiple dashboards.
+                </Typography>
               </div>
             </MotionDiv>
 
             <MotionDiv
               {...fadeUp}
               transition={{ ...fadeUp.transition, delay: 0.08 }}
-              className="image-frame rounded-[28px] bg-white p-3 sm:rounded-[34px]"
+              className="surface-panel rounded-[36px] p-4 sm:p-5"
             >
-              <img
-                src={mediaAssets.network}
-                alt="Courier network operations"
-                loading="lazy"
-                decoding="async"
-                className="h-full min-h-[240px] w-full rounded-[22px] object-cover sm:min-h-[320px] sm:rounded-[26px]"
-              />
+              <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
+                <img
+                  src={mediaAssets.network}
+                  alt="Courier network operations"
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full min-h-[260px] w-full rounded-[28px] object-cover"
+                />
+                <div className="grid content-start gap-4 self-start">
+                  {[
+                    "Centralize courier selection",
+                    "Reduce manual comparison work",
+                    "Present one polished shipping workflow",
+                  ].map((item) => (
+                    <div key={item} className="rounded-[24px] bg-[#f7efe5] p-5">
+                      <Typography className="text-sm font-semibold uppercase tracking-[0.18em] text-[#ab5a43]">
+                        Why it matters
+                      </Typography>
+                      <Typography variant="h6" className="mt-3 text-xl text-[#181318]">
+                        {item}
+                      </Typography>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </MotionDiv>
           </div>
         </Container>
@@ -83,11 +81,14 @@ export default function CommerceSections() {
 
       <section id="tools" className="py-14 sm:py-18">
         <Container maxWidth="xl">
-          <MotionDiv {...fadeUp}>
+          <MotionDiv
+            {...fadeUp}
+            className="section-band rounded-[34px] px-5 py-8 sm:px-8 sm:py-10"
+          >
             <SectionHeader
               eyebrow="Quick Tools"
               title="Useful checks before every shipment"
-              description="Run quick shipping checks in seconds so your team can validate routes, compare options, and estimate cost before creating a label."
+              description="Run quick shipping checks so your team can validate routes, compare options, and estimate cost before creating a label."
               align="center"
             />
           </MotionDiv>
@@ -97,10 +98,10 @@ export default function CommerceSections() {
               <MotionCard
                 key={tool.title}
                 delay={index * 0.07}
-                className="tool-card surface-panel rounded-[28px] p-6"
+                className="tool-card surface-panel rounded-[32px] p-6"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <div className="grid h-14 w-14 place-items-center rounded-[20px] bg-[#fff1f5] text-[#9b3150]">
+                  <div className="grid h-16 w-16 place-items-center rounded-[22px] bg-[#171318] text-white shadow-[0_16px_32px_rgba(23,19,24,0.16)]">
                     <ToolIcon icon={tool.icon} size={28} />
                   </div>
                   <LiteralVisual title={tool.title} compact />
@@ -145,26 +146,17 @@ export default function CommerceSections() {
                   <MotionCard
                     key={item.title}
                     delay={index * 0.05}
-                    className="problem-card surface-panel rounded-[26px] p-5"
+                    className="problem-statement"
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <LiteralVisual title={item.title} compact />
-                      <Chip
-                        label={`0${index + 1}`}
-                        sx={{
-                          borderRadius: "999px",
-                          backgroundColor: "#fff6e8",
-                          color: "#7c5d2f",
-                          fontWeight: 700,
-                        }}
-                      />
+                    <div className="problem-index">0{index + 1}</div>
+                    <div className="problem-copy">
+                      <Typography variant="h6" className="text-[1.35rem]">
+                        {item.title}
+                      </Typography>
+                      <Typography className="mt-3 text-sm leading-7 sm:text-base" sx={{ color: "#625b63" }}>
+                        {item.description}
+                      </Typography>
                     </div>
-                    <Typography variant="h6" className="mt-5 text-xl">
-                      {item.title}
-                    </Typography>
-                    <Typography className="mt-3 text-sm leading-7" sx={{ color: "#625b63" }}>
-                      {item.description}
-                    </Typography>
                   </MotionCard>
                 ))}
               </div>
@@ -210,7 +202,7 @@ export default function CommerceSections() {
                         className="rounded-[22px] border border-white/10 bg-white/8 px-4 py-4"
                       >
                         <Typography className="text-xs uppercase tracking-[0.18em] text-white/45">
-                          Live view
+                          Overview
                         </Typography>
                         <Typography className="mt-3 text-base font-semibold text-white">
                           {label}

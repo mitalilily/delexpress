@@ -17,8 +17,10 @@ interface StepTwoFormProps {
   errors: FormErrors
 }
 
-const DE_BLUE = '#0052CC'
-const DE_AMBER = '#FFAB00'
+const PLUM = '#8A1F43'
+const MINT = '#56C0A5'
+const TEXT_PRIMARY = '#161219'
+const TEXT_SECONDARY = '#6A616A'
 
 const BUSINESS_OPTIONS = [
   {
@@ -66,19 +68,27 @@ export default function StepTwoForm({ formData, onChange, errors }: StepTwoFormP
 
   return (
     <Stack spacing={{ xs: 2.2, md: 2.8 }}>
-      <Typography variant="body2" sx={{ color: '#60789f', lineHeight: 1.55 }}>
+      <Box>
+        <Typography
+          variant="h5"
+          sx={{ fontWeight: 800, color: TEXT_PRIMARY, mb: 0.7, fontSize: { xs: '1.3rem', md: '1.7rem' } }}
+        >
+          Business Setup
+        </Typography>
+        <Typography variant="body2" sx={{ color: TEXT_SECONDARY, lineHeight: 1.7, maxWidth: 680 }}>
         Choose your business model and shipping volume so we can configure your account defaults.
-      </Typography>
+        </Typography>
+      </Box>
 
       <Box
         sx={{
           p: { xs: 1.6, md: 2 },
-          borderRadius: 1,
-          border: `1px solid ${alpha(DE_BLUE, 0.12)}`,
-          backgroundColor: '#fff',
+          borderRadius: 3,
+          border: `1px solid ${alpha(PLUM, 0.1)}`,
+          background: `linear-gradient(180deg, ${alpha('#FFFFFF', 0.94)} 0%, ${alpha('#FFF8F3', 0.88)} 100%)`,
         }}
       >
-        <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: DE_BLUE, mb: 1.2 }}>
+        <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: PLUM, mb: 1.2, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           Select one or more business types
         </Typography>
 
@@ -97,23 +107,26 @@ export default function StepTwoForm({ formData, onChange, errors }: StepTwoFormP
                   }}
                   sx={{
                     p: 1.5,
-                    borderRadius: 1,
-                    border: `1px solid ${active ? alpha(DE_BLUE, 0.4) : alpha(DE_BLUE, 0.12)}`,
-                    backgroundColor: active ? alpha(DE_BLUE, 0.06) : '#fff',
+                    borderRadius: 2.5,
+                    border: `1px solid ${active ? alpha(PLUM, 0.28) : alpha(PLUM, 0.1)}`,
+                    background: active
+                      ? `linear-gradient(180deg, ${alpha('#FFF4F1', 0.98)} 0%, ${alpha('#FCEBE3', 0.92)} 100%)`
+                      : '#fff',
                     cursor: 'pointer',
                     transition: 'all .2s ease',
+                    boxShadow: active ? `0 10px 24px ${alpha(PLUM, 0.08)}` : 'none',
                   }}
                 >
                   <Typography
                     sx={{
                       fontSize: '0.94rem',
                       fontWeight: 800,
-                      color: active ? DE_BLUE : '#2f4e77',
+                      color: active ? PLUM : TEXT_PRIMARY,
                     }}
                   >
                     {option.title}
                   </Typography>
-                  <Typography sx={{ fontSize: '0.78rem', color: '#6b82a8', mt: 0.2 }}>
+                  <Typography sx={{ fontSize: '0.78rem', color: TEXT_SECONDARY, mt: 0.25, lineHeight: 1.55 }}>
                     {option.subtitle}
                   </Typography>
                 </Box>
@@ -126,12 +139,12 @@ export default function StepTwoForm({ formData, onChange, errors }: StepTwoFormP
       <Box
         sx={{
           p: { xs: 1.6, md: 2 },
-          borderRadius: 1,
-          border: `1px solid ${alpha(DE_BLUE, 0.12)}`,
-          backgroundColor: '#fff',
+          borderRadius: 3,
+          border: `1px solid ${alpha(PLUM, 0.1)}`,
+          background: `linear-gradient(180deg, ${alpha('#FFFFFF', 0.94)} 0%, ${alpha('#FFF8F3', 0.88)} 100%)`,
         }}
       >
-        <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: DE_BLUE, mb: 1.6 }}>
+        <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: PLUM, mb: 1.6, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           Monthly Volume & Brand Identity
         </Typography>
 
@@ -145,7 +158,7 @@ export default function StepTwoForm({ formData, onChange, errors }: StepTwoFormP
               required
               error={!!errors.businessLegal.monthlyShipments}
               helperText={errors.businessLegal.monthlyShipments}
-              prefix={<MdTrendingUp color={DE_BLUE} />}
+              prefix={<MdTrendingUp color={PLUM} />}
             >
               <option value="">Select volume range</option>
               <option value="0-100">0 - 100</option>
@@ -165,7 +178,7 @@ export default function StepTwoForm({ formData, onChange, errors }: StepTwoFormP
                 required
                 error={!!errors.businessLegal.brandName}
                 helperText={errors.businessLegal.brandName}
-                prefix={<MdBusiness color={DE_BLUE} />}
+                prefix={<MdBusiness color={PLUM} />}
               />
               <FormControlLabel
                 control={
@@ -173,11 +186,11 @@ export default function StepTwoForm({ formData, onChange, errors }: StepTwoFormP
                     size="small"
                     checked={sameAsCompany}
                     onChange={(e) => setSameAsCompany(e.target.checked)}
-                    sx={{ color: alpha(DE_BLUE, 0.4), '&.Mui-checked': { color: DE_BLUE } }}
+                    sx={{ color: alpha(PLUM, 0.35), '&.Mui-checked': { color: PLUM } }}
                   />
                 }
                 label={
-                  <Typography variant="caption" sx={{ color: '#60789f', fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontWeight: 600 }}>
                     Same as company name
                   </Typography>
                 }
@@ -190,12 +203,12 @@ export default function StepTwoForm({ formData, onChange, errors }: StepTwoFormP
       <Box
         sx={{
           p: 1.5,
-          borderRadius: 1,
-          bgcolor: alpha(DE_AMBER, 0.06),
-          border: `1px solid ${alpha(DE_AMBER, 0.2)}`,
+          borderRadius: 2.5,
+          bgcolor: alpha(MINT, 0.1),
+          border: `1px solid ${alpha(MINT, 0.22)}`,
         }}
       >
-        <Typography variant="caption" sx={{ color: DE_AMBER, fontWeight: 700, display: 'block' }}>
+        <Typography variant="caption" sx={{ color: '#2F8E77', fontWeight: 700, display: 'block', lineHeight: 1.7 }}>
           Configuring your account based on your business type helps us provide the most relevant
           carrier recommendations.
         </Typography>

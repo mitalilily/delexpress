@@ -388,7 +388,7 @@ const ShopifyConnectionModal = ({
                       },
                     }))
                   }
-                  helperText="Automatically update order statuses in Shopify when they change in DelExpress."
+                  helperText="Automatically update order statuses in Shopify when they change in Delexpress."
                 />
 
                 {/* Auto cancel orders */}
@@ -404,7 +404,7 @@ const ShopifyConnectionModal = ({
                       },
                     }))
                   }
-                  helperText="Automatically cancel the order in Shopify when it’s marked as cancelled in DelExpress."
+                  helperText="Automatically cancel the order in Shopify when it’s marked as cancelled in Delexpress."
                 />
 
                 {/* Mark COD Orders Paid */}

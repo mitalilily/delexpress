@@ -174,7 +174,7 @@ function SignIn() {
             </HStack>
 
             <HStack spacing={3}>
-              <Box as="img" src="/delexpress-logo.svg" alt="DelExpress" h="52px" w="180px" objectFit="contain" />
+              <Box as="img" src="/delexpress-logo.svg" alt="Delexpress" h="52px" w="180px" objectFit="contain" />
               <Text fontSize="sm" fontWeight="800" letterSpacing="0.6px" color={textSecondary}>
                 DELEXPRESS
               </Text>
@@ -195,7 +195,7 @@ function SignIn() {
 
             <Text color={textSecondary} fontSize="sm" maxW="360px" lineHeight="1.8">
               Review orders, compare courier movement, and manage finance operations from one calm,
-              DelExpress admin panel.
+              Delexpress admin panel.
             </Text>
           </VStack>
 

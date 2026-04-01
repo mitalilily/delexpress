@@ -28,6 +28,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!**/.env.example
 
 # Logs
 **/npm-debug.log*
@@ -49,4 +50,3 @@ backend/tmp/
 deploy-staging/
 reference-theme.css
 reference-theme.png
-

@@ -41,7 +41,7 @@ function Sidebar(props) {
           <SidebarContent
             sidebarWidth={sidebarWidth}
             routes={routes}
-            logoText={logoText || 'DelExpress'}
+            logoText={logoText || 'Delexpress'}
             sidebarVariant={sidebarVariant}
           />
         </Box>

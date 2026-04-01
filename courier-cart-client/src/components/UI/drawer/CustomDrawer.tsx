@@ -9,7 +9,11 @@ import {
 } from '@mui/material'
 import React from 'react'
 import { IoCloseCircleOutline } from 'react-icons/io5'
-import { BRAND_GRADIENT } from '../../user/profile/UserProfileForm'
+
+const PLUM = '#8A1F43'
+const MINT = '#56C0A5'
+const TEXT_PRIMARY = '#161219'
+const BRAND_GRADIENT = `linear-gradient(135deg, ${PLUM} 0%, #C86B5E 58%, ${MINT} 100%)`
 
 interface GlassDrawerProps {
   open: boolean
@@ -40,11 +44,15 @@ const CustomDrawer: React.FC<GlassDrawerProps> = ({
         paper: {
           sx: {
             width: isMobile ? '100%' : width,
-            background: '#FFFFFF',
-            borderLeft: anchor === 'right' ? '1px solid #E0E6ED' : 'none',
-            borderRight: anchor === 'left' ? '1px solid #E0E6ED' : 'none',
-            boxShadow: '0 8px 32px rgba(51, 51, 105, 0.12)',
-            color: '#1A1A1A',
+            background: `
+              radial-gradient(340px 140px at 0% 0%, rgba(138, 31, 67, 0.08) 0%, transparent 68%),
+              radial-gradient(320px 160px at 100% 0%, rgba(86, 192, 165, 0.08) 0%, transparent 65%),
+              linear-gradient(180deg, #FFFDF9 0%, #FFF6EF 100%)
+            `,
+            borderLeft: anchor === 'right' ? '1px solid rgba(138, 31, 67, 0.12)' : 'none',
+            borderRight: anchor === 'left' ? '1px solid rgba(138, 31, 67, 0.12)' : 'none',
+            boxShadow: '0 18px 48px rgba(22, 18, 25, 0.16)',
+            color: TEXT_PRIMARY,
             overflow: 'hidden',
           },
         },
@@ -72,16 +80,22 @@ const CustomDrawer: React.FC<GlassDrawerProps> = ({
           px={3}
           py={2.5}
           mt={0.5}
+          sx={{
+            backgroundColor: 'rgba(255,255,255,0.55)',
+            backdropFilter: 'blur(10px)',
+          }}
         >
-          <Typography variant="h6" fontWeight={700} color="#333369">
+          <Typography variant="h6" fontWeight={800} color={PLUM}>
             {title}
           </Typography>
           <IconButton
             onClick={onClose}
             sx={{
-              color: '#333369',
+              color: PLUM,
+              bgcolor: 'rgba(138, 31, 67, 0.06)',
+              border: '1px solid rgba(138, 31, 67, 0.08)',
               '&:hover': {
-                bgcolor: 'rgba(51, 51, 105, 0.08)',
+                bgcolor: 'rgba(138, 31, 67, 0.12)',
                 transform: 'rotate(90deg)',
               },
               transition: 'all 0.3s ease',
@@ -92,25 +106,25 @@ const CustomDrawer: React.FC<GlassDrawerProps> = ({
         </Box>
       </Box>
 
-      <Divider sx={{ borderColor: '#E0E6ED' }} />
+      <Divider sx={{ borderColor: 'rgba(138, 31, 67, 0.08)' }} />
 
       <Box
         p={3}
         sx={{
           overflowY: 'auto',
           height: '100%',
-          bgcolor: '#F5F7FA',
+          bgcolor: 'rgba(255,255,255,0.35)',
           '&::-webkit-scrollbar': {
             width: '8px',
           },
           '&::-webkit-scrollbar-track': {
-            background: '#E0E6ED',
+            background: '#EFE4DD',
           },
           '&::-webkit-scrollbar-thumb': {
-            background: '#333369',
+            background: PLUM,
             borderRadius: '4px',
             '&:hover': {
-              background: '#2F3B5F',
+              background: '#6A1737',
             },
           },
         }}

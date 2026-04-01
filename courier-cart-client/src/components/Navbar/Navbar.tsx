@@ -100,7 +100,7 @@ export default function Navbar({ handleDrawerToggle, pinned }: NavbarProps) {
               <Box
                 component="img"
                 src="/logo/delexpress-logo.svg"
-                alt="DelExpress"
+                alt="Delexpress"
                 sx={{ width: { xs: 138, sm: 178 }, height: 'auto', display: 'block' }}
               />
             </Box>

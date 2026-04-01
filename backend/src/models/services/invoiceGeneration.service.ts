@@ -238,7 +238,7 @@ export const generateInvoiceForUser = async (
     .where(eq(userProfiles.userId, userId))
     .limit(1)
 
-  const issuerName = adminPrefs?.brandName || 'DelExpress'
+  const issuerName = adminPrefs?.brandName || 'Delexpress'
   const issuerAddress = adminPrefs?.sellerAddress || 'N/A'
   const issuerStateCode = adminPrefs?.stateCode || 'N/A'
   const issuerGST = adminPrefs?.gstNumber || 'N/A'
@@ -354,7 +354,7 @@ export const generateInvoiceForUser = async (
     }
   }
 
-  // Platform (DelExpress) logo for footer branding
+  // Platform (Delexpress) logo for footer branding
   let platformLogoDataUrl: string | undefined
   try {
     const platformLogoKey = adminLogoFile || 'logo-white.png'
@@ -588,7 +588,7 @@ export const generateInvoiceForUser = async (
             : null,
 
           {
-            text: 'Powered by DelExpress',
+            text: 'Powered by Delexpress',
             alignment: 'center',
             italics: true,
             fontSize: fontSize - 1,
@@ -866,7 +866,7 @@ export const generateInvoiceForUser = async (
 
           // FOOTER
           {
-            text: 'Thank you for trusting and doing business with DelExpress.',
+            text: 'Thank you for trusting and doing business with Delexpress.',
             style: 'footer',
           },
           // Show admin signature only if includeSignature is true
@@ -894,7 +894,7 @@ export const generateInvoiceForUser = async (
               }
             : null,
           {
-            text: 'Powered by DelExpress',
+            text: 'Powered by Delexpress',
             alignment: 'center',
             italics: true,
             margin: [0, 6, 0, 0],

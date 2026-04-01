@@ -1,6 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { FiEdit2, FiMail } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/auth/AuthContext'
@@ -32,7 +32,6 @@ interface IEmailVerificationProps {
   onEditEmail: () => void
   password: string
   resendMail: () => void
-  verificationCode?: string
 }
 
 export default function EmailVerificationForm({
@@ -40,7 +39,6 @@ export default function EmailVerificationForm({
   password,
   onEditEmail,
   resendMail,
-  verificationCode = '',
 }: IEmailVerificationProps) {
   const { setTokens, setUserId } = useAuth()
   const navigate = useNavigate()
@@ -58,14 +56,6 @@ export default function EmailVerificationForm({
       return () => clearTimeout(timer)
     }
   }, [resendCooldown])
-
-  useEffect(() => {
-    if (verificationCode) {
-      setCode('')
-      setError('')
-      setTouched(false)
-    }
-  }, [verificationCode])
 
   const handleSubmit = () => {
     setTouched(true)
@@ -113,32 +103,13 @@ export default function EmailVerificationForm({
         }}
       >
         <Typography variant="body2" sx={{ color: '#42526E', lineHeight: 1.6, fontWeight: 500 }}>
-          Verification code generated for <strong>{email}</strong>.
+          Verification code sent to <strong>{email}</strong>.
           <Box component="span" sx={{ ml: 0.7, display: 'inline-flex', alignItems: 'center', cursor: 'pointer', color: DE_BLUE }} onClick={onEditEmail}>
             <FiEdit2 size={13} style={{ marginRight: 4 }} />
             Edit
           </Box>
         </Typography>
       </Box>
-
-      {verificationCode && (
-        <Box
-          sx={{
-            p: 1.5,
-            borderRadius: 1,
-            backgroundColor: alpha('#56C0A5', 0.08),
-            border: `1px solid ${alpha('#56C0A5', 0.28)}`,
-            textAlign: 'center',
-          }}
-        >
-          <Typography variant="caption" sx={{ display: 'block', color: '#2D6A5A', fontWeight: 800, letterSpacing: 1.4 }}>
-            DEMO VERIFICATION CODE
-          </Typography>
-          <Typography sx={{ mt: 0.45, color: DE_BLUE, fontSize: '1.55rem', fontWeight: 900, letterSpacing: '0.22em' }}>
-            {verificationCode}
-          </Typography>
-        </Box>
-      )}
 
       <CustomInput
         label="Verification Code"

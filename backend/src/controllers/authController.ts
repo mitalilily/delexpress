@@ -33,9 +33,6 @@ const env = process.env.NODE_ENV || 'development'
 dotenv.config({ path: path.resolve(__dirname, `../.env.${env}`) })
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000
-const allowInlineOtp = process.env.ALLOW_INLINE_OTP === 'true'
-const exposeAuthCodes = process.env.EXPOSE_AUTH_CODES !== 'false' || allowInlineOtp
-
 export const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString()
 
 const sendSmsViaTwilio = async (phone: string, message: string) => {
@@ -190,15 +187,10 @@ export const requestOtp = async (req: Request, res: Response): Promise<any> => {
       })
     }
 
-    if (!exposeAuthCodes) {
-      await sendVerificationEmail(normalizedEmail, otp)
-    }
+    await sendVerificationEmail(normalizedEmail, otp)
 
     return res.json({
-      message: exposeAuthCodes
-        ? 'Verification code generated successfully'
-        : 'OTP sent successfully to your email',
-      ...(exposeAuthCodes || env === 'development' || allowInlineOtp ? { otp } : {}),
+      message: 'OTP sent successfully to your email',
     })
   } catch (err) {
     console.error('Error in requestOtp:', err)

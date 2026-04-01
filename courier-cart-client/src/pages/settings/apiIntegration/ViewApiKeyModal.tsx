@@ -25,7 +25,7 @@ export const ViewApiKeyModal = ({
   if (!apiKey) return null
 
   const handleDownloadCredentials = () => {
-    const content = `DelExpress API Credentials
+    const content = `Delexpress API Credentials
 Generated: ${new Date().toISOString()}
 Key Name: ${apiKey.key_name}
 

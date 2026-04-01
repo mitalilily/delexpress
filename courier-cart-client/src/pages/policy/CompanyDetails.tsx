@@ -9,7 +9,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material'
-import { FiClock, FiMail, FiMapPin, FiPhone } from 'react-icons/fi'
+import { FiClock, FiMapPin, FiPhone } from 'react-icons/fi'
 import PageHeading from '../../components/UI/heading/PageHeading'
 import MapViewer from '../../components/UI/map/MapViewer'
 
@@ -17,8 +17,7 @@ const CompanyDetails = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
-  // Fixed coordinates for Uttam Nagar, New Delhi
-  const coords = { lat: 28.622521434327965, lng: 77.08781331319548 }
+  const coords = { lat: 21.1492, lng: 72.8047 }
 
   return (
     <Stack mt={2} gap={5}>
@@ -26,7 +25,7 @@ const CompanyDetails = () => {
       <PageHeading
         title="Contact Us"
         subtitle="  We’re here to help! Whether you have questions about our services, need support with your
-        account, or want to know more about how DelExpress can assist your business, feel free to
+        account, or want to know more about how Delexpress can assist your business, feel free to
         reach out to us."
       />
 
@@ -52,29 +51,15 @@ const CompanyDetails = () => {
           }}
         >
           <Typography variant="h6" fontWeight="bold" color="secondary" gutterBottom>
-            DelExpress (DelExpress Pvt Ltd)
+            Delexpress
           </Typography>
 
           {/* Address */}
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
             <FiMapPin size={22} color={theme.palette.primary.main} />
             <Typography fontSize="1rem">
-              C30 KIRAN GARDEN UTTAM NAGAR NEW DELHI -110059
+              311 Square One Commercial, Althan, Surat
             </Typography>
-          </Box>
-
-          {/* Email */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <FiMail size={22} color={theme.palette.primary.main} />
-            <Chip
-              clickable
-              component={Link}
-              href="mailto:SUPPORT@DELEXPRESS.IN"
-              label="SUPPORT@DELEXPRESS.IN"
-              color="primary"
-              variant="filled"
-              icon={<FiMail size={16} />}
-            />
           </Box>
 
           {/* Phone */}
@@ -83,8 +68,8 @@ const CompanyDetails = () => {
             <Chip
               clickable
               component={Link}
-              href="tel:+919217553934"
-              label="+91 9217553934"
+              href="tel:+918200661530"
+              label="+91 8200661530"
               color="success"
               variant="filled"
               icon={<FiPhone size={16} />}
@@ -118,7 +103,7 @@ const CompanyDetails = () => {
             width="100%"
             draggable={false}
             zoom={16}
-            popupText="DelExpress"
+            popupText="Delexpress"
             currentLocation={false}
           />
         </Paper>

@@ -75,7 +75,7 @@ function SignUp() {
           borderRight={{ base: 'none', lg: '1px solid rgba(155,49,80,0.08)' }}
         >
           <VStack align="flex-start" spacing={5} position="relative" zIndex="1">
-            <Box as="img" src="/delexpress-logo.svg" alt="DelExpress" h="52px" w="180px" objectFit="contain" />
+            <Box as="img" src="/delexpress-logo.svg" alt="Delexpress" h="52px" w="180px" objectFit="contain" />
             <Heading
               fontFamily="'Plus Jakarta Sans', 'Poppins', sans-serif"
               fontSize={{ base: '3xl', md: '5xl' }}
@@ -89,7 +89,7 @@ function SignUp() {
               </Text>
             </Heading>
             <Text color={textSecondary} fontSize="sm" maxW="360px" lineHeight="1.8">
-              Create a DelExpress workspace for operations teams that need courier control,
+              Create a Delexpress workspace for operations teams that need courier control,
               billing visibility, and a cleaner daily panel.
             </Text>
           </VStack>
@@ -137,7 +137,7 @@ function SignUp() {
                   Create your admin workspace
                 </Heading>
                 <Text mt={2} color={textSecondary} fontSize="sm" lineHeight="1.8">
-                  Use this setup form to onboard your DelExpress operations team.
+                  Use this setup form to onboard your Delexpress operations team.
                 </Text>
               </Box>
 
@@ -160,7 +160,7 @@ function SignUp() {
                     Company
                   </FormLabel>
                   <Input
-                    placeholder="DelExpress partner"
+                    placeholder="Delexpress partner"
                     h="52px"
                     borderRadius="18px"
                     bg={inputBg}
@@ -215,7 +215,7 @@ function SignUp() {
                 _hover={{ bg: 'brand.600' }}
                 _active={{ bg: 'brand.700' }}
               >
-                Start with DelExpress
+                Start with Delexpress
               </Button>
 
               <Text color={textSecondary} fontWeight="medium" textAlign="center">

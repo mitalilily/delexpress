@@ -29,7 +29,7 @@ const focusCards = [
   },
   {
     title: 'Help Center',
-    text: 'Support tickets, about content, and policy pages follow the same DelExpress theme.',
+    text: 'Support tickets, about content, and policy pages follow the same Delexpress theme.',
   },
 ]
 
@@ -87,7 +87,7 @@ export default function ClientPreview() {
                 <Box
                   component="img"
                   src="/logo/delexpress-logo.svg"
-                  alt="DelExpress"
+                  alt="Delexpress"
                   sx={{ width: { xs: 165, md: 210 }, height: 'auto' }}
                 />
                 <Stack direction="row" spacing={1} alignItems="center">
@@ -121,7 +121,7 @@ export default function ClientPreview() {
 
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 <Chip
-                  label="DelExpress theme"
+                  label="Delexpress theme"
                   icon={<TbBolt size={14} />}
                   sx={{
                     bgcolor: alpha(PLUM, 0.08),
@@ -217,7 +217,7 @@ export default function ClientPreview() {
                   </Typography>
 
                   <Typography sx={{ maxWidth: 620, color: MUTED, lineHeight: 1.65 }}>
-                    This preview skips sign-in so you can review the client UI shell, DelExpress
+                    This preview skips sign-in so you can review the client UI shell, Delexpress
                     colors, logo treatment, sidebar labels, and the overall layout direction first.
                   </Typography>
 

@@ -1,4 +1,4 @@
-import { Box, Container, Divider, Link, Typography } from '@mui/material'
+import { Box, Container, Divider, Typography } from '@mui/material'
 import { FiCreditCard, FiFileText, FiShield } from 'react-icons/fi'
 import TermsOfService from '../../components/terms/TermsOfService'
 import PageHeading from '../../components/UI/heading/PageHeading'
@@ -10,7 +10,7 @@ const PolicyPages = () => {
       <Box display={'flex'} justifyContent={'center'}>
         <PageHeading
           title="Legal & Policy Information"
-          subtitle="All policies, terms, and privacy information for DelExpress"
+          subtitle="All policies, terms, and privacy information for Delexpress"
         />{' '}
       </Box>
 
@@ -21,8 +21,7 @@ const PolicyPages = () => {
           <Typography variant="h4">Refund & Cancellation Policy</Typography>
         </Box>
         <Typography paragraph>
-          • You may cancel your account at any time by emailing us at{' '}
-          <Link href="mailto:SUPPORT@DELEXPRESS.IN">SUPPORT@DELEXPRESS.IN</Link>.
+          • You may cancel your account at any time by contacting our support team.
         </Typography>
         <Typography paragraph>
           • Once your account is cancelled, all of your data and content will be permanently deleted
@@ -34,11 +33,11 @@ const PolicyPages = () => {
           invoice via email. Once that invoice has been paid, no further charges will apply.
         </Typography>
         <Typography paragraph>
-          • DelExpress (DelExpress Pvt Ltd) reserves the right to modify, suspend, or terminate
-          the Service for any reason, without prior notice at any time.
+          • Delexpress reserves the right to modify, suspend, or terminate the Service for
+          any reason, without prior notice at any time.
         </Typography>
         <Typography paragraph>
-          • Fraud Prevention: Without limiting any other remedies, DelExpress may suspend or
+          • Fraud Prevention: Without limiting any other remedies, Delexpress may suspend or
           terminate your account if we suspect that you (through conviction, settlement,
           investigation, or otherwise) have engaged in fraudulent or unlawful activity in connection
           with the Platform.
@@ -58,10 +57,10 @@ const PolicyPages = () => {
         </Box>
         <Typography paragraph>Last Updated: [Insert Date]</Typography>
         <Typography paragraph>
-          DelExpress (DelExpress Pvt Ltd) ("we," "our," or "us") operates the services offered
-          via our website and related platforms (collectively, the “Platform”). Please read this
-          Privacy Policy carefully before accessing or using our Platform, as continued use
-          indicates your acceptance of this Policy.
+          Delexpress ("we," "our," or "us") operates the services offered via our website
+          and related platforms (collectively, the “Platform”). Please read this Privacy Policy
+          carefully before accessing or using our Platform, as continued use indicates your
+          acceptance of this Policy.
         </Typography>
         <Typography paragraph>
           1. Introduction
@@ -158,8 +157,7 @@ const PolicyPages = () => {
           • Withdraw your consent for data use (upon which we may limit or discontinue certain
           services).
           <br />
-          To do so, please contact us at{' '}
-          <Link href="mailto:SUPPORT@DELEXPRESS.IN">SUPPORT@DELEXPRESS.IN</Link>.
+          To do so, please contact our support team at 8200661530.
         </Typography>
         <Typography paragraph>
           10. Third-Party Links
@@ -177,7 +175,8 @@ const PolicyPages = () => {
         <Typography paragraph>
           12. Grievance Officer
           <br />
-          If you have questions, complaints, or wish to exercise your privacy rights, reach out to:
+          If you have questions, complaints, or wish to exercise your privacy rights, reach out to
+          our support team at 8200661530.
         </Typography>
       </Box>
 

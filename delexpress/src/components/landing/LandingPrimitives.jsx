@@ -41,7 +41,7 @@ const cardVisualMap = {
   "No Data for Better Decisions": [InsightsRoundedIcon, TimelineRoundedIcon],
   "Courier Rate Comparison": [CompareArrowsRoundedIcon, CurrencyRupeeRoundedIcon],
   "Automated Shipping Labels": [ReceiptLongRoundedIcon, Inventory2RoundedIcon],
-  "Real-Time Shipment Tracking": [RouteRoundedIcon, AccessTimeRoundedIcon],
+  "Shipment Tracking": [RouteRoundedIcon, AccessTimeRoundedIcon],
   "Smart Courier Selection": [AutoAwesomeRoundedIcon, VerifiedRoundedIcon],
   "Bulk Order Processing": [Inventory2RoundedIcon, DashboardRoundedIcon],
   "COD Management": [CurrencyRupeeRoundedIcon, AccessTimeRoundedIcon],
@@ -62,13 +62,13 @@ export function SectionHeader({ eyebrow, title, description, align = "left" }) {
     <div className={centered ? "mx-auto max-w-3xl text-center" : "max-w-2xl"}>
       <Typography
         className="mb-3 text-[0.74rem] font-semibold uppercase tracking-[0.28em]"
-        sx={{ color: "#9b3150" }}
+        sx={{ color: "#a54a54" }}
       >
         {eyebrow}
       </Typography>
       <Typography
         variant="h2"
-        className={`brand-heading text-4xl sm:text-5xl ${centered ? "mx-auto" : ""}`}
+        className={`text-4xl text-[#181318] sm:text-5xl ${centered ? "mx-auto" : ""}`}
       >
         {title}
       </Typography>

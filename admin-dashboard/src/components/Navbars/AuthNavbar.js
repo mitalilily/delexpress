@@ -26,7 +26,7 @@ export default function AuthNavbar(props) {
 
   const brand = (
     <Link href={`${process.env.PUBLIC_URL}/#/`} display="flex" lineHeight="100%" fontWeight="700" justifyContent="center" alignItems="center" color={mainText}>
-      <Box as="img" src="/delexpress-logo.svg" alt="DelExpress" h="34px" w="140px" objectFit="contain" me="12px" />
+      <Box as="img" src="/delexpress-logo.svg" alt="Delexpress" h="34px" w="140px" objectFit="contain" me="12px" />
       <Text fontSize="xs" mt="1px" letterSpacing="0.12em" textTransform="uppercase" color={secondary ? 'whiteAlpha.700' : 'gray.500'}>
         Shipping platform
       </Text>
@@ -79,7 +79,7 @@ export default function AuthNavbar(props) {
       <Flex w="100%" justifyContent={{ sm: 'start', lg: 'space-between' }}>
         {brand}
         <Box ms={{ base: 'auto', lg: '0px' }} display={{ base: 'flex', lg: 'none' }}>
-          <SidebarResponsive logoText={logoText || 'DelExpress'} secondary={secondary} routes={routes} {...rest} />
+          <SidebarResponsive logoText={logoText || 'Delexpress'} secondary={secondary} routes={routes} {...rest} />
         </Box>
         {linksAuth}
         <Link href="/auth/signin">

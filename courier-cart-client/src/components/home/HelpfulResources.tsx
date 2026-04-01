@@ -14,7 +14,7 @@ const HelpfulResources = () => {
       title: 'Explore Our Blog',
       description: 'Get insights, product updates, and how-to guides to stay̦ ahead.',
       buttonText: 'Read Blogs',
-      onClick: () => window.open('https://www.DelExpress.in/blogs', '_blank'),
+      onClick: () => navigate('/support/about_us'),
     },
     {
       image: '/images/keyboard.png',

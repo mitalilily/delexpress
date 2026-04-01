@@ -421,7 +421,7 @@ export default function Sidebar({
         <Box
           component="img"
           src="/logo/delexpress-logo.svg"
-          alt="DelExpress"
+          alt="Delexpress"
           sx={{
             width: isSidebarExpanded ? 122 : 32,
             height: isSidebarExpanded ? 30 : 32,
@@ -442,7 +442,7 @@ export default function Sidebar({
                 letterSpacing: -0.5,
               }}
             >
-              DelExpress
+              Delexpress
             </Typography>
             <Typography
               sx={{
@@ -474,7 +474,7 @@ export default function Sidebar({
               fontSize: '0.65rem',
             }}
           >
-            DelExpress navigation
+            Delexpress navigation
           </Typography>
         )}
         {renderNavList(navItems.filter((i) => i.roles.includes(role || 'customer')))}

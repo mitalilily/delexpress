@@ -122,7 +122,7 @@ export default function HeaderLinks({ variant, children, fixed, secondary, onOpe
                       Confirm Logout
                     </Text>
                     <Text fontSize="sm" color={styles.searchIcon}>
-                      You will leave the DelExpress admin workspace.
+                      You will leave the Delexpress admin workspace.
                     </Text>
                   </Box>
                   <Flex justify="flex-end" gap="8px">
@@ -151,7 +151,7 @@ export default function HeaderLinks({ variant, children, fixed, secondary, onOpe
         </Popover>
       ) : null}
 
-      <SidebarResponsive logoText={rest.logoText || 'DelExpress'} secondary={secondary} routes={routes} {...rest} />
+      <SidebarResponsive logoText={rest.logoText || 'Delexpress'} secondary={secondary} routes={routes} {...rest} />
 
       <IconButton
         aria-label="Settings"

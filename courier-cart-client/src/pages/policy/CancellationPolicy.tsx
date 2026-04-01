@@ -1,4 +1,4 @@
-import { Box, Link, List, ListItem, ListItemText } from '@mui/material'
+import { Box, List, ListItem, ListItemText } from '@mui/material'
 import PageHeading from '../../components/UI/heading/PageHeading'
 
 const CancellationPolicy = () => {
@@ -11,8 +11,7 @@ const CancellationPolicy = () => {
           <ListItemText
             primary={
               <>
-                You may cancel your account at any time by emailing us at{' '}
-                <Link href="mailto:SUPPORT@DELEXPRESS.IN">SUPPORT@DELEXPRESS.IN</Link>.
+                You may cancel your account at any time by contacting our support team.
               </>
             }
           />
@@ -27,11 +26,11 @@ const CancellationPolicy = () => {
         </ListItem>
 
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="DelExpress (DelExpress Pvt Ltd) reserves the right to modify, suspend, or terminate the Service for any reason, without prior notice at any time." />
+          <ListItemText primary="Delexpress reserves the right to modify, suspend, or terminate the Service for any reason, without prior notice at any time." />
         </ListItem>
 
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="Fraud Prevention: Without limiting any other remedies, DelExpress may suspend or terminate your account if we suspect that you have engaged in fraudulent or unlawful activity in connection with the Platform." />
+          <ListItemText primary="Fraud Prevention: Without limiting any other remedies, Delexpress may suspend or terminate your account if we suspect that you have engaged in fraudulent or unlawful activity in connection with the Platform." />
         </ListItem>
 
         <ListItem sx={{ display: 'list-item' }}>

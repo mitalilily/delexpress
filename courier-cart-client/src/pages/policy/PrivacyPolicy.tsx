@@ -1,4 +1,4 @@
-import { Box, Link, List, ListItem, ListItemText, Typography } from '@mui/material'
+import { Box, List, ListItem, ListItemText, Typography } from '@mui/material'
 import PageHeading from '../../components/UI/heading/PageHeading'
 
 const PrivacyPolicy = () => {
@@ -48,15 +48,7 @@ const PrivacyPolicy = () => {
         </ListItem>
 
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText
-            primary={
-              <>
-                Your Privacy Rights: You may review, update, or correct your details, or withdraw
-                consent by contacting us at{' '}
-                <Link href="mailto:SUPPORT@DELEXPRESS.IN">SUPPORT@DELEXPRESS.IN</Link>.
-              </>
-            }
-          />
+          <ListItemText primary="Your Privacy Rights: You may review, update, or correct your details, or withdraw consent by contacting our support team at 8200661530." />
         </ListItem>
 
         <ListItem sx={{ display: 'list-item' }}>
@@ -68,20 +60,7 @@ const PrivacyPolicy = () => {
         </ListItem>
 
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText
-            primary={
-              <>
-                Grievance Officer: If you have queries or complaints, reach out to us at{' '}
-                <a
-                  href="mailto:SUPPORT@DELEXPRESS.IN"
-                  style={{ color: '#0052CC', textDecoration: 'none' }}
-                >
-                  SUPPORT@DELEXPRESS.IN
-                </a>
-                .
-              </>
-            }
-          />
+          <ListItemText primary="Grievance Officer: If you have queries or complaints, reach out to our support team at 8200661530." />
         </ListItem>
       </List>
     </Box>

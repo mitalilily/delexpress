@@ -22,7 +22,7 @@ import PageHeading from '../components/UI/heading/PageHeading'
 /**
  * ──────────────────────────────────────────────────────────────────────────────
  *  KeyboardShortcutsPage
- *  A polished, professional keyboard shortcuts reference page for DelExpress.
+ *  A polished, professional keyboard shortcuts reference page for Delexpress.
  * ──────────────────────────────────────────────────────────────────────────────
  */
 

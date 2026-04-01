@@ -18,6 +18,10 @@ import {
 import * as React from 'react'
 import { FiMoreHorizontal } from 'react-icons/fi'
 
+const PLUM = '#8A1F43'
+const TEXT_PRIMARY = '#161219'
+const TEXT_SECONDARY = '#6A616A'
+
 /* Types */
 type StatusColor = 'primary' | 'success' | 'warning' | 'error' | undefined
 
@@ -43,29 +47,31 @@ const StyledTabs = styled(Tabs)(() => ({
   minHeight: 0,
 }))
 
-const StyledTab = styled(Tab)(({ theme }) => ({
+const StyledTab = styled(Tab)(() => ({
   textTransform: 'none',
-  fontWeight: 500,
+  fontWeight: 700,
   fontSize: '0.95rem',
-  color: theme.palette.text.primary,
+  color: TEXT_SECONDARY,
   minHeight: 'unset',
-  padding: '6px 16px',
-  borderRadius: 8,
+  padding: '8px 16px',
+  borderRadius: 14,
   transition: 'all 0.2s ease',
 
   '&.Mui-selected': {
-    color: '#333369',
-    backgroundColor: alpha(theme.palette.primary.light, 0.1),
+    color: PLUM,
+    background: `linear-gradient(180deg, ${alpha('#FFF4F1', 0.98)} 0%, ${alpha('#FCEBE3', 0.92)} 100%)`,
+    boxShadow: `0 10px 22px ${alpha(PLUM, 0.08)}`,
   },
 }))
 
-const CounterChip = styled('span')(({ theme }) => ({
+const CounterChip = styled('span')(() => ({
   fontSize: '0.75rem',
   padding: '2px 6px',
-  borderRadius: 6,
-  background: alpha(theme.palette.text.primary, 0.05),
-  color: theme.palette.text.secondary,
+  borderRadius: 999,
+  background: alpha(PLUM, 0.08),
+  color: PLUM,
   marginLeft: 6,
+  fontWeight: 700,
 }))
 
 /* ───────────── Main Component ───────────── */
@@ -102,8 +108,11 @@ export function SmartTabs<T extends string = string>({
         bottom: 0,
         left: 0,
         right: 0,
-        borderRadius: '12px 12px 0 0',
+        borderRadius: '20px 20px 0 0',
         zIndex: 999,
+        borderTop: `1px solid ${alpha(PLUM, 0.12)}`,
+        background: 'rgba(255, 250, 244, 0.94)',
+        backdropFilter: 'blur(18px)',
       }}
       elevation={4}
     >
@@ -130,8 +139,8 @@ export function SmartTabs<T extends string = string>({
               sx={{
                 flex: 1,
                 ...(isOverflowSelected && {
-                  color: '#333369',
-                  backgroundColor: alpha(theme.palette.primary.light, 0.1),
+                  color: PLUM,
+                  backgroundColor: alpha(PLUM, 0.1),
                   borderRadius: 2,
                 }),
               }}
@@ -168,60 +177,71 @@ export function SmartTabs<T extends string = string>({
     </Paper>
   ) : (
     <Box>
-      <StyledTabs value={controlledValue} onChange={handleChange} {...muiTabsProps}>
-        {visibleTabs.map((tab) => {
-          const labelContent = (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {tab.label}
-              {typeof tab.badgeCount === 'number' && <CounterChip>{tab.badgeCount}</CounterChip>}
-            </Box>
-          )
-          return <StyledTab key={tab.value} value={tab.value} label={labelContent} disableRipple />
-        })}
+      <Box
+        sx={{
+          display: 'inline-flex',
+          p: 0.6,
+          borderRadius: 3,
+          border: `1px solid ${alpha(PLUM, 0.1)}`,
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,248,243,0.88))',
+          boxShadow: `0 10px 28px ${alpha(TEXT_PRIMARY, 0.05)}`,
+        }}
+      >
+        <StyledTabs value={controlledValue} onChange={handleChange} {...muiTabsProps}>
+          {visibleTabs.map((tab) => {
+            const labelContent = (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {tab.label}
+                {typeof tab.badgeCount === 'number' && <CounterChip>{tab.badgeCount}</CounterChip>}
+              </Box>
+            )
+            return <StyledTab key={tab.value} value={tab.value} label={labelContent} disableRipple />
+          })}
 
         {/* "More…" trigger */}
-        {overflowTabs.length > 0 && (
-          <>
-            <StyledTab
-              label={<FiMoreHorizontal />}
-              value="__more__"
-              onClick={handleOpen}
-              disableRipple
-              sx={{
-                ...(isOverflowSelected && {
-                  color: '#333369',
-                  backgroundColor: alpha(theme.palette.primary.light, 0.1),
-                }),
-              }}
-            />
-            <Menu
-              anchorEl={anchorEl}
-              open={open}
-              onClose={handleClose}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-              transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-              // slotProps={{ paper: { sx: glass } }}
-            >
-              {overflowTabs.map((t) => (
-                <MenuItem
-                  key={t.value}
-                  selected={isOverflowSelected && value === t.value}
-                  onClick={() => {
-                    onChange(t.value)
-                    handleClose()
-                  }}
-                >
-                  {t.label}
-                  {typeof t.badgeCount === 'number' && (
-                    <CounterChip style={{ marginLeft: 8 }}>{t.badgeCount}</CounterChip>
-                  )}
-                </MenuItem>
-              ))}
-            </Menu>
-          </>
-        )}
-      </StyledTabs>
-      <Divider sx={{ mt: 1 }} />
+          {overflowTabs.length > 0 && (
+            <>
+              <StyledTab
+                label={<FiMoreHorizontal />}
+                value="__more__"
+                onClick={handleOpen}
+                disableRipple
+                sx={{
+                  ...(isOverflowSelected && {
+                    color: PLUM,
+                    backgroundColor: alpha(PLUM, 0.1),
+                  }),
+                }}
+              />
+              <Menu
+                anchorEl={anchorEl}
+                open={open}
+                onClose={handleClose}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+                // slotProps={{ paper: { sx: glass } }}
+              >
+                {overflowTabs.map((t) => (
+                  <MenuItem
+                    key={t.value}
+                    selected={isOverflowSelected && value === t.value}
+                    onClick={() => {
+                      onChange(t.value)
+                      handleClose()
+                    }}
+                  >
+                    {t.label}
+                    {typeof t.badgeCount === 'number' && (
+                      <CounterChip style={{ marginLeft: 8 }}>{t.badgeCount}</CounterChip>
+                    )}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
+          )}
+        </StyledTabs>
+      </Box>
+      <Divider sx={{ mt: 1.5, borderColor: alpha(PLUM, 0.08) }} />
     </Box>
   )
 }

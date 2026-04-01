@@ -245,7 +245,7 @@ export class EkartService {
     const computedTotalAmount = orderAmount > 0 ? orderAmount : taxableAmount + totalTaxValue
     const codAmount = paymentMode === 'COD' ? computedTotalAmount : 0
 
-    const sellerName = this.sanitizeText(payload?.company?.name || payload?.pickup?.name, 'DelExpress')
+    const sellerName = this.sanitizeText(payload?.company?.name || payload?.pickup?.name, 'Delexpress')
     const sellerAddress = [
       this.sanitizeText(payload?.pickup?.address),
       this.sanitizeText(payload?.pickup?.address_2),

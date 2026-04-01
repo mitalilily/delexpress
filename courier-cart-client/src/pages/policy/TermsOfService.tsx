@@ -1,4 +1,4 @@
-import { Box, Link, List, ListItem, ListItemText, Typography } from '@mui/material'
+import { Box, List, ListItem, ListItemText, Typography } from '@mui/material'
 import PageHeading from '../../components/UI/heading/PageHeading'
 
 const TermsOfService = () => {
@@ -18,19 +18,19 @@ const TermsOfService = () => {
           <ListItemText primary="You must provide your full legal name, current address, a valid email address, and any other information needed in order to complete the signup process." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="You are responsible for keeping your password secure. DelExpress cannot and will not be liable for any loss or damage from your failure to maintain the security of your account and password." />
+          <ListItemText primary="You are responsible for keeping your password secure. Delexpress cannot and will not be liable for any loss or damage from your failure to maintain the security of your account and password." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="You may not use the DelExpress service for any illegal or unauthorized purpose nor may you, in the use of the Service, violate any laws in your jurisdiction (including but not limited to copyright laws) as well as the laws of India." />
+          <ListItemText primary="You may not use the Delexpress platform for any illegal or unauthorized purpose nor may you, in the use of the Service, violate any laws in your jurisdiction (including but not limited to copyright laws) as well as the laws of India." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="You are responsible for all activity and content (data, graphics, photos, links) that is uploaded under your DelExpress account." />
+          <ListItemText primary="You are responsible for all activity and content (data, graphics, photos, links) that is uploaded under your Delexpress account." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
           <ListItemText primary="You must not transmit any worms or viruses or any code of a destructive nature." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="A breach or violation of any of the Account Terms as determined in the sole discretion of DelExpress will result in an immediate termination of your services." />
+          <ListItemText primary="A breach or violation of any of the Account Terms as determined in the sole discretion of Delexpress will result in an immediate termination of your services." />
         </ListItem>
       </List>
 
@@ -40,7 +40,7 @@ const TermsOfService = () => {
       </Typography>
       <List sx={{ listStyleType: 'disc', pl: 3 }}>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="You must read, agree with and accept all of the terms and conditions contained in this User Agreement and the Privacy Policy before you may become a member of DelExpress." />
+          <ListItemText primary="You must read, agree with and accept all of the terms and conditions contained in this User Agreement and the Privacy Policy before you may become a member of Delexpress." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
           <ListItemText primary="We reserve the right to modify or terminate the Service for any reason, without notice at any time." />
@@ -52,10 +52,10 @@ const TermsOfService = () => {
           <ListItemText primary="Your use of the Service is at your sole risk. The Service is provided on an “as is” and “as available” basis without any warranty or condition, express, implied or statutory." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="DelExpress does not warrant that the service will be uninterrupted, timely, secure, or error-free." />
+          <ListItemText primary="Delexpress does not warrant that the service will be uninterrupted, timely, secure, or error-free." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="DelExpress does not warrant that the results that may be obtained from the use of the service will be accurate or reliable." />
+          <ListItemText primary="Delexpress does not warrant that the results that may be obtained from the use of the service will be accurate or reliable." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
           <ListItemText primary="You understand that your Content (not including credit card information), may be transferred unencrypted and involve (a) transmissions over various networks; and (b) changes to conform and adapt to technical requirements of connecting networks or devices." />
@@ -64,55 +64,40 @@ const TermsOfService = () => {
           <ListItemText primary="We may, but have no obligation to, remove Content and Accounts containing Content that we determine in our sole discretion are unlawful, offensive, threatening, libellous, defamatory, pornographic, obscene or otherwise objectionable or violates any party’s intellectual property or these Terms of Service." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="DelExpress does not warrant that the quality of any products, services, information, or other material purchased or obtained by you through the Service will meet your expectations, or that any errors in the Service will be corrected." />
+          <ListItemText primary="Delexpress does not warrant that the quality of any products, services, information, or other material purchased or obtained by you through the Service will meet your expectations, or that any errors in the Service will be corrected." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="You expressly understand and agree that DelExpress shall not be liable for any direct, indirect, incidental, special, consequential or exemplary damages, including but not limited to, damages for loss of profits, goodwill, use, data or other intangible losses resulting from the use of or inability to use the service." />
+          <ListItemText primary="You expressly understand and agree that Delexpress shall not be liable for any direct, indirect, incidental, special, consequential or exemplary damages, including but not limited to, damages for loss of profits, goodwill, use, data or other intangible losses resulting from the use of or inability to use the service." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="In no event shall DelExpress or our suppliers be liable for lost profits or any special, incidental or consequential damages arising out of or in connection with our site, our services or this agreement (however arising including negligence). You agree to indemnify and hold us and (as applicable) our parent, subsidiaries, affiliates, DelExpress partners, officers, directors, agents, and employees, harmless from any claim or demand, including reasonable attorneys’ fees, made by any third party due to or arising out of your breach of this Agreement or the documents it incorporates by reference, or your violation of any law or the rights of a third party." />
+          <ListItemText primary="In no event shall Delexpress or our suppliers be liable for lost profits or any special, incidental or consequential damages arising out of or in connection with our site, our services or this agreement (however arising including negligence). You agree to indemnify and hold us and (as applicable) our parent, subsidiaries, affiliates, Delexpress partners, officers, directors, agents, and employees harmless from any claim or demand, including reasonable attorneys’ fees, made by any third party due to or arising out of your breach of this Agreement or the documents it incorporates by reference, or your violation of any law or the rights of a third party." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText
-            primary={
-              <>
-                Technical support is only provided to paying account holders and is only available
-                via email (<Link href="mailto:SUPPORT@DELEXPRESS.IN">SUPPORT@DELEXPRESS.IN</Link>)
-                and if agreed upon earlier via phone (9217553934) and request ticketing system.
-              </>
-            }
-          />
+          <ListItemText primary="Technical support is only provided to paying account holders and is available through our support team, request ticketing system, and agreed support phone line at 8200661530." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="You agree not to reproduce, duplicate, copy, sell, resell or exploit any portion of the Service, use of the Service, or access to the Service without the express written permission by DelExpress." />
+          <ListItemText primary="You agree not to reproduce, duplicate, copy, sell, resell or exploit any portion of the Service, use of the Service, or access to the Service without the express written permission of Delexpress." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="Verbal or written abuse of any kind (including threats of abuse or retribution) of any DelExpress customer, employee, member, or officer will result in immediate account termination." />
+          <ListItemText primary="Verbal or written abuse of any kind (including threats of abuse or retribution) of any Delexpress customer, employee, member, or officer will result in immediate account termination." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="We do not claim any intellectual property rights over the material you provide to the DelExpress service." />
+          <ListItemText primary="We do not claim any intellectual property rights over the material you provide to the Delexpress platform." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="By uploading images and item description content to DelExpress, you agree to allow other internet users to view them and you agree to allow DelExpress to display and store them and you agree that DelExpress can, at any time, review all the content submitted by you to its Service." />
+          <ListItemText primary="By uploading images and item description content to Delexpress, you agree to allow other internet users to view them and you agree to allow Delexpress to display and store them, and you agree that Delexpress can, at any time, review all content submitted by you to its Service." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="The failure of DelExpress to exercise or enforce any right or provision of the Terms of Service shall not constitute a waiver of such right or provision. The Terms of Service constitutes the entire agreement between you and DelExpress and govern your use of the Service, superseding any prior agreements between you and DelExpress (including, but not limited to, any prior versions of the Terms of Service)." />
+          <ListItemText primary="The failure of Delexpress to exercise or enforce any right or provision of the Terms of Service shall not constitute a waiver of such right or provision. The Terms of Service constitutes the entire agreement between you and Delexpress and governs your use of the Service, superseding any prior agreements between you and Delexpress (including, but not limited to, any prior versions of the Terms of Service)." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="You shall not purchase search engine or other pay per click keywords (such as Google AdWords), or domain names that use DelExpress trademarks and/or variations and misspellings thereof." />
+          <ListItemText primary="You shall not purchase search engine or other pay per click keywords (such as Google AdWords), or domain names that use Delexpress trademarks and/or variations and misspellings thereof." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="DelExpress does not pre-screen Content and it is in their sole discretion to refuse or remove any Content that is available via the Service." />
+          <ListItemText primary="Delexpress does not pre-screen Content and it is in our sole discretion to refuse or remove any Content that is available via the Service." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText
-            primary={
-              <>
-                Questions about the Terms of Service should be sent to:{' '}
-                <Link href="mailto:SUPPORT@DELEXPRESS.IN">SUPPORT@DELEXPRESS.IN</Link>
-              </>
-            }
-          />
+          <ListItemText primary="Questions about the Terms of Service should be shared with our support team at 8200661530." />
         </ListItem>
       </List>
 
@@ -122,7 +107,7 @@ const TermsOfService = () => {
       </Typography>
       <List sx={{ listStyleType: 'disc', pl: 3 }}>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="There are different payment term options available, and depending on the payment term decided with DelExpress, the merchant has to pay on the pre-decided monthly, quarterly, half-yearly or yearly terms." />
+          <ListItemText primary="There are different payment term options available, and depending on the payment term decided with Delexpress, the merchant has to pay on the pre-decided monthly, quarterly, half-yearly or yearly terms." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
           <ListItemText primary="The merchant has to pay within 7 days from the date of Invoice, or he/she risks the chance of closure/termination of the online store." />
@@ -131,7 +116,7 @@ const TermsOfService = () => {
           <ListItemText primary="All fees are exclusive of all state and central taxes, service, sales tax or other taxes, fees or charges now in force or enacted in the future (“Taxes”)." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="DelExpress does not provide refunds." />
+          <ListItemText primary="Delexpress does not provide refunds." />
         </ListItem>
       </List>
 
@@ -144,10 +129,10 @@ const TermsOfService = () => {
           <ListItemText primary="Once your account is cancelled all of your Content will be immediately deleted from the Service. Since deletion of all data is final please be sure that you do in fact want to cancel your account before doing so." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="We reserve the right to modify or terminate the DelExpress service for any reason, without notice at any time." />
+          <ListItemText primary="We reserve the right to modify or terminate the Delexpress platform for any reason, without notice at any time." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="Fraud: Without limiting any other remedies, DelExpress may suspend or terminate your account if we suspect that you (by conviction, settlement, insurance or escrow investigation, or otherwise) have engaged in fraudulent activity in connection with the Site." />
+          <ListItemText primary="Fraud: Without limiting any other remedies, Delexpress may suspend or terminate your account if we suspect that you (by conviction, settlement, insurance or escrow investigation, or otherwise) have engaged in fraudulent activity in connection with the Site." />
         </ListItem>
       </List>
 
@@ -157,13 +142,13 @@ const TermsOfService = () => {
       </Typography>
       <List sx={{ listStyleType: 'disc', pl: 3 }}>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="Prices for using DelExpress are subject to change upon 14 days’ notice from DelExpress. Such notice may be provided at any time by posting the changes to the DelExpress Site or via an announcement." />
+          <ListItemText primary="Prices for using Delexpress are subject to change upon 14 days’ notice from Delexpress. Such notice may be provided at any time by posting the changes to the Platform or via an announcement." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="DelExpress reserves the right at any time to modify or discontinue the Service (or any part thereof) with or without notice." />
+          <ListItemText primary="Delexpress reserves the right at any time to modify or discontinue the Service (or any part thereof) with or without notice." />
         </ListItem>
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="DelExpress shall not be liable to you or to any third party for any modification, price change, suspension or discontinuance of the Service." />
+          <ListItemText primary="Delexpress shall not be liable to you or to any third party for any modification, price change, suspension or discontinuance of the Service." />
         </ListItem>
       </List>
 
@@ -179,7 +164,7 @@ const TermsOfService = () => {
           <ListItemText
             primary={
               <>
-                Without prejudice to the generality of the above, DelExpress does not permit
+                Without prejudice to the generality of the above, Delexpress does not permit
                 hosting of the following items:
                 <List sx={{ listStyleType: 'circle', pl: 4 }}>
                   <ListItem sx={{ display: 'list-item' }}>

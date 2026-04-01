@@ -92,7 +92,7 @@ export default function LoginForm() {
             <Box
               component="img"
               src="/logo/delexpress-logo.svg"
-              alt="DelExpress"
+              alt="Delexpress"
               sx={{ width: { xs: 220, sm: 290 }, height: 'auto' }}
             />
 
