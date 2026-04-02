@@ -18,10 +18,83 @@ import { userProfiles } from '../schema/userProfile'
 import { userPlans } from '../schema/userPlans'
 import { users } from '../schema/users'
 
+const EMPTY_COMPANY: CompanyInfo = {
+  businessName: '',
+  brandName: '',
+  city: '',
+  companyContactNumber: '',
+  pincode: '',
+  state: '',
+  profilePicture: '',
+  POCEmailVerified: false,
+  POCPhoneVerified: false,
+  companyAddress: '',
+  contactPerson: '',
+  contactNumber: '',
+  contactEmail: '',
+  companyEmail: '',
+  companyLogoUrl: '',
+  website: '',
+}
+
+const DEFAULT_PROFILE_BASE: Omit<typeof userProfiles.$inferInsert, 'id' | 'userId'> = {
+  onboardingStep: 0,
+  monthlyOrderCount: '0-100',
+  companyInfo: EMPTY_COMPANY,
+  domesticKyc: { status: 'pending', updatedAt: null },
+  bankDetails: null,
+  gstDetails: null,
+  businessType: [],
+  approved: false,
+  onboardingComplete: false,
+  salesChannels: {},
+  profileComplete: false,
+}
+
+const ensureUserProfileRow = async (userId: string) => {
+  const [existing] = await db
+    .select()
+    .from(userProfiles)
+    .where(eq(userProfiles.userId, userId))
+    .limit(1)
+
+  if (existing) return existing
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  if (!user) return null
+
+  const companyInfo = {
+    ...DEFAULT_PROFILE_BASE.companyInfo,
+    contactEmail: user.email ?? '',
+    contactNumber: user.phone ?? '',
+    POCEmailVerified: Boolean(user.emailVerified),
+    POCPhoneVerified: Boolean(user.phoneVerified),
+  }
+
+  await db
+    .insert(userProfiles)
+    .values({
+      ...DEFAULT_PROFILE_BASE,
+      userId,
+      companyInfo,
+    })
+    .onConflictDoNothing({ target: userProfiles.userId })
+
+  const [created] = await db
+    .select()
+    .from(userProfiles)
+    .where(eq(userProfiles.userId, userId))
+    .limit(1)
+
+  return created ?? null
+}
+
 /**
  * Fetch the profile for a specific userId (returns null if none exists)
  */
 export const getProfileByUserId = async (userId: string) => {
+  await ensureUserProfileRow(userId)
+
   const rows = await db
     .select({
       profile: userProfiles,
@@ -50,6 +123,7 @@ export const getProfileByUserId = async (userId: string) => {
  */
 export const upsertUserProfile = async (userId: string, input: IUserProfileDB) => {
   const existing = await getProfileByUserId(userId)
+  if (!existing) return null
 
   // Sanitise input (strip undefined so jsonb merge below is clean)
   const payload: any = Object.fromEntries(
