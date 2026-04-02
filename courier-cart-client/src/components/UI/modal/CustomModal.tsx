@@ -34,6 +34,7 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
       open={open}
       fullScreen={fullScreen}
       onClose={onClose}
+      keepMounted
       fullWidth
       maxWidth={width ? false : maxWidth}
       PaperProps={{

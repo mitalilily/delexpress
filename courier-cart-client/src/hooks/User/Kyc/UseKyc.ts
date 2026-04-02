@@ -8,9 +8,14 @@ export const useSubmitKyc = () =>
       submitKyc(details),
   });
 
-export const useUserKyc = () =>
+export const useUserKyc = (enabled = true) =>
   useQuery({
     queryKey: ["userKyc"],
     queryFn: () => getKyc(),
+    enabled,
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+    retry: false,
   });

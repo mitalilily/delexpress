@@ -2,15 +2,13 @@ import { Box, Skeleton } from '@mui/material'
 import { useState } from 'react'
 import { useAuth } from '../../../../context/auth/AuthContext'
 import { useUserKyc } from '../../../../hooks/User/Kyc/UseKyc'
-import { useUserProfile } from '../../../../hooks/User/useUserProfile'
 import KycDetailsCard from './KycDetailsCard'
 import KYCVerificationStep from './KycVerificationSection'
 
 const KycSection = () => {
-  const { isAuthenticated } = useAuth()
-  const { isLoading } = useUserProfile(isAuthenticated)
+  const { isAuthenticated, loading } = useAuth()
   const [editingKyc, setEditingKyc] = useState(false)
-  const { data: kycData, isLoading: loadingKyc } = useUserKyc()
+  const { data: kycData, isLoading: loadingKyc } = useUserKyc(isAuthenticated)
 
   const hasKycDetails = !!kycData?.kyc && Object.keys(kycData.kyc).length > 0
 
@@ -18,7 +16,7 @@ const KycSection = () => {
   // and only show the multi-step form when there are no details yet or when explicitly editing.
   const showDetailsCard = hasKycDetails && !editingKyc
 
-  if (isLoading) {
+  if (loading) {
     return (
       <Box display="flex" justifyContent="center" width="100%">
         <Skeleton

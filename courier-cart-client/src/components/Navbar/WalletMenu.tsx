@@ -16,6 +16,10 @@ const WalletMenu = () => {
   const shouldFetchWallet = isAuthenticated && Boolean(user?.onboardingComplete)
   const { data, isLoading } = useWalletBalance(shouldFetchWallet)
 
+  const handleOpenDialog = () => {
+    setDialogOpen(true)
+  }
+
   // ✅ Only set balance in context after render
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,7 +52,7 @@ const WalletMenu = () => {
             boxShadow: `0 8px 24px ${alpha(PLUM, 0.1)}`,
           },
         }}
-        onClick={() => setDialogOpen(true)}
+        onClick={handleOpenDialog}
       >
         <FaWallet size={18} style={{ color: PLUM }} />
 
@@ -96,18 +100,20 @@ const WalletMenu = () => {
           }}
           onClick={(e) => {
             e.stopPropagation()
-            setDialogOpen(true)
+            handleOpenDialog()
           }}
         >
           Recharge
         </Button>
       </Box>
 
-      <AddMoneyDialog
-        currentBalance={walletBalance ?? 0}
-        open={dialogOpen}
-        setOpen={setDialogOpen}
-      />
+      {dialogOpen && (
+        <AddMoneyDialog
+          currentBalance={walletBalance ?? 0}
+          open={dialogOpen}
+          setOpen={setDialogOpen}
+        />
+      )}
     </>
   )
 }
