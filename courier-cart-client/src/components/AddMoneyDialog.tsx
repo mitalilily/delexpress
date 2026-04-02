@@ -35,13 +35,13 @@ interface AddMoneyDialogProps {
 const quickAmounts = [500, 1000, 2000, 10000]
 
 const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentBalance }) => {
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const [amount, setAmount] = useState<number>(500)
   //   const [showCoupon, setShowCoupon] = useState<boolean>(false);
   //   const [coupon, setCoupon] = useState<string>("");
   const recharge = useRechargeWallet()
   const { data: paymentOptions } = usePaymentOptions()
-  const { data: profile } = useUserProfile(true)
+  const { data: profile } = useUserProfile(isAuthenticated && open)
 
   const minWalletRecharge = paymentOptions?.minWalletRecharge ?? 0
 

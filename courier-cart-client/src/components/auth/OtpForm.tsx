@@ -1,5 +1,6 @@
 import { Box, Stack, TextField, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
+import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { FiEdit2, FiRefreshCcw } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
@@ -57,6 +58,7 @@ type Props = {
 }
 
 export default function OtpForm({ email, onEditEmail }: Props) {
+  const queryClient = useQueryClient()
   const { setTokens, setUserId } = useAuth()
   const navigate = useNavigate()
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''))
@@ -140,8 +142,11 @@ export default function OtpForm({ email, onEditEmail }: Props) {
         onSuccess: ({ token, refreshToken, user }) => {
           sessionStorage.setItem('activeEmail', email)
           setUserId(user?.id)
+          if (user) {
+            queryClient.setQueryData(['userProfile'], user)
+          }
           setTokens(token, refreshToken)
-          navigate('/onboarding-questions', { replace: true })
+          navigate(user?.onboardingComplete ? '/home' : '/onboarding-questions', { replace: true })
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onError: (err: any) => {

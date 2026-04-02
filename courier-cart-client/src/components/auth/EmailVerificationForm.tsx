@@ -1,5 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { FiEdit2, FiMail } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
@@ -40,6 +41,7 @@ export default function EmailVerificationForm({
   onEditEmail,
   resendMail,
 }: IEmailVerificationProps) {
+  const queryClient = useQueryClient()
   const { setTokens, setUserId } = useAuth()
   const navigate = useNavigate()
 
@@ -69,6 +71,9 @@ export default function EmailVerificationForm({
       { email, otp: code, password },
       {
         onSuccess: ({ token, refreshToken, user }) => {
+          if (user) {
+            queryClient.setQueryData(['userProfile'], user)
+          }
           setTokens(token, refreshToken)
           setUserId(user?.id)
           sessionStorage.setItem('activeEmail', email)
@@ -77,7 +82,7 @@ export default function EmailVerificationForm({
             message: 'Email verified successfully',
             severity: 'success',
           })
-          navigate('/onboarding-questions', { replace: true })
+          navigate(user?.onboardingComplete ? '/home' : '/onboarding-questions', { replace: true })
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onError: (err: any) => {

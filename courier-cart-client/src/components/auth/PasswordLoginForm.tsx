@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Box, FormControlLabel, Link, Stack, Tooltip, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
+import { useQueryClient } from '@tanstack/react-query'
 import { useState, type Dispatch, type SetStateAction } from 'react'
 import { FiMail, FiShield } from 'react-icons/fi'
 import { MdInfoOutline, MdPassword } from 'react-icons/md'
@@ -31,6 +32,7 @@ interface IPasswordFormProps {
 }
 
 export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPasswordFormProps) {
+  const queryClient = useQueryClient()
   const { setTokens, setUserId } = useAuth()
   const navigate = useNavigate()
   const { mutate: requestPasswordLogin, isPending } = useRequestPasswordLogin()
@@ -137,8 +139,11 @@ export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPass
             }
 
             setUserId(user?.id)
+            if (user) {
+              queryClient.setQueryData(['userProfile'], user)
+            }
             setTokens(token, refreshToken)
-            navigate('/onboarding-questions', { replace: true })
+            navigate(user?.onboardingComplete ? '/home' : '/onboarding-questions', { replace: true })
           },
           onError: (error: any) => {
             toast.open({

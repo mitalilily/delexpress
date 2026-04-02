@@ -17,6 +17,7 @@ import CustomInput from '../../UI/inputs/CustomInput'
 import { toast } from '../../UI/Toast'
 import { useChangePassword } from '../../../hooks/Auth/useChangePassword'
 import { useUserInfo } from '../../../hooks/useUserInfo'
+import { useAuth } from '../../../context/auth/AuthContext'
 
 const DE_BLUE = '#0052CC'
 
@@ -27,8 +28,9 @@ interface PasswordFormValues {
 }
 
 export default function PasswordSettingsForm() {
+  const { isAuthenticated } = useAuth()
   const { mutateAsync, isPending: saving } = useChangePassword()
-  const { data } = useUserInfo()
+  const { data } = useUserInfo(isAuthenticated)
 
   const hasPassword = !!data?.data?.passwordHash
 
