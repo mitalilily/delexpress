@@ -243,6 +243,7 @@ export interface B2BOrder {
   transaction_fee?: number
   discount?: number
   courier_partner?: string
+  integration_type?: string | null
   courier_id?: string | null
   shipment_id?: string
   awb_number?: string

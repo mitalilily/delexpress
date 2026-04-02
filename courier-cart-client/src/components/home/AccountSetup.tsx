@@ -80,19 +80,19 @@ const AccountSetup = () => {
 
       <Grid container spacing={2}>
         {checklist.map((step, idx) => (
-          <Grid item xs={12} sm={6} key={idx}>
+          <Grid size={{ xs: 12, sm: 6 }} key={idx}>
             <Box
-              onClick={() => !step.isComplete && navigate(step.path)}
+              onClick={() => !step.done && navigate(step.path)}
               sx={{
                 p: 1.8,
                 borderRadius: 1,
-                border: `1px solid ${step.isComplete ? alpha('#36B37E', 0.15) : alpha(DE_BLUE, 0.08)}`,
-                bgcolor: step.isComplete ? alpha('#36B37E', 0.03) : '#ffffff',
-                cursor: step.isComplete ? 'default' : 'pointer',
+                border: `1px solid ${step.done ? alpha('#36B37E', 0.15) : alpha(DE_BLUE, 0.08)}`,
+                bgcolor: step.done ? alpha('#36B37E', 0.03) : '#ffffff',
+                cursor: step.done ? 'default' : 'pointer',
                 transition: 'all 0.2s ease',
                 '&:hover': {
-                  borderColor: step.isComplete ? alpha('#36B37E', 0.3) : DE_BLUE,
-                  boxShadow: step.isComplete ? 'none' : `0 4px 12px ${alpha(DE_BLUE, 0.08)}`,
+                  borderColor: step.done ? alpha('#36B37E', 0.3) : DE_BLUE,
+                  boxShadow: step.done ? 'none' : `0 4px 12px ${alpha(DE_BLUE, 0.08)}`,
                 },
               }}
             >
@@ -105,11 +105,11 @@ const AccountSetup = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    bgcolor: step.isComplete ? '#36B37E' : alpha(DE_BLUE, 0.1),
-                    color: step.isComplete ? '#ffffff' : DE_BLUE,
+                    bgcolor: step.done ? '#36B37E' : alpha(DE_BLUE, 0.1),
+                    color: step.done ? '#ffffff' : DE_BLUE,
                   }}
                 >
-                  {step.isComplete ? '✓' : idx + 1}
+                  {step.done ? '✓' : idx + 1}
                 </Box>
                 <Typography sx={{ fontSize: '13px', fontWeight: 700, color: TEXT_PRIMARY }}>
                   {step.title}

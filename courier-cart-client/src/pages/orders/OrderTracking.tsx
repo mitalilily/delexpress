@@ -210,7 +210,7 @@ export default function TrackingPage() {
 
         <Grid container spacing={4}>
           {/* Tracking Journey */}
-          <Grid item xs={12} lg={8}>
+          <Grid size={{ xs: 12, lg: 8 }}>
             <Paper
               elevation={0}
               sx={{
@@ -335,7 +335,7 @@ export default function TrackingPage() {
           </Grid>
 
           {/* Shipment Details */}
-          <Grid item xs={12} lg={4}>
+          <Grid size={{ xs: 12, lg: 4 }}>
             <Stack spacing={4}>
               <Paper
                 elevation={0}

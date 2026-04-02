@@ -6,6 +6,7 @@ export interface Pickup {
   awb_number: string | null
   courier_partner: string | null
   order_number: string
+  status?: string | null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   pickup_details: any
   created_at: string

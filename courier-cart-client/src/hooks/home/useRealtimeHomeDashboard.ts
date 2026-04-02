@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Dispatch, SetStateAction } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   getIncomingPickups,
   getCourierDistribution,
@@ -29,11 +28,6 @@ const shouldShowLoading = (currentData: unknown) => {
     return currentData.length === 0
   }
   return currentData === null || currentData === undefined
-}
-
-type PollConfig<T> = {
-  setter: Dispatch<SetStateAction<DataState<T>>>
-  fetcher: (signal: AbortSignal) => Promise<T>
 }
 
 export const useRealtimeHomeDashboard = () => {
@@ -75,23 +69,6 @@ export const useRealtimeHomeDashboard = () => {
     destinations: false,
   })
 
-  const fetchMap = useMemo<Record<DashboardKey, PollConfig<Pickup[] | CourierDistribution[] | TopDestination[]>>>(() => {
-    return {
-      pickups: {
-        setter: setPickupsState,
-        fetcher: (signal: AbortSignal) => getIncomingPickups({ signal }),
-      },
-      distribution: {
-        setter: setDistributionState,
-        fetcher: (signal: AbortSignal) => getCourierDistribution({ signal }),
-      },
-      destinations: {
-        setter: setDestinationsState,
-        fetcher: (signal: AbortSignal) => getTopDestinations(8, { signal }),
-      },
-    }
-  }, [setPickupsState, setDistributionState, setDestinationsState])
-
   const runFetch = useCallback(
     async (key: DashboardKey) => {
       if (isFetchingRef.current[key]) return
@@ -100,16 +77,46 @@ export const useRealtimeHomeDashboard = () => {
       controllersRef.current[key]?.abort()
       controllersRef.current[key] = controller
 
-      const { setter, fetcher } = fetchMap[key]
-      setter((prev) => ({
-        ...prev,
-        isLoading: shouldShowLoading(prev.data),
-      }))
-
       try {
-        const payload = await fetcher(controller.signal)
+        if (key === 'pickups') {
+          setPickupsState((prev) => ({
+            ...prev,
+            isLoading: shouldShowLoading(prev.data),
+          }))
+          const payload = await getIncomingPickups({ signal: controller.signal })
+          if (!isMountedRef.current) return
+          setPickupsState({
+            data: payload,
+            isLoading: false,
+            error: null,
+            lastUpdated: Date.now(),
+          })
+          return
+        }
+
+        if (key === 'distribution') {
+          setDistributionState((prev) => ({
+            ...prev,
+            isLoading: shouldShowLoading(prev.data),
+          }))
+          const payload = await getCourierDistribution({ signal: controller.signal })
+          if (!isMountedRef.current) return
+          setDistributionState({
+            data: payload,
+            isLoading: false,
+            error: null,
+            lastUpdated: Date.now(),
+          })
+          return
+        }
+
+        setDestinationsState((prev) => ({
+          ...prev,
+          isLoading: shouldShowLoading(prev.data),
+        }))
+        const payload = await getTopDestinations(8, { signal: controller.signal })
         if (!isMountedRef.current) return
-        setter({
+        setDestinationsState({
           data: payload,
           isLoading: false,
           error: null,
@@ -121,16 +128,30 @@ export const useRealtimeHomeDashboard = () => {
           err instanceof Error
             ? err.message
             : `Unable to refresh ${key}`
-        setter((prev) => ({
-          ...prev,
-          isLoading: shouldShowLoading(prev.data),
-          error: message,
-        }))
+        if (key === 'pickups') {
+          setPickupsState((prev) => ({
+            ...prev,
+            isLoading: shouldShowLoading(prev.data),
+            error: message,
+          }))
+        } else if (key === 'distribution') {
+          setDistributionState((prev) => ({
+            ...prev,
+            isLoading: shouldShowLoading(prev.data),
+            error: message,
+          }))
+        } else {
+          setDestinationsState((prev) => ({
+            ...prev,
+            isLoading: shouldShowLoading(prev.data),
+            error: message,
+          }))
+        }
       } finally {
         isFetchingRef.current[key] = false
       }
     },
-    [fetchMap],
+    [],
   )
 
   const clearStaggeredTimers = useCallback(() => {

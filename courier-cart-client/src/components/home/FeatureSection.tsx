@@ -105,7 +105,7 @@ const FeatureSection: React.FC = () => {
 
       <Grid container spacing={3}>
         {features.map((feature, index) => (
-          <Grid item xs={12} sm={6} lg={3} key={index}>
+          <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={index}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}

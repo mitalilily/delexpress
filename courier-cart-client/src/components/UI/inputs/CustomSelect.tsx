@@ -23,7 +23,7 @@ interface DropdownItem {
 
 interface DropdownMenuProps {
   label: string
-  items: DropdownItem[]
+  items?: DropdownItem[]
   onSelect: (key: string | boolean) => void
   value?: string | boolean
   width?: number | string
@@ -39,7 +39,7 @@ interface DropdownMenuProps {
 
 export default function CustomSelect({
   label,
-  items,
+  items = [],
   onSelect,
   value,
   placeholder,

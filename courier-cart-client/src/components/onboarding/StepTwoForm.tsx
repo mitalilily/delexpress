@@ -1,7 +1,7 @@
 import { Box, Checkbox, FormControlLabel, Grid, Stack, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useEffect, useMemo, useState } from 'react'
-import { MdBusiness, MdTrendingUp } from 'react-icons/md'
+import { MdBusiness } from 'react-icons/md'
 import type { UserInfoData } from '../../types/user.types'
 import type { FormErrors } from '../../pages/onboarding/UserOnboarding'
 import { createSyntheticEvent } from '../../utils/functions'
@@ -38,6 +38,13 @@ const BUSINESS_OPTIONS = [
     title: 'D2C',
     subtitle: 'I sell via website, social, or store',
   },
+]
+
+const MONTHLY_SHIPMENT_OPTIONS = [
+  { key: '0-100', label: '0 - 100' },
+  { key: '101-500', label: '101 - 500' },
+  { key: '501-2000', label: '501 - 2,000' },
+  { key: '2000+', label: '2,000+' },
 ]
 
 export default function StepTwoForm({ formData, onChange, errors }: StepTwoFormProps) {
@@ -152,20 +159,15 @@ export default function StepTwoForm({ formData, onChange, errors }: StepTwoFormP
           <Grid size={{ xs: 12, md: 6 }}>
             <CustomSelect
               label="Expected Shipments / Month"
-              name="monthlyShipments"
               value={formData?.businessLegal?.monthlyShipments}
-              onChange={(e) => onChange(e, 'businessLegal')}
+              items={MONTHLY_SHIPMENT_OPTIONS}
+              onSelect={(value) =>
+                onChange(createSyntheticEvent('monthlyShipments', String(value)), 'businessLegal')
+              }
               required
               error={!!errors.businessLegal.monthlyShipments}
               helperText={errors.businessLegal.monthlyShipments}
-              prefix={<MdTrendingUp color={PLUM} />}
-            >
-              <option value="">Select volume range</option>
-              <option value="0-100">0 - 100</option>
-              <option value="101-500">101 - 500</option>
-              <option value="501-2000">501 - 2,000</option>
-              <option value="2000+">2,000+</option>
-            </CustomSelect>
+            />
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>

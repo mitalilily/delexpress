@@ -37,7 +37,7 @@ const GettingStarted = () => {
       </Stack>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Box sx={cardSx}>
             <Stack spacing={1.2}>
               <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -75,7 +75,7 @@ const GettingStarted = () => {
           </Box>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Box sx={cardSx}>
             <Stack spacing={1.2}>
               <Stack direction="row" alignItems="center" justifyContent="space-between">

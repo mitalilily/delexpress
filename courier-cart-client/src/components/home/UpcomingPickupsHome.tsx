@@ -7,6 +7,20 @@ const DE_BLUE = '#0052CC'
 const TEXT_PRIMARY = '#172B4D'
 const TEXT_SECONDARY = '#42526E'
 
+const getPickupStatusTone = (status?: string | null) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized.includes('cancel') || normalized.includes('fail') || normalized.includes('rto')) {
+    return 'error' as const
+  }
+  if (normalized.includes('complete') || normalized.includes('success') || normalized.includes('picked')) {
+    return 'success' as const
+  }
+  if (normalized.includes('progress') || normalized.includes('schedule') || normalized.includes('pending')) {
+    return 'pending' as const
+  }
+  return 'info' as const
+}
+
 type UpcomingPickupsHomeProps = {
   data?: Pickup[]
   isLoading?: boolean
@@ -116,7 +130,7 @@ const UpcomingPickupsHome = ({ data: overrideData, isLoading: overrideLoading, e
                       <Typography sx={{ fontSize: '0.92rem', fontWeight: 800, color: TEXT_PRIMARY }}>
                         {warehouseName}
                       </Typography>
-                      <StatusChip status={pickup.status} />
+                      <StatusChip status={getPickupStatusTone(pickup.status)} label={pickup.status || 'Scheduled'} />
                     </Stack>
                     <Stack direction="row" spacing={0.8} alignItems="center" color={TEXT_SECONDARY}>
                       <MdLocationPin size={14} color={DE_BLUE} />

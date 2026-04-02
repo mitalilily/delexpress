@@ -1,6 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FiEdit2, FiMail } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/auth/AuthContext'

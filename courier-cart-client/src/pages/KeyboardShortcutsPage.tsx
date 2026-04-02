@@ -110,12 +110,12 @@ export default function KeyboardShortcutsPage() {
     <Container maxWidth="lg" sx={{ py: 6 }}>
       <PageHeading
         title="Keyboard Shortcuts"
-        description="Speed up your workflow with these handy keyboard combinations."
+        subtitle="Speed up your workflow with these handy keyboard combinations."
       />
 
       <Grid container spacing={4} sx={{ mt: 2 }}>
         {categories.map((category) => (
-          <Grid item xs={12} md={6} key={category.title}>
+          <Grid size={{ xs: 12, md: 6 }} key={category.title}>
             <Paper
               elevation={0}
               sx={{

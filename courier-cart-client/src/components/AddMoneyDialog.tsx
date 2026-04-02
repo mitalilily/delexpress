@@ -23,6 +23,7 @@ import CustomDialog from './UI/modal/CustomModal'
 const PLUM = '#8A1F43'
 const PLUM_DARK = '#5E1630'
 const MINT = '#56C0A5'
+const DE_BLUE = PLUM
 const BRAND_GRADIENT = `linear-gradient(135deg, ${PLUM} 0%, #C86B5E 58%, ${MINT} 100%)`
 
 interface AddMoneyDialogProps {

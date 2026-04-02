@@ -5,6 +5,9 @@ export interface TrackingHistory {
   location: string
   event_time: string
   message: string
+  date?: string
+  time?: string
+  activity?: string
 }
 
 export interface TrackingResponse {
@@ -18,6 +21,13 @@ export interface TrackingResponse {
   history: TrackingHistory[]
   payment_type: string
   shipment_info: string
+  consignee?: {
+    name?: string
+    city?: string
+    pincode?: string
+  }
+  weight?: string | number
+  dimensions?: string
 }
 
 export interface TrackingParams {
