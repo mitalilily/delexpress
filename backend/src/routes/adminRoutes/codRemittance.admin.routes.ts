@@ -34,6 +34,7 @@ router.get('/users/:userId/remittances', getUserCodRemittances)
 
 // Admin actions - Single remittance
 router.post('/remittances/:remittanceId/credit', manualCreditWallet)
+router.post('/remittances/:remittanceId/settle', manualCreditWallet)
 router.patch('/remittances/:remittanceId/notes', updateRemittanceNotes)
 
 // CSV Upload for Settlement (Two-step: Preview then Confirm)

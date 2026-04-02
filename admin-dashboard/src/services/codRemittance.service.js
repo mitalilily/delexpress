@@ -27,10 +27,13 @@ export const getUserCodRemittances = async (userId) => {
 }
 
 /**
- * Manually credit wallet (if auto-credit failed)
+ * Mark a COD remittance as settled
  */
-export const manualCreditWallet = async (remittanceId) => {
-  const response = await apiClient.post(`/admin/cod-remittance/remittances/${remittanceId}/credit`)
+export const manualMarkSettlement = async (remittanceId, payload = {}) => {
+  const response = await apiClient.post(
+    `/admin/cod-remittance/remittances/${remittanceId}/settle`,
+    payload,
+  )
   return response.data
 }
 
@@ -82,19 +85,21 @@ export const previewCourierSettlement = async ({ courierPartner, csvData }) => {
 }
 
 /**
- * Confirm courier settlement and credit wallets
+ * Confirm courier settlement and mark remittances settled
  */
 export const confirmCourierSettlement = async ({
   remittances,
   utrNumber,
   settlementDate,
   courierPartner,
+  settlementNotes,
 }) => {
   const response = await apiClient.post('/admin/cod-remittance/confirm-settlement', {
     remittances,
     utrNumber,
     settlementDate,
     courierPartner,
+    settlementNotes,
   })
   return response.data
 }

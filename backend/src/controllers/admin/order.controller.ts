@@ -1,8 +1,12 @@
 import { Response } from 'express'
+import { eq } from 'drizzle-orm'
 import {
   getAllOrdersServiceAdmin,
   regenerateOrderDocumentsServiceAdmin,
 } from '../../models/services/adminOrders.service'
+import { db } from '../../models/client'
+import { recordNdrEvent } from '../../models/services/ndr.service'
+import { b2c_orders } from '../../models/schema/b2cOrders'
 import { buildCsv } from '../../utils/csv'
 
 export const getAllOrdersControllerAdmin = async (req: any, res: Response) => {
@@ -130,6 +134,133 @@ export const regenerateOrderDocumentsControllerAdmin = async (req: any, res: Res
     return res.status(400).json({
       success: false,
       message: error?.message || 'Failed to regenerate order documents',
+    })
+  }
+}
+
+export const updateOrderStatusControllerAdmin = async (req: any, res: Response) => {
+  try {
+    const orderId = String(req.params.id || '').trim()
+    const status = String(req.body?.status || '').trim().toLowerCase()
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : ''
+    const remarks = typeof req.body?.remarks === 'string' ? req.body.remarks.trim() : ''
+    const attemptNo =
+      req.body?.attemptNo !== undefined && req.body?.attemptNo !== null
+        ? String(req.body.attemptNo).trim()
+        : ''
+
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: 'Order ID is required' })
+    }
+
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'Status is required' })
+    }
+
+    const [order] = await db.select().from(b2c_orders).where(eq(b2c_orders.id, orderId)).limit(1)
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' })
+    }
+
+    const [updated] = await db
+      .update(b2c_orders)
+      .set({
+        order_status: status,
+        updated_at: new Date(),
+      })
+      .where(eq(b2c_orders.id, orderId))
+      .returning()
+
+    if (status === 'ndr' || status === 'undelivered') {
+      await recordNdrEvent({
+        orderId: order.id,
+        userId: order.user_id,
+        awbNumber: order.awb_number || undefined,
+        status,
+        reason: reason || null,
+        remarks: remarks || null,
+        attemptNo: attemptNo || null,
+        payload: {
+          source: 'admin_order_status_update',
+          adminUserId: req.user?.sub || null,
+        },
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Order status updated successfully',
+      data: updated,
+    })
+  } catch (error: any) {
+    console.error('Error updating order status:', error?.message || error)
+    return res.status(400).json({
+      success: false,
+      message: error?.message || 'Failed to update order status',
+    })
+  }
+}
+
+export const addManualNdrControllerAdmin = async (req: any, res: Response) => {
+  try {
+    const orderId = String(req.params.id || '').trim()
+    const status = String(req.body?.status || 'ndr').trim().toLowerCase()
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : ''
+    const remarks = typeof req.body?.remarks === 'string' ? req.body.remarks.trim() : ''
+    const attemptNo =
+      req.body?.attemptNo !== undefined && req.body?.attemptNo !== null
+        ? String(req.body.attemptNo).trim()
+        : ''
+
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: 'Order ID is required' })
+    }
+
+    if (!reason) {
+      return res.status(400).json({ success: false, message: 'Reason is required' })
+    }
+
+    const [order] = await db.select().from(b2c_orders).where(eq(b2c_orders.id, orderId)).limit(1)
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' })
+    }
+
+    const [updated] = await db
+      .update(b2c_orders)
+      .set({
+        order_status: status,
+        updated_at: new Date(),
+      })
+      .where(eq(b2c_orders.id, orderId))
+      .returning()
+
+    const event = await recordNdrEvent({
+      orderId: order.id,
+      userId: order.user_id,
+      awbNumber: order.awb_number || undefined,
+      status,
+      reason,
+      remarks: remarks || null,
+      attemptNo: attemptNo || null,
+      payload: {
+        source: 'admin_manual_ndr',
+        adminUserId: req.user?.sub || null,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'NDR added successfully',
+      data: {
+        order: updated,
+        event,
+      },
+    })
+  } catch (error: any) {
+    console.error('Error adding manual NDR:', error?.message || error)
+    return res.status(400).json({
+      success: false,
+      message: error?.message || 'Failed to add manual NDR',
     })
   }
 }

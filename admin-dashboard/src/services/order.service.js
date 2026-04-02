@@ -80,3 +80,39 @@ export async function regenerateAdminOrderDocuments(
     throw error
   }
 }
+
+export async function addManualNdrToOrder(
+  orderId,
+  { status = 'ndr', reason, remarks, attemptNo } = {},
+) {
+  try {
+    const response = await api.post(`/admin/orders/${orderId}/ndr`, {
+      status,
+      reason,
+      remarks,
+      attemptNo,
+    })
+    return response.data
+  } catch (error) {
+    console.error('Error adding manual NDR to order:', error.response?.data || error.message)
+    throw error
+  }
+}
+
+export async function updateAdminOrderStatus(
+  orderId,
+  { status, reason, remarks, attemptNo } = {},
+) {
+  try {
+    const response = await api.post(`/admin/orders/${orderId}/status`, {
+      status,
+      reason,
+      remarks,
+      attemptNo,
+    })
+    return response.data
+  } catch (error) {
+    console.error('Error updating order status:', error.response?.data || error.message)
+    throw error
+  }
+}

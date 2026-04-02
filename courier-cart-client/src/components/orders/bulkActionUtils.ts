@@ -25,6 +25,7 @@ export type DocumentEntry = {
   key?: string | null
   url?: string | null
   fileName: string
+  orderLabel: string
 }
 
 type ApiLikeError = {
@@ -183,6 +184,9 @@ export const getDownloadFileName = (
 
   return `${baseName}-${type}${getFileExtension(source)}`
 }
+
+export const getOrderDocumentLabel = (order: BulkOrderDocumentShape) =>
+  String(order.order_number || order.awb_number || `${order.type || 'order'}-${order.id}`)
 
 export const getActionableErrorMessage = (error: unknown, fallback: string) => {
   const apiError = error as ApiLikeError

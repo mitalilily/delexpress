@@ -1,8 +1,10 @@
 import { Router } from 'express'
 import {
+  addManualNdrControllerAdmin,
   getAllOrdersControllerAdmin,
   exportOrdersControllerAdmin,
   regenerateOrderDocumentsControllerAdmin,
+  updateOrderStatusControllerAdmin,
 } from '../../controllers/admin/order.controller'
 import { isAdminMiddleware } from '../../middlewares/isAdmin'
 import { requireAuth } from '../../middlewares/requireAuth'
@@ -16,4 +18,6 @@ router.post(
   isAdminMiddleware,
   regenerateOrderDocumentsControllerAdmin,
 )
+router.post('/:id/status', requireAuth, isAdminMiddleware, updateOrderStatusControllerAdmin)
+router.post('/:id/ndr', requireAuth, isAdminMiddleware, addManualNdrControllerAdmin)
 export default router
