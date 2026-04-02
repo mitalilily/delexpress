@@ -58,6 +58,7 @@ export class XpressbeesService {
     process.env.XPRESSBEES_BUSINESS_ACCOUNT_NAME ||
     'DELEXPRESS B2C NDD'
   private businessFlow = process.env.XPRESSBEES_BUSINESS_FLOW || 'NDD'
+  private businessService = process.env.XPRESSBEES_BUSINESS_SERVICE || 'NDD'
   private tokenEndpoint =
     process.env.XPRESSBEES_TOKEN_ENDPOINT ||
     'https://userauthapis.xbees.in/api/auth/generateToken'
@@ -303,6 +304,7 @@ export class XpressbeesService {
       vendor_code: pickupVendorCode,
       ...this.buildBusinessUnitFields(),
       ...this.buildBusinessFlowFields(serviceType),
+      ...this.buildBusinessServiceFields(serviceType),
     }
 
     try {
@@ -332,6 +334,7 @@ export class XpressbeesService {
         service_type: serviceType || undefined,
         ...this.buildBusinessUnitFields(),
         ...this.buildBusinessFlowFields(serviceType),
+        ...this.buildBusinessServiceFields(serviceType),
       })
       const lookedUpAwb = this.extractAwbFromResponse(seriesLookup)
       if (lookedUpAwb) {
@@ -396,6 +399,19 @@ export class XpressbeesService {
           BusinessFlow: normalizedFlow,
           businessFlow: normalizedFlow,
           businessflow: normalizedFlow,
+        }
+      : {}
+  }
+
+  private buildBusinessServiceFields(serviceOverride?: string | null) {
+    const normalizedService = this.normalizeServiceType(
+      serviceOverride || this.businessService || this.businessFlow || 'NDD',
+    )
+    return normalizedService
+      ? {
+          BusinessService: normalizedService,
+          businessService: normalizedService,
+          businessservice: normalizedService,
         }
       : {}
   }
@@ -760,6 +776,7 @@ export class XpressbeesService {
               'Auth-Type': 'New',
               ...this.buildBusinessUnitFields(),
               ...this.buildBusinessFlowFields(),
+              ...this.buildBusinessServiceFields(),
               ...(this.secretKey
                 ? { secretkey: this.secretKey, 'Secret-Key': this.secretKey }
                 : {}),
@@ -839,6 +856,7 @@ export class XpressbeesService {
         ...payload,
         ...this.buildBusinessUnitFields(),
         ...this.buildBusinessFlowFields(),
+        ...this.buildBusinessServiceFields(),
       },
     })
     const records = Array.isArray(raw?.data) ? raw.data : []
@@ -954,6 +972,12 @@ export class XpressbeesService {
         undefined,
       ...this.buildBusinessUnitFields(),
       ...this.buildBusinessFlowFields(
+        runtimeAwb.serviceType ||
+          this.normalizeServiceType(
+            payload?.service_type || payload?.serviceType || payload?.transport_speed,
+          ),
+      ),
+      ...this.buildBusinessServiceFields(
         runtimeAwb.serviceType ||
           this.normalizeServiceType(
             payload?.service_type || payload?.serviceType || payload?.transport_speed,
@@ -1093,6 +1117,7 @@ export class XpressbeesService {
         re_attempt_date: payload.deferred_delivery_date,
         ...this.buildBusinessUnitFields(),
         ...this.buildBusinessFlowFields(),
+        ...this.buildBusinessServiceFields(),
         ...(payload.reason ? { reason: payload.reason } : {}),
         ...(payload.comments ? { comments: payload.comments } : {}),
       },
@@ -1107,6 +1132,7 @@ export class XpressbeesService {
         awb_number: awb,
         ...this.buildBusinessUnitFields(),
         ...this.buildBusinessFlowFields(),
+        ...this.buildBusinessServiceFields(),
       },
     })
   }
@@ -1119,6 +1145,7 @@ export class XpressbeesService {
         awb_numbers: awbs,
         ...this.buildBusinessUnitFields(),
         ...this.buildBusinessFlowFields(),
+        ...this.buildBusinessServiceFields(),
       },
     })
   }
