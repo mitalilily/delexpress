@@ -109,11 +109,17 @@ export default function StepTwoForm({ formData, onChange, errors }: StepTwoFormP
                   role="button"
                   tabIndex={0}
                   onClick={() => toggleCategory(option.key)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      toggleCategory(option.key)
+                    }
+                  }}
                   onKeyUp={(e) => {
                     if (e.key === 'Enter') toggleCategory(option.key)
                   }}
                   sx={{
-                    p: 1.5,
+                    p: { xs: 1.7, md: 1.9 },
                     borderRadius: 2.5,
                     border: `1px solid ${active ? alpha(PLUM, 0.28) : alpha(PLUM, 0.1)}`,
                     background: active
@@ -122,18 +128,65 @@ export default function StepTwoForm({ formData, onChange, errors }: StepTwoFormP
                     cursor: 'pointer',
                     transition: 'all .2s ease',
                     boxShadow: active ? `0 10px 24px ${alpha(PLUM, 0.08)}` : 'none',
+                    minHeight: 136,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    userSelect: 'none',
+                    WebkitTapHighlightColor: 'transparent',
+                    '&:hover': {
+                      borderColor: alpha(PLUM, 0.26),
+                      boxShadow: `0 10px 26px ${alpha(PLUM, 0.09)}`,
+                      transform: 'translateY(-1px)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.985)',
+                    },
+                    '&:focus-visible': {
+                      outline: `3px solid ${alpha(PLUM, 0.2)}`,
+                      outlineOffset: 2,
+                    },
                   }}
                 >
+                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1.2}>
+                    <Typography
+                      sx={{
+                        fontSize: '0.96rem',
+                        fontWeight: 800,
+                        color: active ? PLUM : TEXT_PRIMARY,
+                      }}
+                    >
+                      {option.title}
+                    </Typography>
+                    <Box
+                      sx={{
+                        minWidth: 22,
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        border: `1.5px solid ${active ? PLUM : alpha(PLUM, 0.22)}`,
+                        backgroundColor: active ? PLUM : '#fff',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {active ? '✓' : ''}
+                    </Box>
+                  </Stack>
                   <Typography
                     sx={{
-                      fontSize: '0.94rem',
-                      fontWeight: 800,
-                      color: active ? PLUM : TEXT_PRIMARY,
+                      fontSize: '0.8rem',
+                      color: TEXT_SECONDARY,
+                      mt: 1.2,
+                      lineHeight: 1.6,
+                      maxWidth: '95%',
                     }}
                   >
-                    {option.title}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.78rem', color: TEXT_SECONDARY, mt: 0.25, lineHeight: 1.55 }}>
                     {option.subtitle}
                   </Typography>
                 </Box>

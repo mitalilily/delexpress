@@ -2,6 +2,7 @@ import { and, desc, eq, gte, ilike, lte, sql } from 'drizzle-orm'
 import { PgTransaction } from 'drizzle-orm/pg-core'
 import { db } from '../client'
 import { wallets, walletTransactions } from '../schema/wallet'
+import { walletOfUser } from './walletTopupService'
 
 type WalletTransactionType = 'credit' | 'debit'
 
@@ -127,14 +128,11 @@ export const getUserWalletTransactions = async ({
   dateTo,
 }: GetUserWalletTransactionsParams) => {
   // 1️⃣ Get wallet of the user
-  const userWallet = await db.select().from(wallets).where(eq(wallets.userId, userId)).limit(1)
-  if (!userWallet[0]) {
-    throw new Error('Wallet not found for this user')
-  }
+  const resolvedWallet = await walletOfUser(userId)
   // 2️⃣ Build dynamic where clause
-  let filter: any = eq(walletTransactions.wallet_id, userWallet[0].id)
+  let filter: any = eq(walletTransactions.wallet_id, resolvedWallet.id)
   if (type || reason || dateFrom || dateTo) {
-    const conditions: any[] = [eq(walletTransactions.wallet_id, userWallet[0].id)]
+    const conditions: any[] = [eq(walletTransactions.wallet_id, resolvedWallet.id)]
     if (type) conditions.push(eq(walletTransactions.type, type))
     if (reason) conditions.push(ilike(walletTransactions.reason, `%${reason}%`))
     if (dateFrom) conditions.push(gte(walletTransactions.created_at, dateFrom))
@@ -159,7 +157,7 @@ export const getUserWalletTransactions = async ({
     .offset(offset)
 
   return {
-    wallet: userWallet[0],
+    wallet: resolvedWallet,
     transactions,
     totalCount,
     limit,

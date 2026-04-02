@@ -11,9 +11,10 @@ const TEXT_PRIMARY = '#161219'
 const WalletMenu = () => {
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  const { walletBalance, setWalletBalance } = useAuth()
+  const { walletBalance, setWalletBalance, isAuthenticated, user } = useAuth()
 
-  const { data, isLoading } = useWalletBalance(true)
+  const shouldFetchWallet = isAuthenticated && Boolean(user?.onboardingComplete)
+  const { data, isLoading } = useWalletBalance(shouldFetchWallet)
 
   // ✅ Only set balance in context after render
   useEffect(() => {

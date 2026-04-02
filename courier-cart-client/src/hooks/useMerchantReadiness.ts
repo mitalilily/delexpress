@@ -38,9 +38,10 @@ const hasRequiredCompanyInfo = (companyInfo: CompanyInfoLike | null | undefined)
 }
 
 export const useMerchantReadiness = () => {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, isAuthenticated } = useAuth()
   const { data: pickupData, isLoading: pickupLoading } = usePickupAddresses({ page: 1, limit: 1 })
-  const { data: walletData, isLoading: walletLoading } = useWalletBalance()
+  const shouldFetchWallet = isAuthenticated && Boolean(user?.onboardingComplete)
+  const { data: walletData, isLoading: walletLoading } = useWalletBalance(shouldFetchWallet)
   const { data: paymentOptions, isLoading: paymentOptionsLoading } = usePaymentOptions()
 
   const walletBalance = Number(walletData?.data?.balance || 0)

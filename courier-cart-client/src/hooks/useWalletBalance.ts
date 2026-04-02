@@ -7,7 +7,10 @@ export const useWalletBalance = (enabled = true) => {
     queryFn: fetchWalletBalance,
     enabled,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
     staleTime: 1000 * 60 * 5, // cache for 5 minutes
+    retry: false,
   })
 
   return query
@@ -44,5 +47,8 @@ export const useWalletTransactions = ({
         dateTo,
       }),
     enabled,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
   })
 }

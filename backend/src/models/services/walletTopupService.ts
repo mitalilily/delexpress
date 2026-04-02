@@ -13,11 +13,24 @@ dotenv.config({ path: path.resolve(__dirname, `../../.env.${env}`) })
 
 /* helper */
 export async function walletOfUser(userId: string, tx: any = db) {
-  const w = await tx?.query.wallets.findFirst({
+  const existingWallet = await tx?.query.wallets.findFirst({
     where: eq(wallets.userId, userId),
   })
-  if (!w) throw new Error('Wallet not found')
-  return w
+
+  if (existingWallet) return existingWallet
+
+  await tx.insert(wallets).values({
+    userId,
+    balance: '0.00',
+    currency: 'INR',
+  }).onConflictDoNothing({ target: wallets.userId })
+
+  const createdWallet = await tx?.query.wallets.findFirst({
+    where: eq(wallets.userId, userId),
+  })
+
+  if (!createdWallet) throw new Error('Wallet not found')
+  return createdWallet
 }
 
 export async function createWalletOrder(
