@@ -7,6 +7,7 @@ import { addresses, pickupAddresses } from '../schema/pickupAddresses'
 import {
   DelhiveryConfig,
   EkartConfig,
+  XpressbeesConfig,
   getEffectiveCourierConfig,
 } from './courierCredentials.service'
 import { DelhiveryService } from './couriers/delhivery.service'
@@ -17,7 +18,7 @@ function parseCoordinate(value: string | null | undefined, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
-async function isServiceProviderEnabled(serviceProvider: 'delhivery' | 'ekart') {
+async function isServiceProviderEnabled(serviceProvider: 'delhivery' | 'ekart' | 'xpressbees') {
   const [row] = await db
     .select({ serviceProvider: couriers.serviceProvider })
     .from(couriers)
@@ -38,7 +39,14 @@ function hasEkartCredentials(config: EkartConfig | null) {
   )
 }
 
-async function canSyncWarehouseToProvider(serviceProvider: 'delhivery' | 'ekart') {
+function hasXpressbeesCredentials(config: XpressbeesConfig | null) {
+  return !!(
+    config?.apiToken?.trim() ||
+    (config?.email?.trim() && config?.password?.trim())
+  )
+}
+
+async function canSyncWarehouseToProvider(serviceProvider: 'delhivery' | 'ekart' | 'xpressbees') {
   const enabled = await isServiceProviderEnabled(serviceProvider)
   if (!enabled) {
     return { enabled: false, configured: false, shouldSync: false }
@@ -50,23 +58,31 @@ async function canSyncWarehouseToProvider(serviceProvider: 'delhivery' | 'ekart'
     return { enabled: true, configured, shouldSync: configured }
   }
 
+  if (serviceProvider === 'xpressbees') {
+    const config = await getEffectiveCourierConfig<XpressbeesConfig>('xpressbees', 'b2c')
+    const configured = hasXpressbeesCredentials(config)
+    return { enabled: true, configured, shouldSync: false }
+  }
+
   const config = await getEffectiveCourierConfig<EkartConfig>('ekart', 'b2c')
   const configured = hasEkartCredentials(config)
   return { enabled: true, configured, shouldSync: configured }
 }
 
 async function getWarehouseSyncTargets() {
-  const [delhivery, ekart] = await Promise.all([
+  const [delhivery, ekart, xpressbees] = await Promise.all([
     canSyncWarehouseToProvider('delhivery'),
     canSyncWarehouseToProvider('ekart'),
+    canSyncWarehouseToProvider('xpressbees'),
   ])
 
-  const availableTargets = [delhivery, ekart].filter((item) => item.shouldSync)
+  const availableTargets = [delhivery, ekart, xpressbees].filter((item) => item.configured)
 
   return {
     delhivery,
     ekart,
-    hasAnyEnabled: delhivery.enabled || ekart.enabled,
+    xpressbees,
+    hasAnyEnabled: delhivery.enabled || ekart.enabled || xpressbees.enabled,
     hasAnyConfiguredTarget: availableTargets.length > 0,
   }
 }
