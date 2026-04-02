@@ -1,4 +1,5 @@
 import { db } from '../client'
+import { kyc } from '../schema/kyc'
 import { platforms } from '../schema/platform'
 import { users } from '../schema/users'
 // utils/verifyGoogleToken.ts
@@ -739,9 +740,11 @@ export async function getAllUsersWithRoleUser({
       onboardingStep: schema.userProfiles.onboardingStep,
       contactPerson: sql<string>`${schema.userProfiles.companyInfo} ->> 'contactPerson'`,
       contactNumber: sql<string>`${schema.userProfiles.companyInfo} ->> 'contactNumber'`,
+      kycStatus: kyc.status,
     })
     .from(users)
     .leftJoin(schema.userProfiles, eq(schema.userProfiles.userId, users.id))
+    .leftJoin(kyc, eq(kyc.userId, users.id))
     .where(and(...filters))
     .orderBy(sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn))
     .limit(perPage)
@@ -752,6 +755,7 @@ export async function getAllUsersWithRoleUser({
     .select({ count: sql<number>`count(*)` })
     .from(users)
     .leftJoin(schema.userProfiles, eq(schema.userProfiles.userId, users.id))
+    .leftJoin(kyc, eq(kyc.userId, users.id))
     .where(and(...filters))
 
   return {

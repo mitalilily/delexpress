@@ -2,13 +2,73 @@
 import { and, asc, desc, eq, ilike, ne, or, sql } from 'drizzle-orm'
 import { CreatePickupDto, HydratedPickupAddress, UpdatePickupDto } from '../../types/generic.types'
 import { db } from '../client'
+import { couriers } from '../schema/couriers'
 import { addresses, pickupAddresses } from '../schema/pickupAddresses'
+import {
+  DelhiveryConfig,
+  EkartConfig,
+  getEffectiveCourierConfig,
+} from './courierCredentials.service'
 import { DelhiveryService } from './couriers/delhivery.service'
 import { EkartService } from './couriers/ekart.service'
 
 function parseCoordinate(value: string | null | undefined, fallback: number) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
+}
+
+async function isServiceProviderEnabled(serviceProvider: 'delhivery' | 'ekart') {
+  const [row] = await db
+    .select({ serviceProvider: couriers.serviceProvider })
+    .from(couriers)
+    .where(and(eq(couriers.serviceProvider, serviceProvider), eq(couriers.isEnabled, true)))
+
+  return !!row
+}
+
+function hasDelhiveryCredentials(config: DelhiveryConfig | null) {
+  return !!(config?.apiKey?.trim() && config?.clientName?.trim())
+}
+
+function hasEkartCredentials(config: EkartConfig | null) {
+  return !!(
+    config?.clientId?.trim() &&
+    config?.username?.trim() &&
+    config?.password?.trim()
+  )
+}
+
+async function canSyncWarehouseToProvider(serviceProvider: 'delhivery' | 'ekart') {
+  const enabled = await isServiceProviderEnabled(serviceProvider)
+  if (!enabled) {
+    return { enabled: false, configured: false, shouldSync: false }
+  }
+
+  if (serviceProvider === 'delhivery') {
+    const config = await getEffectiveCourierConfig<DelhiveryConfig>('delhivery', 'b2c')
+    const configured = hasDelhiveryCredentials(config)
+    return { enabled: true, configured, shouldSync: configured }
+  }
+
+  const config = await getEffectiveCourierConfig<EkartConfig>('ekart', 'b2c')
+  const configured = hasEkartCredentials(config)
+  return { enabled: true, configured, shouldSync: configured }
+}
+
+async function getWarehouseSyncTargets() {
+  const [delhivery, ekart] = await Promise.all([
+    canSyncWarehouseToProvider('delhivery'),
+    canSyncWarehouseToProvider('ekart'),
+  ])
+
+  const availableTargets = [delhivery, ekart].filter((item) => item.shouldSync)
+
+  return {
+    delhivery,
+    ekart,
+    hasAnyEnabled: delhivery.enabled || ekart.enabled,
+    hasAnyConfiguredTarget: availableTargets.length > 0,
+  }
 }
 
 /**
@@ -75,96 +135,112 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
       })
       .returning()
 
-    // 🚚 Register pickup in Delhivery
-    try {
-      const delhivery = new DelhiveryService()
-      const delhiveryResp = await delhivery.createWarehouse({
-        name: pickupAddr.addressNickname ?? pickupAddr.contactName ?? 'Default Warehouse',
-        registered_name: 'Delexpress',
-        phone: pickupAddr.contactPhone,
-        email: pickupAddr.contactEmail ?? '',
-        address: pickupAddr.addressLine1,
-        city: pickupAddr.city,
-        pin: pickupAddr.pincode.toString(),
-        country: pickupAddr.country ?? 'India',
-        return_address: rtoAddressData.addressLine1 ?? pickupAddr.addressLine1,
-        return_city: rtoAddressData.city ?? pickupAddr.city,
-        return_pin: rtoAddressData.pincode?.toString() ?? pickupAddr.pincode?.toString(),
-        return_state: rtoAddressData.state ?? pickupAddr.state,
-        return_country: 'India',
-      })
+    const syncTargets = await getWarehouseSyncTargets()
+    const { delhivery: delhiverySync, ekart: ekartSync } = syncTargets
 
-      if (!delhiveryResp || delhiveryResp.success === false) {
-        console.error('❌ Delhivery warehouse creation failed:', delhiveryResp)
-        const errorToThrow: any = new Error('Delhivery warehouse registration failed')
-        errorToThrow.code = 'DELHIVERY_WAREHOUSE_GENERAL_ERROR'
-        throw errorToThrow
-      }
-
-      console.log(`✅ Delhivery warehouse registered: ${pickupAddr.addressNickname}`)
-    } catch (err: any) {
-      const rawError = err?.response?.data ?? err
-      console.error('❌ Error registering Delhivery warehouse:', rawError)
-
-      // Detect duplicate-warehouse error from Delhivery and throw a typed error
-      const delhiveryErrorText: string | undefined =
-        rawError?.error?.[0] || rawError?.message || rawError?.data?.message
-
-      if (typeof delhiveryErrorText === 'string') {
-        if (
-          delhiveryErrorText.includes('client-warehouse of client') &&
-          delhiveryErrorText.toLowerCase().includes('already exists')
-        ) {
-          const duplicateErr: any = new Error(
-            'A pickup location with this nickname already exists. Please choose a different nickname.',
-          )
-          duplicateErr.code = 'DELHIVERY_WAREHOUSE_NAME_EXISTS'
-          duplicateErr.field = 'pickup.addressNickname'
-          throw duplicateErr
-        }
-
-        if (delhiveryErrorText.toLowerCase().includes('serviceability')) {
-          const serviceabilityErr: any = new Error(
-            'This pickup pincode is not serviceable for pickups. Please use a different pincode.',
-          )
-          serviceabilityErr.code = 'PICKUP_PIN_NOT_SERVICEABLE'
-          serviceabilityErr.field = 'pickup.pincode'
-          throw serviceabilityErr
-        }
-      }
-
-      const genericErr: any = new Error(
-        'Pickup location could not be verified. Please check the address details and try again.',
+    if (!syncTargets.hasAnyEnabled) {
+      const err: any = new Error(
+        'At least one courier provider must be enabled before adding a pickup location.',
       )
-      genericErr.code = 'DELHIVERY_WAREHOUSE_GENERAL_ERROR'
-      throw genericErr
+      err.code = 'NO_PICKUP_PROVIDER_ENABLED'
+      throw err
+    }
+
+    if (!syncTargets.hasAnyConfiguredTarget) {
+      const err: any = new Error(
+        'At least one enabled courier provider must have valid credentials before adding a pickup location.',
+      )
+      err.code = 'NO_PICKUP_PROVIDER_CONFIGURED'
+      throw err
+    }
+
+    // 🚚 Register pickup in Delhivery
+    if (delhiverySync.shouldSync) {
+      try {
+        const delhivery = new DelhiveryService()
+        const delhiveryResp = await delhivery.createWarehouse({
+          name: pickupAddr.addressNickname ?? pickupAddr.contactName ?? 'Default Warehouse',
+          registered_name: 'Delexpress',
+          phone: pickupAddr.contactPhone,
+          email: pickupAddr.contactEmail ?? '',
+          address: pickupAddr.addressLine1,
+          city: pickupAddr.city,
+          pin: pickupAddr.pincode.toString(),
+          country: pickupAddr.country ?? 'India',
+          return_address: rtoAddressData.addressLine1 ?? pickupAddr.addressLine1,
+          return_city: rtoAddressData.city ?? pickupAddr.city,
+          return_pin: rtoAddressData.pincode?.toString() ?? pickupAddr.pincode?.toString(),
+          return_state: rtoAddressData.state ?? pickupAddr.state,
+          return_country: 'India',
+        })
+
+        if (!delhiveryResp || delhiveryResp.success === false) {
+          console.error('❌ Delhivery warehouse creation failed:', delhiveryResp)
+          const errorToThrow: any = new Error('Delhivery warehouse registration failed')
+          errorToThrow.code = 'DELHIVERY_WAREHOUSE_GENERAL_ERROR'
+          throw errorToThrow
+        }
+
+        console.log(`✅ Delhivery warehouse registered: ${pickupAddr.addressNickname}`)
+      } catch (err: any) {
+        const rawError = err?.response?.data ?? err
+        console.error('❌ Error registering Delhivery warehouse:', rawError)
+
+        // Detect duplicate-warehouse error from Delhivery and throw a typed error
+        const delhiveryErrorText: string | undefined =
+          rawError?.error?.[0] || rawError?.message || rawError?.data?.message
+
+        if (typeof delhiveryErrorText === 'string') {
+          if (
+            delhiveryErrorText.includes('client-warehouse of client') &&
+            delhiveryErrorText.toLowerCase().includes('already exists')
+          ) {
+            const duplicateErr: any = new Error(
+              'A pickup location with this nickname already exists. Please choose a different nickname.',
+            )
+            duplicateErr.code = 'DELHIVERY_WAREHOUSE_NAME_EXISTS'
+            duplicateErr.field = 'pickup.addressNickname'
+            throw duplicateErr
+          }
+
+          if (delhiveryErrorText.toLowerCase().includes('serviceability')) {
+            const serviceabilityErr: any = new Error(
+              'This pickup pincode is not serviceable for pickups. Please use a different pincode.',
+            )
+            serviceabilityErr.code = 'PICKUP_PIN_NOT_SERVICEABLE'
+            serviceabilityErr.field = 'pickup.pincode'
+            throw serviceabilityErr
+          }
+        }
+
+        const genericErr: any = new Error(
+          'Pickup location could not be verified. Please check the address details and try again.',
+        )
+        genericErr.code = 'DELHIVERY_WAREHOUSE_GENERAL_ERROR'
+        throw genericErr
+      }
+    } else {
+      console.log(
+        `ℹ️ Skipping Delhivery warehouse registration. enabled=${delhiverySync.enabled} configured=${delhiverySync.configured}`,
+      )
     }
 
     // 🔹 Register pickup in Ekart (mirror our warehouse)
-    try {
-      const ekart = new EkartService()
-      const alias = pickupAddr.addressNickname || pickupAddr.contactName || `warehouse-${pickupAddr.id}`
-      const phoneRaw = String(pickupAddr.contactPhone || '')
-      const phoneDigits = phoneRaw.replace(/\D/g, '')
-      const geo = {
-        lat: parseCoordinate(pickupAddr.latitude, 0),
-        lon: parseCoordinate(pickupAddr.longitude, 0),
-      }
-      const payload = {
-        alias,
-        contactName: pickupAddr.contactName || 'Delexpress',
-        phone: Number(phoneDigits) || 0,
-        email: pickupAddr.contactEmail || '',
-        addressLine1: pickupAddr.addressLine1,
-        addressLine2: pickupAddr.addressLine2 || '',
-        city: pickupAddr.city,
-        state: pickupAddr.state,
-        pincode: Number(pickupAddr.pincode) || 0,
-        country: (pickupAddr.country || 'India').toUpperCase(),
-        geo,
-        returnAddress: {
+    if (ekartSync.shouldSync) {
+      try {
+        const ekart = new EkartService()
+        const alias = pickupAddr.addressNickname || pickupAddr.contactName || `warehouse-${pickupAddr.id}`
+        const phoneRaw = String(pickupAddr.contactPhone || '')
+        const phoneDigits = phoneRaw.replace(/\D/g, '')
+        const geo = {
+          lat: parseCoordinate(pickupAddr.latitude, 0),
+          lon: parseCoordinate(pickupAddr.longitude, 0),
+        }
+        const payload = {
+          alias,
           contactName: pickupAddr.contactName || 'Delexpress',
           phone: Number(phoneDigits) || 0,
+          email: pickupAddr.contactEmail || '',
           addressLine1: pickupAddr.addressLine1,
           addressLine2: pickupAddr.addressLine2 || '',
           city: pickupAddr.city,
@@ -172,12 +248,30 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
           pincode: Number(pickupAddr.pincode) || 0,
           country: (pickupAddr.country || 'India').toUpperCase(),
           geo,
-        },
+          returnAddress: {
+            contactName: pickupAddr.contactName || 'Delexpress',
+            phone: Number(phoneDigits) || 0,
+            addressLine1: pickupAddr.addressLine1,
+            addressLine2: pickupAddr.addressLine2 || '',
+            city: pickupAddr.city,
+            state: pickupAddr.state,
+            pincode: Number(pickupAddr.pincode) || 0,
+            country: (pickupAddr.country || 'India').toUpperCase(),
+            geo,
+          },
+        }
+        await ekart.createWarehouse(payload)
+        console.log(`✅ Ekart warehouse registered: ${alias}`)
+      } catch (err: any) {
+        console.warn(
+          '⚠️ Failed to register Ekart warehouse:',
+          err?.response?.data || err?.message || err,
+        )
       }
-      await ekart.createWarehouse(payload)
-      console.log(`✅ Ekart warehouse registered: ${alias}`)
-    } catch (err: any) {
-      console.warn('⚠️ Failed to register Ekart warehouse:', err?.response?.data || err?.message || err)
+    } else {
+      console.log(
+        `ℹ️ Skipping Ekart warehouse registration. enabled=${ekartSync.enabled} configured=${ekartSync.configured}`,
+      )
     }
 
     return created
@@ -275,9 +369,34 @@ export async function updatePickupAddressService(
         }
       }
 
-      // 🟢 Sync with Delhivery (only if pickup address actually changed)
+      // 🟢 Sync with Delhivery (only if pickup address actually changed and provider is enabled/configured)
       try {
         if (updatedPickup) {
+          const syncTargets = await getWarehouseSyncTargets()
+          if (!syncTargets.hasAnyEnabled) {
+            const err: any = new Error(
+              'At least one courier provider must be enabled before updating a pickup location.',
+            )
+            err.code = 'NO_PICKUP_PROVIDER_ENABLED'
+            throw err
+          }
+
+          if (!syncTargets.hasAnyConfiguredTarget) {
+            const err: any = new Error(
+              'At least one enabled courier provider must have valid credentials before updating a pickup location.',
+            )
+            err.code = 'NO_PICKUP_PROVIDER_CONFIGURED'
+            throw err
+          }
+
+          const delhiverySync = syncTargets.delhivery
+          if (!delhiverySync.shouldSync) {
+            console.log(
+              `ℹ️ Skipping Delhivery warehouse update. enabled=${delhiverySync.enabled} configured=${delhiverySync.configured}`,
+            )
+            return pickup
+          }
+
           const delhivery = new DelhiveryService()
           const delhiveryResp = await delhivery.updateWarehouse({
             name:

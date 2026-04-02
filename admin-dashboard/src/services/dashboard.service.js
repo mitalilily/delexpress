@@ -12,6 +12,7 @@ export const getAdminDashboardStats = async () => {
       codStatsResponse,
       ticketsResponse,
       couriersResponse,
+      weightStatsResponse,
     ] = await Promise.allSettled([
       api.get('/admin/orders/all-orders', { params: { page: 1, limit: 100000 } }),
       api.get('/admin/users/users-management', { params: { page: 1, perPage: 100000 } }),
@@ -22,6 +23,7 @@ export const getAdminDashboardStats = async () => {
         params: { page: 1, limit: 100000, status: ['open', 'in_progress'] },
       }),
       api.get('/admin/couriers/list'),
+      api.get('/admin/weight-reconciliation/stats'),
     ])
 
     const orders =
@@ -57,12 +59,15 @@ export const getAdminDashboardStats = async () => {
     const rtoKpis = rtoResponse.status === 'fulfilled' ? rtoResponse.value.data?.data || {} : {}
     const codStats =
       codStatsResponse.status === 'fulfilled' ? codStatsResponse.value.data?.data || {} : {}
-    const tickets =
-      ticketsResponse.status === 'fulfilled' ? ticketsResponse.value.data?.tickets || [] : []
+    const ticketsData = ticketsResponse.status === 'fulfilled' ? ticketsResponse.value.data || {} : {}
+    const tickets = Array.isArray(ticketsData?.data) ? ticketsData.data : []
+    const ticketStatusCounts = ticketsData?.statusCounts || {}
     const couriers =
       couriersResponse.status === 'fulfilled'
         ? couriersResponse.value.data?.data?.couriers || couriersResponse.value.data?.data || []
         : []
+    const weightStats =
+      weightStatsResponse.status === 'fulfilled' ? weightStatsResponse.value.data || {} : {}
 
     // Calculate stats
     const now = new Date()
@@ -102,7 +107,7 @@ export const getAdminDashboardStats = async () => {
     })
     const pendingOrders = orders.filter((o) => {
       const status = (o.order_status || o.orderStatus || '').toLowerCase()
-      return ['pending', 'booked'].includes(status)
+      return ['pending', 'booked', 'pickup_initiated'].includes(status)
     })
     const inTransitOrders = orders.filter((o) => {
       const status = (o.order_status || o.orderStatus || '').toLowerCase()
@@ -137,7 +142,7 @@ export const getAdminDashboardStats = async () => {
     })
     const todayPendingOrders = todayOrders.filter((o) => {
       const status = (o.order_status || o.orderStatus || '').toLowerCase()
-      return ['pending', 'booked'].includes(status)
+      return ['pending', 'booked', 'pickup_initiated'].includes(status)
     })
     const todayInTransitOrders = todayOrders.filter((o) => {
       const status = (o.order_status || o.orderStatus || '').toLowerCase()
@@ -232,22 +237,23 @@ export const getAdminDashboardStats = async () => {
     const codRemittanceDue = Number(codStats?.totalPending?.amount || 0)
 
     // ========== OPERATIONAL HEALTH ==========
-    const totalOrders = orders.length
+    const totalOrders = operationalBaseCount
     const deliveredOrders = orders.filter((o) => {
       const status = (o.order_status || o.orderStatus || '').toLowerCase()
       return status === 'delivered'
     })
     const deliverySuccessRate =
       operationalBaseCount > 0 ? Math.round((deliveredOrders.length / operationalBaseCount) * 100) : 0
-    const ndrOrdersAffected = activeNdrOrders.length
+    const ndrOrdersAffected = Number(ndrKpis?.ordersAffected || activeNdrOrders.length)
     const ndrRate =
       operationalBaseCount > 0 ? Math.round((ndrOrdersAffected / operationalBaseCount) * 100) : 0
     const rtoOrders = orders.filter((o) => {
       const status = (o.order_status || o.orderStatus || '').toLowerCase()
       return status.includes('rto') || status === 'returned_to_origin'
     })
+    const rtoOrdersCount = Number(rtoKpis?.total || rtoOrders.length)
     const rtoRate =
-      operationalBaseCount > 0 ? Math.round((rtoOrders.length / operationalBaseCount) * 100) : 0
+      operationalBaseCount > 0 ? Math.round((rtoOrdersCount / operationalBaseCount) * 100) : 0
 
     // Calculate average delivery time
     const deliveredOrdersWithDates = deliveredOrders.filter((o) => {
@@ -272,8 +278,10 @@ export const getAdminDashboardStats = async () => {
         : 0
 
     // ========== ALERTS & ACTION ITEMS ==========
-    const openTickets = tickets.filter((t) => t.status === 'open')
-    const inProgressTickets = tickets.filter((t) => t.status === 'in_progress')
+    const openTickets = Number(ticketStatusCounts.open || tickets.filter((t) => t.status === 'open').length)
+    const inProgressTickets = Number(
+      ticketStatusCounts.in_progress || tickets.filter((t) => t.status === 'in_progress').length,
+    )
     const overdueTickets = tickets.filter((t) => {
       if (!t.dueDate) return false
       const due = new Date(t.dueDate)
@@ -283,9 +291,14 @@ export const getAdminDashboardStats = async () => {
       const kycStatus = u.kycStatus || u.kyc_status || 'pending'
       return kycStatus === 'pending' || kycStatus === 'verification_in_progress'
     })
-    const weightDiscrepancies = orders.filter(
-      (o) => o.weight_discrepancy === true || o.weightDiscrepancy === true,
-    )
+    const disputeStatusCounts = Array.isArray(weightStats?.disputeStats) ? weightStats.disputeStats : []
+    const weightDiscrepancies = disputeStatusCounts.reduce((sum, item) => {
+      if (!item?.status) return sum
+      if (item.status === 'open' || item.status === 'under_review') {
+        return sum + Number(item.count || 0)
+      }
+      return sum
+    }, 0)
 
     // ========== COURIER PERFORMANCE ==========
     const ordersByCourier = orders.reduce((acc, o) => {
@@ -531,15 +544,15 @@ export const getAdminDashboardStats = async () => {
           totalOrders,
           deliveredOrders: deliveredOrders.length,
           ndrOrders: ndrOrdersAffected,
-          rtoOrders: rtoOrders.length,
+          rtoOrders: rtoOrdersCount,
         },
         // Alerts & Actions
         alerts: {
-          openTickets: openTickets.length,
-          inProgressTickets: inProgressTickets.length,
+          openTickets,
+          inProgressTickets,
           overdueTickets: overdueTickets.length,
           pendingKyc: pendingKyc.length,
-          weightDiscrepancies: weightDiscrepancies.length,
+          weightDiscrepancies,
           ndrKpis: ndrKpis,
           rtoKpis: rtoKpis,
         },
