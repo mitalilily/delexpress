@@ -1,6 +1,5 @@
 import { Box, Chip, Container, Typography } from "@mui/material";
 import {
-  dashboardCapabilities,
   featureList,
   mediaAssets,
   trackingStages,
@@ -133,76 +132,6 @@ export default function OperationsSections() {
                 ) : null}
               </Box>
             ))}
-          </div>
-        </Container>
-      </section>
-
-      <section id="analytics" className="py-14 sm:py-18">
-        <Container maxWidth="xl">
-          <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-            <MotionDiv {...fadeUp} className="surface-panel rounded-[34px] p-4 sm:p-5">
-              <div className="rounded-[30px] bg-[#f3e5d7] p-4">
-                <img
-                  src={mediaAssets.dashboard}
-                  alt="Shipping analytics dashboard"
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full min-h-[250px] w-full rounded-[22px] object-cover sm:min-h-[360px] sm:rounded-[26px]"
-                />
-              </div>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                {["Courier mix", "Cost breakdown", "Zone planning", "Fulfillment trends"].map((label) => (
-                  <div key={label} className="rounded-[24px] bg-[#f7efe5] p-4">
-                    <Typography className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ab5a43]">
-                      Analytics block
-                    </Typography>
-                    <Typography variant="h6" className="mt-3 text-lg text-[#181318]">
-                      {label}
-                    </Typography>
-                  </div>
-                ))}
-              </div>
-            </MotionDiv>
-
-            <MotionDiv {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.08 }}>
-              <SectionHeader
-                eyebrow="Analytics"
-                title="Complete Control Over Your Shipments"
-                description="Get full visibility into your logistics operations with analytics and shipment tracking tools. Review courier performance, delivery timelines, and shipping costs so you can optimize your fulfillment strategy."
-              />
-
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                {dashboardCapabilities.map((item, index) => (
-                  <MotionCard
-                    key={item.title}
-                    delay={index * 0.05}
-                    className="surface-panel rounded-[30px] p-5"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <Chip
-                        label={index === 2 ? "Cost overview" : "Overview"}
-                        sx={{
-                          borderRadius: "999px",
-                          backgroundColor: "#f5ebf0",
-                          color: "#8b415b",
-                          fontWeight: 700,
-                        }}
-                      />
-                      <div className="shrink-0 rounded-[22px] border border-[#ead9df] bg-[#fff7fa] px-2 py-1 shadow-[0_12px_24px_rgba(155,49,80,0.08)]">
-                        <LiteralVisual title={item.title} compact />
-                      </div>
-                    </div>
-                    <Typography variant="h6" className="mt-6 pr-2 text-xl">
-                      {item.title}
-                    </Typography>
-                    <Typography className="mt-3 text-sm leading-7" sx={{ color: "#625b63" }}>
-                      {item.description}
-                    </Typography>
-                  </MotionCard>
-                ))}
-              </div>
-            </MotionDiv>
           </div>
         </Container>
       </section>

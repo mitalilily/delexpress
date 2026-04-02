@@ -248,28 +248,6 @@ export const calculatorPresets = [
   },
 ];
 
-export const dashboardCapabilities = [
-  {
-    title: "Shipment Overview",
-    description: "View all active and completed shipments in one organized dashboard.",
-  },
-  {
-    title: "Courier Performance Analytics",
-    description:
-      "Compare courier performance and average delivery timelines across partners.",
-  },
-  {
-    title: "Cost Tracking",
-    description:
-      "Understand how much you're spending on shipping and identify opportunities to reduce costs.",
-  },
-  {
-    title: "Delivery Insights",
-    description:
-      "Track delivery performance across locations and improve operational efficiency.",
-  },
-];
-
 export const shippingFields = [
   { key: "packageWeight", label: "Package Weight (kg)", placeholder: "0.5" },
   { key: "pickupPincode", label: "Pickup Pincode", placeholder: "110001" },
