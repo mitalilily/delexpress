@@ -53,6 +53,10 @@ export class XpressbeesService {
   private password = process.env.XPRESSBEES_PASSWORD || ''
   private secretKey = process.env.XPRESSBEES_SECRET_KEY || ''
   private xbKey = process.env.XPRESSBEES_XB_KEY || ''
+  private businessUnit =
+    process.env.XPRESSBEES_BUSINESS_UNIT ||
+    process.env.XPRESSBEES_BUSINESS_ACCOUNT_NAME ||
+    'DELEXPRESS B2C NDD'
   private tokenEndpoint =
     process.env.XPRESSBEES_TOKEN_ENDPOINT ||
     'https://userauthapis.xbees.in/api/auth/generateToken'
@@ -296,6 +300,7 @@ export class XpressbeesService {
       service_type: serviceType || undefined,
       pickup_vendor_code: pickupVendorCode,
       vendor_code: pickupVendorCode,
+      ...this.buildBusinessUnitFields(),
     }
 
     try {
@@ -323,6 +328,7 @@ export class XpressbeesService {
         pickup_vendor_code: pickupVendorCode,
         vendor_code: pickupVendorCode,
         service_type: serviceType || undefined,
+        ...this.buildBusinessUnitFields(),
       })
       const lookedUpAwb = this.extractAwbFromResponse(seriesLookup)
       if (lookedUpAwb) {
@@ -360,7 +366,24 @@ export class XpressbeesService {
       Accept: 'application/json',
       ...(this.secretKey ? { secretkey: this.secretKey, 'Secret-Key': this.secretKey } : {}),
       ...(this.xbKey ? { xbkey: this.xbKey, 'XB-Key': this.xbKey } : {}),
+      ...(this.businessUnit
+        ? {
+            BusinessUnit: this.businessUnit,
+            businessUnit: this.businessUnit,
+            businessunit: this.businessUnit,
+          }
+        : {}),
     }
+  }
+
+  private buildBusinessUnitFields() {
+    return this.businessUnit
+      ? {
+          BusinessUnit: this.businessUnit,
+          businessUnit: this.businessUnit,
+          businessunit: this.businessUnit,
+        }
+      : {}
   }
 
   private buildEndpoint(path: string): string {
@@ -721,6 +744,7 @@ export class XpressbeesService {
               'Content-Type': 'application/json',
               Accept: 'application/json',
               'Auth-Type': 'New',
+              ...this.buildBusinessUnitFields(),
               ...(this.secretKey
                 ? { secretkey: this.secretKey, 'Secret-Key': this.secretKey }
                 : {}),
@@ -796,7 +820,10 @@ export class XpressbeesService {
     const raw = await this.requestWithFallback<any>({
       method: 'post',
       pathCandidates: [this.serviceabilityEndpoint],
-      data: payload,
+      data: {
+        ...payload,
+        ...this.buildBusinessUnitFields(),
+      },
     })
     const records = Array.isArray(raw?.data) ? raw.data : []
     const status = raw?.status === true
@@ -909,6 +936,7 @@ export class XpressbeesService {
         runtimeAwb.serviceType ||
         this.normalizeServiceType(payload?.service_type || payload?.serviceType || payload?.transport_speed) ||
         undefined,
+      ...this.buildBusinessUnitFields(),
       pickup_vendor_code: runtimeAwb.pickupVendorCode,
       vendor_code: runtimeAwb.pickupVendorCode,
       ...(runtimeAwb.awbNumber
@@ -1041,6 +1069,7 @@ export class XpressbeesService {
         awb: payload.awb,
         deferred_delivery_date: payload.deferred_delivery_date,
         re_attempt_date: payload.deferred_delivery_date,
+        ...this.buildBusinessUnitFields(),
         ...(payload.reason ? { reason: payload.reason } : {}),
         ...(payload.comments ? { comments: payload.comments } : {}),
       },
@@ -1051,7 +1080,7 @@ export class XpressbeesService {
     return this.requestWithFallback<any>({
       method: 'post',
       pathCandidates: [this.trackingSummaryEndpoint],
-      data: { awb_number: awb },
+      data: { awb_number: awb, ...this.buildBusinessUnitFields() },
     })
   }
 
@@ -1059,7 +1088,7 @@ export class XpressbeesService {
     return this.requestWithFallback<any>({
       method: 'post',
       pathCandidates: [this.trackingBulkEndpoint],
-      data: { awb_numbers: awbs },
+      data: { awb_numbers: awbs, ...this.buildBusinessUnitFields() },
     })
   }
 
