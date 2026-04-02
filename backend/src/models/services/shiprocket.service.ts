@@ -2146,6 +2146,8 @@ export interface ShipmentParams {
   height?: number
   isReverse?: boolean
   transport_speed?: string
+  service_type?: string
+  pickup_vendor_code?: string
   address_type?: string
   ewbn?: string
   ewb?: string
@@ -3232,6 +3234,8 @@ export const createB2CShipmentService = async (
       const xpressbees = new XpressbeesService()
       const xpressParams = params as ShipmentParams & {
         collectable_amount?: number
+        service_type?: string
+        pickup_vendor_code?: string
         categories?: string
         qccheck?: string | number
         uploadedimage?: string
@@ -3303,6 +3307,12 @@ export const createB2CShipmentService = async (
       } else {
         shipmentData = await xpressbees.createShipment({
           ...xpressParams,
+          service_type: xpressParams.service_type ?? xpressParams.transport_speed ?? undefined,
+          pickup_vendor_code:
+            xpressParams.pickup_vendor_code ??
+            xpressParams.pickup_location_id ??
+            xpressParams.pickup?.warehouse_name ??
+            undefined,
           collectable_amount:
             params.payment_type === 'cod'
               ? Number(xpressParams.collectable_amount ?? params.order_amount ?? 0)

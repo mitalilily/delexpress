@@ -52,7 +52,11 @@ const hasXpressbeesActionAccepted = (resp: any): boolean => {
   return rows.every((item: any) => {
     if (item?.status === true) return true
     const message = String(item?.message || item?.remark || '').toLowerCase()
-    return message.includes('success')
+    return (
+      message.includes('success') ||
+      message.includes('accepted') ||
+      message.includes('queued')
+    )
   })
 }
 
@@ -184,15 +188,12 @@ export const ndrReattemptController = async (req: Request, res: Response) => {
       const xpressbees = new XpressbeesService()
       const wb = awb || order.awb_number
       if (!wb) return res.status(400).json({ success: false, message: 'AWB is required' })
-      const resp = await xpressbees.submitNdrAction([
-        {
-          awb: wb,
-          action: 're-attempt',
-          action_data: {
-            re_attempt_date: nextAttemptDate,
-          },
-        },
-      ])
+      const resp = await xpressbees.updateDeferredDeliveryDate({
+        awb: wb,
+        deferred_delivery_date: nextAttemptDate,
+        comments,
+        reason: 'merchant_reattempt_requested',
+      })
       if (!hasXpressbeesActionAccepted(resp)) {
         return res.status(502).json({
           success: false,

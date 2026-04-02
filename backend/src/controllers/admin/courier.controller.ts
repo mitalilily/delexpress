@@ -360,8 +360,12 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
       },
       xpressbees: {
         provider: 'xpressbees',
-        apiBase: 'https://shipment.xpressbees.com',
+        apiBase: 'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward',
         username: '',
+        hasSecretKey: false,
+        secretKeyMasked: '',
+        hasXbKey: false,
+        xbKeyMasked: '',
         hasApiKey: false,
         apiKeyMasked: '',
         hasPassword: false,
@@ -398,10 +402,21 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         const apiKey = row.apiKey || ''
         const hasPassword = Boolean((row.password || '').trim())
         const hasWebhookSecret = Boolean((row.webhookSecret || '').trim())
+        const secretKey = row.clientId || ''
+        const xbKey = row.clientName || ''
         acc.xpressbees = {
           provider: 'xpressbees',
-          apiBase: row.apiBase || 'https://shipment.xpressbees.com',
+          apiBase:
+            row.apiBase || 'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward',
           username: row.username || '',
+          hasSecretKey: Boolean(secretKey.trim()),
+          secretKeyMasked: secretKey
+            ? `${secretKey.slice(0, 4)}${'*'.repeat(Math.max(secretKey.length - 8, 0))}${secretKey.slice(-4)}`
+            : '',
+          hasXbKey: Boolean(xbKey.trim()),
+          xbKeyMasked: xbKey
+            ? `${xbKey.slice(0, 4)}${'*'.repeat(Math.max(xbKey.length - 8, 0))}${xbKey.slice(-4)}`
+            : '',
           hasApiKey: Boolean(apiKey.trim()),
           apiKeyMasked: apiKey
             ? `${apiKey.slice(0, 4)}${'*'.repeat(Math.max(apiKey.length - 8, 0))}${apiKey.slice(-4)}`
@@ -576,7 +591,7 @@ export const updateEkartCredentialsController = async (req: Request, res: Respon
 }
 
 export const updateXpressbeesCredentialsController = async (req: Request, res: Response) => {
-  const { apiBase, username, password, apiKey, webhookSecret } = req.body || {}
+  const { apiBase, username, password, apiKey, webhookSecret, secretKey, xbKey } = req.body || {}
 
   try {
     const nextApiBase = typeof apiBase === 'string' ? apiBase.trim() : undefined
@@ -585,10 +600,14 @@ export const updateXpressbeesCredentialsController = async (req: Request, res: R
     const nextApiKey = typeof apiKey === 'string' ? apiKey.trim() : undefined
     const nextWebhookSecret =
       typeof webhookSecret === 'string' ? webhookSecret.trim() : undefined
+    const nextSecretKey = typeof secretKey === 'string' ? secretKey.trim() : undefined
+    const nextXbKey = typeof xbKey === 'string' ? xbKey.trim() : undefined
     const hasPassword = typeof nextPassword === 'string' && nextPassword.length > 0
     const hasApiKey = typeof nextApiKey === 'string' && nextApiKey.length > 0
     const hasWebhookSecret =
       typeof nextWebhookSecret === 'string' && nextWebhookSecret.length > 0
+    const hasSecretKey = typeof nextSecretKey === 'string' && nextSecretKey.length > 0
+    const hasXbKey = typeof nextXbKey === 'string' && nextXbKey.length > 0
 
     const [existing] = await db
       .select({ id: courier_credentials.id })
@@ -601,10 +620,17 @@ export const updateXpressbeesCredentialsController = async (req: Request, res: R
         updatedAt: new Date(),
       }
       if (nextApiBase !== undefined) {
-        updatePayload.apiBase = nextApiBase || 'https://shipment.xpressbees.com'
+        updatePayload.apiBase =
+          nextApiBase || 'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward'
       }
       if (nextUsername !== undefined) {
         updatePayload.username = nextUsername
+      }
+      if (hasSecretKey) {
+        updatePayload.clientId = nextSecretKey
+      }
+      if (hasXbKey) {
+        updatePayload.clientName = nextXbKey
       }
       if (hasPassword) {
         updatePayload.password = nextPassword
@@ -623,10 +649,11 @@ export const updateXpressbeesCredentialsController = async (req: Request, res: R
     } else {
       await db.insert(courier_credentials).values({
         provider: 'xpressbees',
-        apiBase: nextApiBase || 'https://shipment.xpressbees.com',
-        clientName: '',
+        apiBase:
+          nextApiBase || 'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward',
+        clientName: hasXbKey ? nextXbKey : '',
         apiKey: hasApiKey ? nextApiKey : '',
-        clientId: '',
+        clientId: hasSecretKey ? nextSecretKey : '',
         username: nextUsername || '',
         password: hasPassword ? nextPassword : '',
         webhookSecret: hasWebhookSecret ? nextWebhookSecret : '',
@@ -636,6 +663,8 @@ export const updateXpressbeesCredentialsController = async (req: Request, res: R
     const [saved] = await db
       .select({
         apiBase: courier_credentials.apiBase,
+        clientName: courier_credentials.clientName,
+        clientId: courier_credentials.clientId,
         username: courier_credentials.username,
         password: courier_credentials.password,
         apiKey: courier_credentials.apiKey,
@@ -650,8 +679,11 @@ export const updateXpressbeesCredentialsController = async (req: Request, res: R
       message: 'Xpressbees credentials updated successfully',
       data: {
         provider: 'xpressbees',
-        apiBase: saved?.apiBase || 'https://shipment.xpressbees.com',
+        apiBase:
+          saved?.apiBase || 'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward',
         username: saved?.username || '',
+        hasSecretKey: Boolean((saved?.clientId || '').trim()),
+        hasXbKey: Boolean((saved?.clientName || '').trim()),
         hasPassword: Boolean((saved?.password || '').trim()),
         hasApiKey: Boolean((saved?.apiKey || '').trim()),
         hasWebhookSecret: Boolean((saved?.webhookSecret || '').trim()),

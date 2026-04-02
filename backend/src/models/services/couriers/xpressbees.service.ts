@@ -45,14 +45,43 @@ export type XpressbeesShipmentResponse = {
 }
 
 export class XpressbeesService {
-  private baseApi = process.env.XPRESSBEES_API_BASE || 'https://shipment.xpressbees.com'
+  private baseApi =
+    process.env.XPRESSBEES_API_BASE ||
+    'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward'
   private apiToken = process.env.XPRESSBEES_API_TOKEN || ''
   private username = process.env.XPRESSBEES_USERNAME || ''
   private password = process.env.XPRESSBEES_PASSWORD || ''
-  private tokenEndpoint = process.env.XPRESSBEES_TOKEN_ENDPOINT || '/api/users/login'
-  private shipmentEndpoint = process.env.XPRESSBEES_SHIPMENT_ENDPOINT || '/api/shipments2'
+  private secretKey = process.env.XPRESSBEES_SECRET_KEY || ''
+  private xbKey = process.env.XPRESSBEES_XB_KEY || ''
+  private tokenEndpoint =
+    process.env.XPRESSBEES_TOKEN_ENDPOINT ||
+    'https://userauthapis.xbees.in/api/auth/generateToken'
+  private serviceabilityEndpoint =
+    process.env.XPRESSBEES_SERVICEABILITY_ENDPOINT ||
+    'https://xbmasterapi.xbees.in/expose/get/serviceabilitypincode/details'
+  private shipmentEndpoint =
+    process.env.XPRESSBEES_SHIPMENT_ENDPOINT ||
+    'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward'
   private reverseShipmentEndpoint =
     process.env.XPRESSBEES_REVERSE_SHIPMENT_ENDPOINT || '/api/reverseshipments'
+  private trackingSummaryEndpoint =
+    process.env.XPRESSBEES_TRACKING_SUMMARY_ENDPOINT ||
+    'https://apishipmenttracking.xbees.in/GetShipmentAuditLog'
+  private trackingBulkEndpoint =
+    process.env.XPRESSBEES_TRACKING_BULK_ENDPOINT ||
+    'https://apishipmenttracking.xbees.in/GetCurrentShipmentStatus'
+  private awbGenerationEndpoint =
+    process.env.XPRESSBEES_AWB_GENERATION_ENDPOINT ||
+    'https://xbclientapi.xbees.in/POSTShipmentService.svc/AWBNumberSeriesGeneration'
+  private awbSeriesLookupEndpoint =
+    process.env.XPRESSBEES_AWB_SERIES_LOOKUP_ENDPOINT ||
+    'https://xbclientapi.xbees.in/TrackingService.svc/GetAWBNumberGeneratedSeries'
+  private cancellationEndpoint =
+    process.env.XPRESSBEES_CANCELLATION_ENDPOINT ||
+    'https://clientshipupdatesapi.xbees.in/forwardcancellation'
+  private deferredDeliveryEndpoint =
+    process.env.XPRESSBEES_DEFERRED_DELIVERY_ENDPOINT ||
+    'https://clientshipupdatesapi.xbees.in/client/UpdateNDRDeferredDeliveryDate'
 
   private static cachedConfig: XpressbeesConfig | null | undefined
 
@@ -141,6 +170,8 @@ export class XpressbeesService {
       this.apiToken = cfg.apiToken || this.apiToken
       this.username = cfg.email || this.username
       this.password = cfg.password || this.password
+      this.secretKey = cfg.secretKey || this.secretKey
+      this.xbKey = cfg.xbKey || this.xbKey
     }
     this.baseApi = this.normalizeBaseApi(this.baseApi)
     this.log('Config loaded', {
@@ -148,13 +179,188 @@ export class XpressbeesService {
       hasApiToken: Boolean(this.apiToken),
       hasUsername: Boolean(this.username),
       hasPassword: Boolean(this.password),
+      hasSecretKey: Boolean(this.secretKey),
+      hasXbKey: Boolean(this.xbKey),
       source: cfg ? 'courier_credentials_or_env_fallback' : 'env_only',
     })
   }
 
   private normalizeBaseApi(value: string): string {
-    const base = String(value || '').trim() || 'https://shipment.xpressbees.com'
+    const base =
+      String(value || '').trim() ||
+      'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward'
     return base.replace(/\/+$/, '')
+  }
+
+  private normalizeServiceType(value: any): string | null {
+    const normalized = String(value || '')
+      .trim()
+      .toUpperCase()
+
+    if (!normalized) return null
+
+    const allowed = new Set(['SD', 'SDD', 'NDD', 'AIR', 'SFC', 'INTRASDD'])
+    return allowed.has(normalized) ? normalized : null
+  }
+
+  private normalizeVendorCode(value: any): string {
+    return String(value || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .slice(0, 30)
+  }
+
+  private buildPickupVendorCode(payload: Record<string, any>): string {
+    const explicitVendorCode =
+      payload?.pickup_vendor_code ||
+      payload?.pickupVendorCode ||
+      payload?.vendor_code ||
+      payload?.vendorCode
+    const normalizedExplicit = this.normalizeVendorCode(explicitVendorCode)
+    if (normalizedExplicit) return normalizedExplicit
+
+    const derivedSeed =
+      payload?.pickup_location_id ||
+      payload?.pickup?.warehouse_name ||
+      payload?.pickup?.name ||
+      payload?.pickup?.addressNickname ||
+      payload?.order_number ||
+      payload?.unique_order_number ||
+      'DELEXPRESS'
+
+    const normalizedDerived = this.normalizeVendorCode(derivedSeed)
+    if (normalizedDerived) return normalizedDerived
+
+    return 'DELEXPRESS'
+  }
+
+  private extractAwbFromResponse(raw: any): string {
+    const directCandidates = [
+      raw?.awb,
+      raw?.awb_no,
+      raw?.awbNo,
+      raw?.awb_number,
+      raw?.waybill,
+      raw?.waybill_number,
+      raw?.data?.awb,
+      raw?.data?.awb_no,
+      raw?.data?.awbNo,
+      raw?.data?.awb_number,
+      raw?.data?.waybill,
+      raw?.data?.waybill_number,
+      raw?.result?.awb,
+      raw?.result?.awb_no,
+      raw?.result?.awbNo,
+      raw?.result?.awb_number,
+      raw?.result?.waybill,
+      raw?.result?.waybill_number,
+    ]
+
+    for (const candidate of directCandidates) {
+      const awb = String(candidate || '').trim()
+      if (awb) return awb
+    }
+
+    const collections = [
+      raw?.data,
+      raw?.result,
+      raw?.data?.data,
+      raw?.awbs,
+      raw?.awb_numbers,
+      raw?.series,
+      raw?.rows,
+    ]
+
+    for (const collection of collections) {
+      if (!Array.isArray(collection)) continue
+      for (const item of collection) {
+        const awb = this.extractAwbFromResponse(item)
+        if (awb) return awb
+      }
+    }
+
+    return ''
+  }
+
+  private async tryReserveRuntimeAwb(payload: Record<string, any>) {
+    const serviceType = this.normalizeServiceType(
+      payload?.service_type || payload?.serviceType || payload?.transport_speed,
+    )
+    const pickupVendorCode = this.buildPickupVendorCode(payload)
+
+    const requestPayload = {
+      auth_type: 'new',
+      count: 1,
+      awb_count: 1,
+      service_type: serviceType || undefined,
+      pickup_vendor_code: pickupVendorCode,
+      vendor_code: pickupVendorCode,
+    }
+
+    try {
+      const generated = await this.generateAwbSeries(requestPayload)
+      const generatedAwb = this.extractAwbFromResponse(generated)
+      if (generatedAwb) {
+        this.log('Reserved runtime AWB', {
+          pickupVendorCode,
+          serviceType,
+          awb: generatedAwb,
+        })
+        return { awbNumber: generatedAwb, pickupVendorCode, serviceType }
+      }
+    } catch (err: any) {
+      this.log('Runtime AWB generation skipped', {
+        pickupVendorCode,
+        serviceType,
+        message: err?.message || err,
+      })
+    }
+
+    try {
+      const seriesLookup = await this.getGeneratedAwbSeries({
+        auth_type: 'new',
+        pickup_vendor_code: pickupVendorCode,
+        vendor_code: pickupVendorCode,
+        service_type: serviceType || undefined,
+      })
+      const lookedUpAwb = this.extractAwbFromResponse(seriesLookup)
+      if (lookedUpAwb) {
+        this.log('Resolved runtime AWB from generated series lookup', {
+          pickupVendorCode,
+          serviceType,
+          awb: lookedUpAwb,
+        })
+        return { awbNumber: lookedUpAwb, pickupVendorCode, serviceType }
+      }
+    } catch (err: any) {
+      this.log('Runtime AWB series lookup skipped', {
+        pickupVendorCode,
+        serviceType,
+        message: err?.message || err,
+      })
+    }
+
+    return {
+      awbNumber: '',
+      pickupVendorCode,
+      serviceType,
+    }
+  }
+
+  private isAbsoluteUrl(value: string) {
+    return /^https?:\/\//i.test(String(value || '').trim())
+  }
+
+  private buildAuthHeaders(token: string) {
+    return {
+      Authorization: `Bearer ${token}`,
+      token,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(this.secretKey ? { secretkey: this.secretKey, 'Secret-Key': this.secretKey } : {}),
+      ...(this.xbKey ? { xbkey: this.xbKey, 'XB-Key': this.xbKey } : {}),
+    }
   }
 
   private buildEndpoint(path: string): string {
@@ -185,24 +391,6 @@ export class XpressbeesService {
       .filter(Boolean)
     for (const alt of rawEnvAlternates) push(alt)
 
-    const currentBaseWithoutApi = this.baseApi.replace(/\/api$/i, '')
-    if (/shipment\.xpressbees\.com/i.test(currentBaseWithoutApi)) {
-      push(
-        currentBaseWithoutApi.replace(/shipment\.xpressbees\.com/i, 'xbclientapi.xpressbees.com'),
-      )
-      push(
-        `${currentBaseWithoutApi.replace(/shipment\.xpressbees\.com/i, 'xbclientapi.xpressbees.com')}/api`,
-      )
-    }
-    if (/xbclientapi\.xpressbees\.com/i.test(currentBaseWithoutApi)) {
-      push(
-        currentBaseWithoutApi.replace(/xbclientapi\.xpressbees\.com/i, 'shipment.xpressbees.com'),
-      )
-      push(
-        `${currentBaseWithoutApi.replace(/xbclientapi\.xpressbees\.com/i, 'shipment.xpressbees.com')}/api`,
-      )
-    }
-
     return Array.from(candidates)
   }
 
@@ -210,11 +398,7 @@ export class XpressbeesService {
     return axios.create({
       baseURL,
       timeout: 20000,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
+      headers: this.buildAuthHeaders(token),
     })
   }
 
@@ -273,22 +457,30 @@ export class XpressbeesService {
     for (const baseCandidate of baseCandidates) {
       for (const pathCandidate of dedupedPaths) {
         const requestPath = this.buildEndpointForBase(baseCandidate, pathCandidate)
-        const requestUrl = `${baseCandidate}${requestPath}`
+        const isAbsoluteUrl = this.isAbsoluteUrl(pathCandidate)
+        const requestUrl = isAbsoluteUrl ? pathCandidate : `${baseCandidate}${requestPath}`
         attemptedUrls.push(requestUrl)
         try {
           const token = await this.getApiToken(attemptedTokenRefresh)
-          const http = this.createHttpClient(baseCandidate, token)
           this.log('API attempt', {
             method,
             url: requestUrl,
             payload: logPayload ? this.sanitizeForLogs(data) : undefined,
             tokenRefresh: attemptedTokenRefresh,
           })
-          const response = await http.request<T>({
-            method,
-            url: requestPath,
-            data,
-          })
+          const response = isAbsoluteUrl
+            ? await axios.request<T>({
+                method,
+                url: requestUrl,
+                data,
+                timeout: 20000,
+                headers: this.buildAuthHeaders(token),
+              })
+            : await this.createHttpClient(baseCandidate, token).request<T>({
+                method,
+                url: requestPath,
+                data,
+              })
 
           if (baseCandidate !== this.baseApi) {
             this.log('Resolved alternate Xpressbees base URL', {
@@ -477,62 +669,74 @@ export class XpressbeesService {
       )
     }
 
-    const loginHttp = axios.create({
-      baseURL: this.baseApi,
-      timeout: 20000,
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-    })
-
     const payloadVariants = [
       { email: this.username, password: this.password },
       { username: this.username, password: this.password },
       { login_id: this.username, password: this.password },
+      ...(this.secretKey
+        ? [
+            { username: this.username, password: this.password, secretkey: this.secretKey },
+            { email: this.username, password: this.password, secretkey: this.secretKey },
+            { login_id: this.username, password: this.password, secretkey: this.secretKey },
+            { username: this.username, password: this.password, secret_key: this.secretKey },
+            { email: this.username, password: this.password, secret_key: this.secretKey },
+            { login_id: this.username, password: this.password, secret_key: this.secretKey },
+          ]
+        : []),
+      ...(this.xbKey
+        ? [
+            { username: this.username, password: this.password, xbkey: this.xbKey },
+            { email: this.username, password: this.password, xbkey: this.xbKey },
+            { login_id: this.username, password: this.password, xbkey: this.xbKey },
+          ]
+        : []),
     ]
-    const endpointCandidates = Array.from(
-      new Set(
-        [
-          this.tokenEndpoint,
-          '/api/users/login',
-          '/api/login',
-          '/api/generate-token',
-          '/api/token',
-          '/api/auth/login',
-        ].filter(Boolean),
-      ),
-    )
+    const endpointCandidates = Array.from(new Set([this.tokenEndpoint].filter(Boolean)))
 
     let lastError: any = null
     this.log('Generating API token', {
-      baseApi: this.baseApi,
+      authUrl: this.tokenEndpoint,
       endpointCandidates,
       hasUsername: Boolean(this.username),
       hasPassword: Boolean(this.password),
+      hasSecretKey: Boolean(this.secretKey),
+      hasXbKey: Boolean(this.xbKey),
       tokenEndpointOverride: process.env.XPRESSBEES_TOKEN_ENDPOINT || null,
     })
 
     for (const endpoint of endpointCandidates) {
       for (const body of payloadVariants) {
         try {
-          const requestPath = this.buildEndpoint(endpoint)
+          const requestUrl = this.isAbsoluteUrl(endpoint)
+            ? endpoint
+            : `${this.baseApi}${this.buildEndpoint(endpoint)}`
           this.log('Auth attempt', {
-            url: `${this.baseApi}${requestPath}`,
+            url: requestUrl,
             payloadKeys: Object.keys(body),
             login: this.username,
           })
-          const res = await loginHttp.post(requestPath, body)
+          const res = await axios.post(requestUrl, body, {
+            timeout: 20000,
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              'Auth-Type': 'New',
+              ...(this.secretKey
+                ? { secretkey: this.secretKey, 'Secret-Key': this.secretKey }
+                : {}),
+              ...(this.xbKey ? { xbkey: this.xbKey, 'XB-Key': this.xbKey } : {}),
+            },
+          })
           const token = this.extractTokenFromResponse(res.data)
           this.log('Auth response', {
-            url: `${this.baseApi}${requestPath}`,
+            url: requestUrl,
             status: res.status,
             hasToken: Boolean(token),
             responseKeys: Object.keys(res.data || {}),
           })
           if (!token) {
             this.log('Auth response body (no token extracted)', {
-              url: `${this.baseApi}${requestPath}`,
+              url: requestUrl,
               body:
                 typeof res.data === 'string'
                   ? res.data.slice(0, 500)
@@ -552,7 +756,7 @@ export class XpressbeesService {
         } catch (err: any) {
           lastError = err
           this.log('Auth attempt failed', {
-            url: `${this.baseApi}${this.buildEndpoint(endpoint)}`,
+            url: this.isAbsoluteUrl(endpoint) ? endpoint : `${this.baseApi}${this.buildEndpoint(endpoint)}`,
             payloadKeys: Object.keys(body),
             status: err?.response?.status || null,
             statusText: err?.response?.statusText || null,
@@ -591,7 +795,7 @@ export class XpressbeesService {
   }): Promise<XpressbeesServiceabilityResponse> {
     const raw = await this.requestWithFallback<any>({
       method: 'post',
-      pathCandidates: ['/api/courier/serviceability', '/courier/serviceability'],
+      pathCandidates: [this.serviceabilityEndpoint],
       data: payload,
     })
     const records = Array.isArray(raw?.data) ? raw.data : []
@@ -643,6 +847,7 @@ export class XpressbeesService {
   }
 
   async createShipment(payload: any): Promise<XpressbeesShipmentResponse> {
+    const runtimeAwb = await this.tryReserveRuntimeAwb(payload)
     const body = {
       order_number: payload.order_number,
       unique_order_number: payload.unique_order_number || 'no',
@@ -700,22 +905,46 @@ export class XpressbeesService {
           }))
         : [],
       courier_id: payload?.courier_id ? String(payload.courier_id) : '',
+      service_type:
+        runtimeAwb.serviceType ||
+        this.normalizeServiceType(payload?.service_type || payload?.serviceType || payload?.transport_speed) ||
+        undefined,
+      pickup_vendor_code: runtimeAwb.pickupVendorCode,
+      vendor_code: runtimeAwb.pickupVendorCode,
+      ...(runtimeAwb.awbNumber
+        ? {
+            awb_number: runtimeAwb.awbNumber,
+            awb: runtimeAwb.awbNumber,
+          }
+        : {}),
       collectable_amount:
         payload?.payment_type === 'cod'
           ? String(payload?.collectable_amount ?? payload?.order_amount ?? 0)
           : '0',
     }
-    return this.requestWithFallback<XpressbeesShipmentResponse>({
+    const response = await this.requestWithFallback<XpressbeesShipmentResponse>({
       method: 'post',
       pathCandidates: [
         this.shipmentEndpoint,
-        '/api/shipments2',
-        '/shipments2',
-        '/api/shipments',
-        '/shipments',
       ],
       data: body,
     })
+
+    if (!response?.data?.awb_number && runtimeAwb.awbNumber) {
+      response.data = {
+        ...(response.data || {}),
+        awb_number: runtimeAwb.awbNumber,
+      }
+    }
+
+    if (!response?.data?.additional_info && runtimeAwb.pickupVendorCode) {
+      response.data = {
+        ...(response.data || {}),
+        additional_info: `pickup_vendor_code:${runtimeAwb.pickupVendorCode}`,
+      }
+    }
+
+    return response
   }
 
   async createReverseShipment(payload: any): Promise<XpressbeesShipmentResponse> {
@@ -779,30 +1008,74 @@ export class XpressbeesService {
   }
 
   async generateManifest(awbs: string[]) {
-    return this.requestWithFallback<any>({
-      method: 'post',
-      pathCandidates: [
-        `${this.shipmentEndpoint}/manifest`,
-        '/api/shipments2/manifest',
-        '/shipments2/manifest',
-        '/api/shipments/manifest',
-        '/shipments/manifest',
-      ],
-      data: { awbs },
+    this.log('Skipping standalone Xpressbees manifest call', {
+      reason: 'forward manifest is created during shipment booking for the live Xpressbees flow',
+      awbCount: awbs.length,
     })
+    return {
+      status: true,
+      skipped: true,
+      message: 'Xpressbees forward manifest is handled during shipment creation.',
+      awbs,
+    }
   }
 
   async cancelShipment(awb: string) {
     return this.requestWithFallback<any>({
       method: 'post',
-      pathCandidates: [
-        `${this.shipmentEndpoint}/cancel`,
-        '/api/shipments2/cancel',
-        '/shipments2/cancel',
-        '/api/shipments/cancel',
-        '/shipments/cancel',
-      ],
+      pathCandidates: [this.cancellationEndpoint],
       data: { awb },
+    })
+  }
+
+  async updateDeferredDeliveryDate(payload: {
+    awb: string
+    deferred_delivery_date: string
+    reason?: string
+    comments?: string
+  }) {
+    return this.requestWithFallback<any>({
+      method: 'post',
+      pathCandidates: [this.deferredDeliveryEndpoint],
+      data: {
+        awb: payload.awb,
+        deferred_delivery_date: payload.deferred_delivery_date,
+        re_attempt_date: payload.deferred_delivery_date,
+        ...(payload.reason ? { reason: payload.reason } : {}),
+        ...(payload.comments ? { comments: payload.comments } : {}),
+      },
+    })
+  }
+
+  async trackShipmentSummary(awb: string) {
+    return this.requestWithFallback<any>({
+      method: 'post',
+      pathCandidates: [this.trackingSummaryEndpoint],
+      data: { awb_number: awb },
+    })
+  }
+
+  async trackShipmentBulk(awbs: string[]) {
+    return this.requestWithFallback<any>({
+      method: 'post',
+      pathCandidates: [this.trackingBulkEndpoint],
+      data: { awb_numbers: awbs },
+    })
+  }
+
+  async generateAwbSeries(payload: Record<string, any>) {
+    return this.requestWithFallback<any>({
+      method: 'post',
+      pathCandidates: [this.awbGenerationEndpoint],
+      data: payload,
+    })
+  }
+
+  async getGeneratedAwbSeries(payload: Record<string, any>) {
+    return this.requestWithFallback<any>({
+      method: 'post',
+      pathCandidates: [this.awbSeriesLookupEndpoint],
+      data: payload,
     })
   }
 }

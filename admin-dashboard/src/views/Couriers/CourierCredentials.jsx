@@ -41,6 +41,8 @@ const CourierCredentials = () => {
   const [xpressbeesForm, setXpressbeesForm] = useState({
     apiBase: '',
     username: '',
+    secretKey: '',
+    xbKey: '',
     password: '',
     apiKey: '',
     webhookSecret: '',
@@ -67,6 +69,8 @@ const CourierCredentials = () => {
       setXpressbeesForm({
         apiBase: data.xpressbees.apiBase || '',
         username: data.xpressbees.username || '',
+        secretKey: '',
+        xbKey: '',
         password: '',
         apiKey: '',
         webhookSecret: '',
@@ -130,6 +134,8 @@ const CourierCredentials = () => {
       {
         apiBase: xpressbeesForm.apiBase,
         username: xpressbeesForm.username,
+        ...(xpressbeesForm.secretKey ? { secretKey: xpressbeesForm.secretKey } : {}),
+        ...(xpressbeesForm.xbKey ? { xbKey: xpressbeesForm.xbKey } : {}),
         ...(xpressbeesForm.password ? { password: xpressbeesForm.password } : {}),
         ...(xpressbeesForm.apiKey ? { apiKey: xpressbeesForm.apiKey } : {}),
         ...(xpressbeesForm.webhookSecret
@@ -141,6 +147,8 @@ const CourierCredentials = () => {
           toast({ title: 'Xpressbees credentials updated', status: 'success' })
           setXpressbeesForm((prev) => ({
             ...prev,
+            secretKey: '',
+            xbKey: '',
             password: '',
             apiKey: '',
             webhookSecret: '',
@@ -320,13 +328,13 @@ const CourierCredentials = () => {
             </Flex>
 
             <FormControl>
-              <FormLabel>API Base URL</FormLabel>
+              <FormLabel>Forward Manifest URL</FormLabel>
               <Input
                 value={xpressbeesForm.apiBase}
                 onChange={(e) =>
                   setXpressbeesForm((prev) => ({ ...prev, apiBase: e.target.value }))
                 }
-                placeholder="https://shipment.xpressbees.com"
+                placeholder="https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward"
               />
             </FormControl>
 
@@ -339,6 +347,40 @@ const CourierCredentials = () => {
                 }
                 placeholder="Xpressbees username or email"
               />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Secret Key</FormLabel>
+              <Input
+                type="password"
+                value={xpressbeesForm.secretKey}
+                onChange={(e) =>
+                  setXpressbeesForm((prev) => ({ ...prev, secretKey: e.target.value }))
+                }
+                placeholder={data?.xpressbees?.secretKeyMasked || 'Leave blank to keep existing secret key'}
+              />
+              {!!data?.xpressbees?.secretKeyMasked && (
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Current secret key: {data.xpressbees.secretKeyMasked}
+                </Text>
+              )}
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>XB Key</FormLabel>
+              <Input
+                type="password"
+                value={xpressbeesForm.xbKey}
+                onChange={(e) =>
+                  setXpressbeesForm((prev) => ({ ...prev, xbKey: e.target.value }))
+                }
+                placeholder={data?.xpressbees?.xbKeyMasked || 'Leave blank to keep existing XB key'}
+              />
+              {!!data?.xpressbees?.xbKeyMasked && (
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Current XB key: {data.xpressbees.xbKeyMasked}
+                </Text>
+              )}
             </FormControl>
 
             <FormControl>
@@ -388,7 +430,7 @@ const CourierCredentials = () => {
             </FormControl>
 
             <Text fontSize="xs" color="gray.500">
-              Leave password, API key, or webhook secret blank to keep the saved value.
+              Leave password, bearer token, secret key, XB key, or webhook secret blank to keep the saved value.
             </Text>
 
             <Button

@@ -19,6 +19,8 @@ export type XpressbeesConfig = {
   apiToken?: string
   email?: string
   password?: string
+  secretKey?: string
+  xbKey?: string
 }
 
 export type EkartConfig = {
@@ -141,6 +143,8 @@ const buildConfigFromRow = (provider: ServiceProviderId, row: typeof courierCred
     apiToken: normalize(row.apiKey),
     email: normalize(row.username),
     password: normalize(row.password),
+    secretKey: normalize(row.clientId),
+    xbKey: normalize(row.clientName),
   }
   return cfg
 }
