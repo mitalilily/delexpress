@@ -162,6 +162,13 @@ export class XpressbeesService {
     return value
   }
 
+  private extractValidationMessages(value: any): string[] {
+    const details = Array.isArray(value?.details) ? value.details : []
+    return details
+      .map((item: any) => String(item?.message || '').trim())
+      .filter(Boolean)
+  }
+
   private async ensureConfigLoaded() {
     if (XpressbeesService.cachedConfig === undefined) {
       XpressbeesService.cachedConfig = await getEffectiveCourierConfig<XpressbeesConfig>(
@@ -477,6 +484,7 @@ export class XpressbeesService {
       err?.response?.data?.message,
       err?.response?.data?.description,
       err?.response?.data?.error,
+      this.extractValidationMessages(err?.response?.data?.ReturnMessage).join('; '),
       err?.message,
     ]
 
@@ -861,12 +869,14 @@ export class XpressbeesService {
     })
     const records = Array.isArray(raw?.data) ? raw.data : []
     const status = raw?.status === true
+    const validationMessages = this.extractValidationMessages(raw?.ReturnMessage)
 
     this.log('Serviceability', {
       origin: payload.origin,
       destination: payload.destination,
       status,
       records: records.length,
+      validationMessages,
     })
 
     return {
