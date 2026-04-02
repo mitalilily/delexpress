@@ -223,6 +223,18 @@ export class XpressbeesService {
     return status === 404 || status === 405
   }
 
+  private isInvalidTokenError(err: any): boolean {
+    const status = Number(err?.response?.status || 0)
+    const message = String(
+      err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        '',
+    ).toLowerCase()
+
+    return status === 401 || message.includes('invalid token') || message.includes('missing or invalid token')
+  }
+
   private extractErrorMessage(err: any, fallback: string): string {
     const candidates = [
       err?.response?.data?.message,
@@ -252,23 +264,25 @@ export class XpressbeesService {
     logPayload?: boolean
   }): Promise<T> {
     await this.ensureConfigLoaded()
-    const token = await this.getApiToken()
     const baseCandidates = this.getBaseCandidates()
     const dedupedPaths = Array.from(new Set(pathCandidates.filter(Boolean)))
     let lastError: any = null
     const attemptedUrls: string[] = []
+    let attemptedTokenRefresh = false
 
     for (const baseCandidate of baseCandidates) {
-      const http = this.createHttpClient(baseCandidate, token)
       for (const pathCandidate of dedupedPaths) {
         const requestPath = this.buildEndpointForBase(baseCandidate, pathCandidate)
         const requestUrl = `${baseCandidate}${requestPath}`
         attemptedUrls.push(requestUrl)
         try {
+          const token = await this.getApiToken(attemptedTokenRefresh)
+          const http = this.createHttpClient(baseCandidate, token)
           this.log('API attempt', {
             method,
             url: requestUrl,
             payload: logPayload ? this.sanitizeForLogs(data) : undefined,
+            tokenRefresh: attemptedTokenRefresh,
           })
           const response = await http.request<T>({
             method,
@@ -293,6 +307,16 @@ export class XpressbeesService {
 
           return response.data
         } catch (err: any) {
+          if (!attemptedTokenRefresh && this.isInvalidTokenError(err)) {
+            attemptedTokenRefresh = true
+            this.apiToken = ''
+            this.log('Retrying request with refreshed Xpressbees token', {
+              method,
+              url: requestUrl,
+            })
+            continue
+          }
+
           lastError = err
           this.log('API attempt failed', {
             method,
