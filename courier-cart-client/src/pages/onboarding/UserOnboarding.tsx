@@ -49,7 +49,7 @@ export default function UserOnboarding() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
-  const { user: userData, loading: fetchingUserData, refetchUser } = useAuth()
+  const { user: userData, loading: fetchingUserData } = useAuth()
   const { mutateAsync: completeOnboarding, isPending } = useCompleteUserOnboarding()
   const hasInitializedStep = useRef(false)
 
@@ -165,10 +165,8 @@ export default function UserOnboarding() {
     if (response && !response.error) {
       if (step < steps.length) {
         setStep(step + 1)
-        refetchUser()
       } else {
         queryClient.invalidateQueries({ queryKey: ['userProfile'] })
-        refetchUser()
         navigate('/home')
       }
     }
