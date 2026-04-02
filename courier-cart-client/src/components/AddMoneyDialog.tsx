@@ -4,7 +4,11 @@ import {
   alpha,
   Box,
   Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Divider,
+  IconButton,
   InputAdornment,
   Stack,
   TextField,
@@ -12,13 +16,13 @@ import {
 } from '@mui/material'
 import { useState, type Dispatch, type SetStateAction } from 'react'
 import { BiWallet } from 'react-icons/bi'
+import { FiX } from 'react-icons/fi'
 import { useAuth } from '../context/auth/AuthContext'
 import { useUserProfile } from '../hooks/User/useUserProfile'
 import { usePaymentOptions } from '../hooks/usePaymentOptions'
 import { useRechargeWallet } from '../hooks/useRechargeWallets'
 import { toast } from './UI/Toast'
 import CustomIconLoadingButton from './UI/button/CustomLoadingButton'
-import CustomDialog from './UI/modal/CustomModal'
 
 const PLUM = '#8A1F43'
 const PLUM_DARK = '#5E1630'
@@ -89,10 +93,37 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
   }
 
   return (
-    <CustomDialog
+    <Dialog
+      open={open}
+      keepMounted
+      onClose={() => setOpen(false)}
+      fullWidth
       maxWidth="xs"
-      title={
-        <Stack direction={'row'} spacing={2} justifyContent={'space-between'} alignItems={'center'}>
+      PaperProps={{
+        sx: {
+          borderRadius: { xs: 3, sm: 4 },
+          p: 0,
+          background: `
+            radial-gradient(420px 180px at 0% 0%, rgba(138, 31, 67, 0.10) 0%, transparent 72%),
+            radial-gradient(420px 180px at 100% 0%, rgba(86, 192, 165, 0.10) 0%, transparent 70%),
+            linear-gradient(180deg, #FFFCF8 0%, #FFF7F1 100%)
+          `,
+          border: '1px solid rgba(138, 31, 67, 0.14)',
+          color: '#161219',
+          boxShadow: '0 28px 64px rgba(22, 18, 25, 0.18)',
+          overflow: 'hidden',
+        },
+      }}
+    >
+      <DialogTitle
+        sx={{
+          pt: 2.6,
+          pb: 1.5,
+          px: 2.5,
+          borderBottom: '1px solid rgba(138, 31, 67, 0.08)',
+        }}
+      >
+        <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="center">
           <Typography
             variant="h6"
             fontWeight={700}
@@ -106,29 +137,46 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
             Add Money to Wallet
           </Typography>
 
-          <Box
-            display={'flex'}
-            gap={1}
-            alignItems={'center'}
-            sx={{
-              bgcolor: alpha(PLUM, 0.08),
-              px: 2,
-              py: 1,
-              borderRadius: 2,
-              border: `1px solid ${alpha(PLUM, 0.15)}`,
-            }}
-          >
-            <BiWallet size={18} color={PLUM} />
-            <Typography variant="body2" fontWeight={800} color={PLUM}>
-              ₹{currentBalance.toLocaleString('en-IN')}
-            </Typography>
-          </Box>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Box
+              display="flex"
+              gap={1}
+              alignItems="center"
+              sx={{
+                bgcolor: alpha(PLUM, 0.08),
+                px: 1.5,
+                py: 0.8,
+                borderRadius: 2,
+                border: `1px solid ${alpha(PLUM, 0.15)}`,
+              }}
+            >
+              <BiWallet size={18} color={PLUM} />
+              <Typography variant="body2" fontWeight={800} color={PLUM}>
+                ₹{currentBalance.toLocaleString('en-IN')}
+              </Typography>
+            </Box>
+            <IconButton
+              onClick={() => setOpen(false)}
+              sx={{
+                color: PLUM,
+                bgcolor: alpha(PLUM, 0.07),
+                border: `1px solid ${alpha(PLUM, 0.08)}`,
+                '&:hover': { bgcolor: alpha(PLUM, 0.12) },
+              }}
+            >
+              <FiX size={18} />
+            </IconButton>
+          </Stack>
         </Stack>
-      }
-      open={open}
-      onClose={() => setOpen(false)}
-    >
-      <Box display={'flex'} flexDirection={'column'} width={'100%'}>
+      </DialogTitle>
+
+      <DialogContent
+        sx={{
+          px: 2.5,
+          py: 2.2,
+        }}
+      >
+        <Box display={'flex'} flexDirection={'column'} width={'100%'}>
         {/* Custom Amount */}
         <Box
           width={'100%'}
@@ -351,8 +399,9 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
             Secure payment powered by <b>Razorpay</b>
           </Typography>
         </Box>
-      </Box>
-    </CustomDialog>
+        </Box>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -1,23 +1,29 @@
-import { Box } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import React from 'react'
 import './loader.css'
-// Replace this with your actual logo path or import
 import Logo from '/logo/delexpress-logo.svg'
 
 type Props = {
   night?: boolean
+  soft?: boolean
 }
 
-const FullScreenLoader: React.FC<Props> = ({ night = false }) => {
+const FullScreenLoader: React.FC<Props> = ({ night = false, soft = false }) => {
   return (
-    <Box className={`loader-overlay ${night ? 'night' : ''}`}>
+    <Box className={`loader-overlay ${night ? 'night' : ''} ${soft ? 'soft' : ''}`}>
       <Box className="loader-content">
-        <div className="logo-container">
-          <img src={Logo} alt="Delexpress Logo" className="loader-logo" />
-        </div>
-        <div style={{ color: '#8A1F43', fontWeight: 900, letterSpacing: 2, fontSize: '0.8rem' }}>
-          DELEXPRESS
-        </div>
+        <Box className="loader-shell">
+          <div className="logo-container">
+            <img src={Logo} alt="Delexpress Logo" className="loader-logo" />
+          </div>
+          <Typography className="loader-title">DELEXPRESS</Typography>
+          <Typography className="loader-copy">
+            Preparing your workspace
+          </Typography>
+          <Box className="loader-bar">
+            <Box className="loader-bar-fill" />
+          </Box>
+        </Box>
       </Box>
     </Box>
   )

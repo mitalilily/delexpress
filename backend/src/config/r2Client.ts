@@ -11,6 +11,7 @@ dotenv.config({ path: path.resolve(__dirname, `../.env.${env}`) })
 export const r2 = new S3Client({
   region: 'auto',
   endpoint: process.env.R2_ENDPOINT,
+  forcePathStyle: true,
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY_ID || 'placeholder',
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,

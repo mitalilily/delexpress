@@ -27,5 +27,5 @@ export default function NavigationLoader() {
 
   if (!isLoading) return null
 
-  return <FullScreenLoader />
+  return <FullScreenLoader soft />
 }
