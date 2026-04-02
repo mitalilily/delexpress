@@ -148,7 +148,6 @@ app.use(
           origin.endsWith('.netlify.live') ||
           origin.endsWith('.onrender.com'))
 
-      if (!origin || allowedOrigins.includes(origin) || isPlatformPreview) {
       if (!origin || isAllowedOrigin(origin) || isPlatformPreview) {
         callback(null, true)
       } else {

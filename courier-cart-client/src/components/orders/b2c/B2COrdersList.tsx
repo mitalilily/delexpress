@@ -42,6 +42,7 @@ import {
   getB2CManifestProvider,
   getDocumentReference,
   getDownloadFileName,
+  getOrderDocumentLabel,
   isB2CManifestEligible,
   summarizeMessages,
   summarizeOrderNumbers,
@@ -420,6 +421,7 @@ const B2COrdersList = () => {
           key,
           url,
           fileName: getDownloadFileName(order, type, source),
+          orderLabel: getOrderDocumentLabel(order),
         })
         return entries
       }, [])

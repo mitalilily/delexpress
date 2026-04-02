@@ -87,7 +87,10 @@ const pdfFonts = {
 }
 
 const MAX_MANIFEST_RETRY_ATTEMPTS = 3
-const ORIGINAL_WALLET_DEBIT_REASONS = ['B2C Prepaid Order Payment', 'B2C COD Service Charges']
+export const ORIGINAL_WALLET_DEBIT_REASONS = [
+  'B2C Prepaid Order Payment',
+  'B2C COD Service Charges',
+]
 
 const truncateColumnValue = (value: string, maxLength = 255) => {
   if (value.length <= maxLength) return value
@@ -137,6 +140,17 @@ const summarizeManifestRefs = (values: Array<string | null | undefined>, maxVisi
 const getManifestFailureRefundReason = (orderNumber: string | null | undefined) =>
   `Refund for manifest failed order #${String(orderNumber || '').trim() || 'unknown'}`
 
+export const getCancellationRefundReason = (orderNumber: string | null | undefined) =>
+  `Refund for cancelled order #${String(orderNumber || '').trim() || 'unknown'}`
+
+const isOrderRefundCreditReason = (reason: unknown, orderNumber: string | null | undefined) => {
+  const normalizedReason = String(reason ?? '').trim()
+  return (
+    normalizedReason === getManifestFailureRefundReason(orderNumber) ||
+    normalizedReason === getCancellationRefundReason(orderNumber)
+  )
+}
+
 const getExpectedWalletDebitFromOrder = (order: {
   order_type?: string | null
   freight_charges?: number | string | null
@@ -156,11 +170,12 @@ const getWalletDebitReasonFromOrder = (orderType: string | null | undefined) =>
     ? 'B2C COD Service Charges'
     : 'B2C Prepaid Order Payment'
 
-const getManifestFailureRefundOutstanding = async (
+export const getOrderRefundOutstanding = async (
   executor: any,
   walletId: string,
   orderId: string,
   orderNumber: string | null | undefined,
+  fallbackDebit = 0,
 ) => {
   const transactions = await executor
     .select({
@@ -180,15 +195,26 @@ const getManifestFailureRefundOutstanding = async (
     )
     .reduce((sum: number, transaction: any) => sum + Number(transaction.amount ?? 0), 0)
 
-  const totalManifestRefund = transactions
+  const refundableBase = totalOriginalDebit > 0 ? totalOriginalDebit : Math.max(0, fallbackDebit)
+
+  const totalRefundCredits = transactions
     .filter(
       (transaction: any) =>
         transaction.type === 'credit' &&
-        String(transaction.reason ?? '') === getManifestFailureRefundReason(orderNumber),
+        isOrderRefundCreditReason(transaction.reason, orderNumber),
     )
     .reduce((sum: number, transaction: any) => sum + Number(transaction.amount ?? 0), 0)
 
-  return Math.max(0, totalOriginalDebit - totalManifestRefund)
+  return Math.max(0, refundableBase - totalRefundCredits)
+}
+
+const getManifestFailureRefundOutstanding = async (
+  executor: any,
+  walletId: string,
+  orderId: string,
+  orderNumber: string | null | undefined,
+) => {
+  return getOrderRefundOutstanding(executor, walletId, orderId, orderNumber)
 }
 
 const refundManifestFailureChargeOnce = async ({

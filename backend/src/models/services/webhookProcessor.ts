@@ -872,6 +872,9 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
     }
   }
 
+  const shouldRunManifestSideEffects =
+    internalStatus === 'booked' || internalStatus === 'pickup_initiated'
+
   await tx.transaction(async (innerTx) => {
     // 1️⃣ Update base order status
     const updateData: any = {
