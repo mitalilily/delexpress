@@ -14,6 +14,7 @@ interface WalletTransactionParams {
   ref?: string
   meta?: Record<string, any>
   currency?: string
+  allowNegativeBalance?: boolean
   tx?: PgTransaction<any> // optional, for passing an existing transaction
 }
 
@@ -28,6 +29,7 @@ export const createWalletTransaction = async ({
   ref,
   meta,
   currency = 'INR',
+  allowNegativeBalance = false,
   tx,
 }: WalletTransactionParams) => {
   // Use provided transaction or default to db
@@ -38,7 +40,7 @@ export const createWalletTransaction = async ({
   // Get current wallet balance if debit
   if (type === 'debit') {
     if (!wallet[0]) throw new Error('Wallet not found')
-    if (currentBalance < Number(amount)) {
+    if (!allowNegativeBalance && currentBalance < Number(amount)) {
       throw new Error('Insufficient wallet balance')
     }
 

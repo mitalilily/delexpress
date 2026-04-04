@@ -578,13 +578,14 @@ export default function AdminWallets() {
 
             {adjustForm.type === 'debit' &&
               parseFloat(selectedWallet?.balance || 0) < parseFloat(adjustForm.amount || 0) && (
-                <Box p={3} bg="red.50" borderRadius="md" border="1px" borderColor="red.200">
-                  <Text fontSize="sm" color="red.600" fontWeight="bold">
-                    ⚠️ Warning: Insufficient Balance
+                <Box p={3} bg="orange.50" borderRadius="md" border="1px" borderColor="orange.200">
+                  <Text fontSize="sm" color="orange.700" fontWeight="bold">
+                    Warning: Wallet will go negative
                   </Text>
-                  <Text fontSize="xs" color="red.600" mt={1}>
+                  <Text fontSize="xs" color="orange.700" mt={1}>
                     Current balance ({formatBalance(selectedWallet?.balance)}) is less than the
-                    debit amount ({formatBalance(adjustForm.amount)})
+                    debit amount ({formatBalance(adjustForm.amount)}). This admin debit will still
+                    be processed and the wallet balance can go below zero.
                   </Text>
                 </Box>
               )}

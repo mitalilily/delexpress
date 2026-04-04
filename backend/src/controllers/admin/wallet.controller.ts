@@ -118,6 +118,7 @@ export const adjustWalletBalance = async (req: Request, res: Response): Promise<
       type: type as 'credit' | 'debit',
       reason: reason,
       ref: `admin_adjustment_${Date.now()}`,
+      allowNegativeBalance: type === 'debit',
       meta: {
         adjustedBy: (req as any).user?.sub,
         notes: notes || '',
@@ -144,4 +145,3 @@ export const adjustWalletBalance = async (req: Request, res: Response): Promise<
     res.status(500).json({ success: false, message: 'Server error adjusting wallet balance' })
   }
 }
-
