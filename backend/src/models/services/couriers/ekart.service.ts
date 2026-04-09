@@ -376,7 +376,6 @@ export class EkartService {
       invoice_date: invoiceDate,
       document_number: this.sanitizeText(payload?.document_number) || undefined,
       document_date: this.sanitizeText(payload?.document_date) || undefined,
-      ewbn: this.sanitizeText(payload?.ewbn || payload?.ewb || payload?.ewbn_number || payload?.ewaybill_number) || undefined,
       seller_name: sellerName,
       seller_address: sellerAddress,
       seller_gst_tin: this.sanitizeText(payload?.company?.gst || payload?.pickup?.gst_number),
