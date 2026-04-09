@@ -738,6 +738,7 @@ export class EkartService {
       city: payload?.city || '',
       state: payload?.state || '',
       country: payload?.country || 'India',
+      geo: payload?.geo,
     })
   }
 

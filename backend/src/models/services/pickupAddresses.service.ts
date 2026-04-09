@@ -13,9 +13,16 @@ import {
 import { DelhiveryService } from './couriers/delhivery.service'
 import { EkartService } from './couriers/ekart.service'
 
-function parseCoordinate(value: string | null | undefined, fallback: number) {
+function parseCoordinate(value: string | null | undefined) {
   const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : fallback
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function buildEkartGeo(latitude: string | null | undefined, longitude: string | null | undefined) {
+  const lat = parseCoordinate(latitude)
+  const lon = parseCoordinate(longitude)
+  if (lat === null || lon === null) return null
+  return { lat, lon }
 }
 
 async function isServiceProviderEnabled(serviceProvider: 'delhivery' | 'ekart' | 'xpressbees') {
@@ -248,10 +255,13 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
         const alias = pickupAddr.addressNickname || pickupAddr.contactName || `warehouse-${pickupAddr.id}`
         const phoneRaw = String(pickupAddr.contactPhone || '')
         const phoneDigits = phoneRaw.replace(/\D/g, '')
-        const geo = {
-          lat: parseCoordinate(pickupAddr.latitude, 0),
-          lon: parseCoordinate(pickupAddr.longitude, 0),
-        }
+        const geo = buildEkartGeo(pickupAddr.latitude, pickupAddr.longitude)
+
+        if (!geo) {
+          console.log(
+            `ℹ️ Skipping Ekart warehouse registration for ${alias}. Pickup latitude/longitude are required by Ekart.`,
+          )
+        } else {
         const payload = {
           alias,
           contactName: pickupAddr.contactName || 'Delexpress',
@@ -278,6 +288,7 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
         }
         await ekart.createWarehouse(payload)
         console.log(`✅ Ekart warehouse registered: ${alias}`)
+        }
       } catch (err: any) {
         console.warn(
           '⚠️ Failed to register Ekart warehouse:',
