@@ -25,6 +25,48 @@ function buildEkartGeo(latitude: string | null | undefined, longitude: string | 
   return { lat, lon }
 }
 
+function assertPresent(value: unknown, message: string, field?: string) {
+  if (String(value ?? '').trim()) return
+  const err: any = new Error(message)
+  err.code = 'PICKUP_PROVIDER_PREFLIGHT_FAILED'
+  err.field = field
+  throw err
+}
+
+function preflightDelhiveryWarehouse(payload: CreatePickupDto) {
+  const pickup = payload.pickup
+  assertPresent(pickup.contactName, 'Pickup contact name is required before registering courier warehouses.', 'pickup.contactName')
+  assertPresent(pickup.contactPhone, 'Pickup phone is required before registering courier warehouses.', 'pickup.contactPhone')
+  assertPresent(pickup.addressLine1, 'Pickup address is required before registering courier warehouses.', 'pickup.addressLine1')
+  assertPresent(pickup.city, 'Pickup city is required before registering courier warehouses.', 'pickup.city')
+  assertPresent(pickup.state, 'Pickup state is required before registering courier warehouses.', 'pickup.state')
+  assertPresent(pickup.pincode, 'Pickup pincode is required before registering courier warehouses.', 'pickup.pincode')
+}
+
+function preflightEkartWarehouse(payload: CreatePickupDto) {
+  preflightDelhiveryWarehouse(payload)
+
+  const geo = buildEkartGeo(payload.pickup.latitude, payload.pickup.longitude)
+  if (!geo) {
+    const err: any = new Error(
+      'Pickup latitude and longitude are required before registering this warehouse with Ekart.',
+    )
+    err.code = 'EKART_WAREHOUSE_GEO_REQUIRED'
+    err.field = 'pickup.latitude'
+    throw err
+  }
+}
+
+function preflightWarehouseSyncTargets(syncTargets: Awaited<ReturnType<typeof getWarehouseSyncTargets>>, payload: CreatePickupDto) {
+  if (syncTargets.delhivery.shouldSync) {
+    preflightDelhiveryWarehouse(payload)
+  }
+
+  if (syncTargets.ekart.shouldSync) {
+    preflightEkartWarehouse(payload)
+  }
+}
+
 async function isServiceProviderEnabled(serviceProvider: 'delhivery' | 'ekart' | 'xpressbees') {
   const [row] = await db
     .select({ serviceProvider: couriers.serviceProvider })
@@ -99,6 +141,28 @@ async function getWarehouseSyncTargets() {
  */
 
 export async function createPickupAddressService(data: CreatePickupDto, userId: string) {
+  const syncTargets = await getWarehouseSyncTargets()
+
+  if (!syncTargets.hasAnyEnabled) {
+    const err: any = new Error(
+      'At least one courier provider must be enabled before adding a pickup location.',
+    )
+    err.code = 'NO_PICKUP_PROVIDER_ENABLED'
+    throw err
+  }
+
+  if (!syncTargets.hasAnyConfiguredTarget) {
+    const err: any = new Error(
+      'At least one enabled courier provider must have valid credentials before adding a pickup location.',
+    )
+    err.code = 'NO_PICKUP_PROVIDER_CONFIGURED'
+    throw err
+  }
+
+  // Preflight every enabled/configured courier first. Do not create a warehouse in one provider
+  // when another provider is already guaranteed to reject this pickup payload.
+  preflightWarehouseSyncTargets(syncTargets, data)
+
   return await db.transaction(async (txn) => {
     const existing = await txn.query.pickupAddresses.findFirst({
       where: eq(pickupAddresses.userId, userId),
@@ -158,24 +222,7 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
       })
       .returning()
 
-    const syncTargets = await getWarehouseSyncTargets()
     const { delhivery: delhiverySync, ekart: ekartSync } = syncTargets
-
-    if (!syncTargets.hasAnyEnabled) {
-      const err: any = new Error(
-        'At least one courier provider must be enabled before adding a pickup location.',
-      )
-      err.code = 'NO_PICKUP_PROVIDER_ENABLED'
-      throw err
-    }
-
-    if (!syncTargets.hasAnyConfiguredTarget) {
-      const err: any = new Error(
-        'At least one enabled courier provider must have valid credentials before adding a pickup location.',
-      )
-      err.code = 'NO_PICKUP_PROVIDER_CONFIGURED'
-      throw err
-    }
 
     // 🚚 Register pickup in Delhivery
     if (delhiverySync.shouldSync) {
@@ -256,12 +303,15 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
         const phoneRaw = String(pickupAddr.contactPhone || '')
         const phoneDigits = phoneRaw.replace(/\D/g, '')
         const geo = buildEkartGeo(pickupAddr.latitude, pickupAddr.longitude)
-
         if (!geo) {
-          console.log(
-            `ℹ️ Skipping Ekart warehouse registration for ${alias}. Pickup latitude/longitude are required by Ekart.`,
+          const err: any = new Error(
+            'Pickup latitude and longitude are required before registering this warehouse with Ekart.',
           )
-        } else {
+          err.code = 'EKART_WAREHOUSE_GEO_REQUIRED'
+          err.field = 'pickup.latitude'
+          throw err
+        }
+
         const payload = {
           alias,
           contactName: pickupAddr.contactName || 'Delexpress',
@@ -288,12 +338,15 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
         }
         await ekart.createWarehouse(payload)
         console.log(`✅ Ekart warehouse registered: ${alias}`)
-        }
       } catch (err: any) {
-        console.warn(
-          '⚠️ Failed to register Ekart warehouse:',
-          err?.response?.data || err?.message || err,
+        console.error('❌ Failed to register Ekart warehouse:', err?.response?.data || err?.message || err)
+        const ekartErr: any = new Error(
+          'Ekart warehouse registration failed. No pickup location was saved. Please fix the pickup details and try again.',
         )
+        ekartErr.code = err?.code || 'EKART_WAREHOUSE_REGISTRATION_FAILED'
+        ekartErr.field = err?.field
+        ekartErr.providerResponse = err?.response?.data
+        throw ekartErr
       }
     } else {
       console.log(

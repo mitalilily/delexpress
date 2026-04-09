@@ -49,6 +49,36 @@ export async function createPickupAddressHandler(req: any, res: Response): Promi
       })
     }
 
+    if (anyErr?.code === 'PICKUP_PROVIDER_PREFLIGHT_FAILED') {
+      return res.status(400).json({
+        code: anyErr.code,
+        field: anyErr.field,
+        message:
+          anyErr.message ??
+          'Pickup details are incomplete for courier warehouse registration.',
+      })
+    }
+
+    if (anyErr?.code === 'EKART_WAREHOUSE_GEO_REQUIRED') {
+      return res.status(400).json({
+        code: anyErr.code,
+        field: anyErr.field ?? 'pickup.latitude',
+        message:
+          anyErr.message ??
+          'Pickup latitude and longitude are required when Ekart warehouse sync is enabled.',
+      })
+    }
+
+    if (anyErr?.code === 'EKART_WAREHOUSE_REGISTRATION_FAILED') {
+      return res.status(502).json({
+        code: anyErr.code,
+        field: anyErr.field,
+        message:
+          anyErr.message ??
+          'Ekart warehouse registration failed. No pickup location was saved.',
+      })
+    }
+
     return res.status(500).json({ message: 'Internal server error' })
   }
 }
