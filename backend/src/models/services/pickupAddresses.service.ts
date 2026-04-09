@@ -25,6 +25,19 @@ function buildEkartGeo(latitude: string | null | undefined, longitude: string | 
   return { lat, lon }
 }
 
+function buildEkartWarehouseAlias(input: {
+  addressNickname?: string | null
+  contactName?: string | null
+  id?: string | null
+}) {
+  const seed = input.addressNickname || input.contactName || input.id || 'WAREHOUSE'
+  return String(seed)
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 50) || 'WAREHOUSE'
+}
+
 function assertPresent(value: unknown, message: string, field?: string) {
   if (String(value ?? '').trim()) return
   const err: any = new Error(message)
@@ -299,7 +312,7 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
     if (ekartSync.shouldSync) {
       try {
         const ekart = new EkartService()
-        const alias = pickupAddr.addressNickname || pickupAddr.contactName || `warehouse-${pickupAddr.id}`
+        const alias = buildEkartWarehouseAlias(pickupAddr)
         const phoneRaw = String(pickupAddr.contactPhone || '')
         const phoneDigits = phoneRaw.replace(/\D/g, '')
         const geo = buildEkartGeo(pickupAddr.latitude, pickupAddr.longitude)

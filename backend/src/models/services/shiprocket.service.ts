@@ -359,6 +359,19 @@ interface PickupWarehouseRecord {
   country?: string | null
 }
 
+function buildEkartWarehouseAliasFromPickup(input: {
+  warehouse_name?: string | null
+  name?: string | null
+  pickupId?: string | null
+}) {
+  const seed = input.warehouse_name || input.name || input.pickupId || 'WAREHOUSE'
+  return String(seed)
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 50) || 'WAREHOUSE'
+}
+
 async function fetchPickupWarehouseRecord(
   userId: string,
   pickupLocationId?: string,
@@ -3067,6 +3080,22 @@ export const createB2CShipmentService = async (
     }
 
     const integrationType = requestedIntegrationType as 'delhivery' | 'ekart' | 'xpressbees'
+    if (integrationType === 'ekart' && params.pickup) {
+      const ekartPickupAlias = buildEkartWarehouseAliasFromPickup({
+        warehouse_name: params.pickup.warehouse_name,
+        name: params.pickup.name,
+        pickupId: resolvedPickupWarehouse?.pickupId || params.pickup_location_id,
+      })
+      params.pickup_location_alias = ekartPickupAlias
+      params.return_location_alias = params.return_location_alias || ekartPickupAlias
+
+      console.log('📍 Using Ekart pickup location alias', {
+        order_number: params.order_number,
+        pickup_location_id: params.pickup_location_id,
+        pickup_location_alias: params.pickup_location_alias,
+      })
+    }
+
     const providerName =
       integrationType === 'delhivery'
         ? 'Delhivery'

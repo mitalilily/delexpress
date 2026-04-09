@@ -184,6 +184,19 @@ export class EkartService {
     return digits.length <= 10 ? digits : digits.slice(-10)
   }
 
+  private normalizeWeightToGrams(value: any, fallbackGrams = 500) {
+    const numeric = this.toNumber(value, NaN)
+    if (!Number.isFinite(numeric) || numeric <= 0) return fallbackGrams
+    // Order forms in our app store package_weight in kg; API rate checks may already use grams.
+    return Math.max(1, Math.round(numeric <= 50 ? numeric * 1000 : numeric))
+  }
+
+  private normalizeDimensionCm(value: any, fallbackCm = 10) {
+    const numeric = this.toNumber(value, NaN)
+    if (!Number.isFinite(numeric) || numeric <= 0) return fallbackCm
+    return Math.max(1, Math.round(numeric))
+  }
+
   private normalizePin(value: any, fallback = 0) {
     const digits = String(value ?? '').replace(/\D/g, '')
     if (!digits) return fallback
@@ -234,7 +247,7 @@ export class EkartService {
     }
 
     const totalQuantity = normalizedItems.reduce((sum: number, item: any) => sum + item.quantity, 0)
-    const taxableAmount = normalizedItems.reduce(
+    const itemSubtotal = normalizedItems.reduce(
       (sum: number, item: any) => sum + item.price * item.quantity,
       0,
     )
@@ -242,8 +255,13 @@ export class EkartService {
       normalizedItems.reduce((sum: number, item: any) => sum + this.toNumber(item.tax_value, 0), 0).toFixed(2),
     )
     const orderAmount = this.toNumber(payload?.order_amount ?? payload?.invoice_amount, 0)
-    const computedTotalAmount = orderAmount > 0 ? orderAmount : taxableAmount + totalTaxValue
+    const computedTotalAmount = orderAmount > 0 ? orderAmount : itemSubtotal + totalTaxValue
+    const taxableAmount = Math.max(1, Number((computedTotalAmount - totalTaxValue).toFixed(2)))
     const codAmount = paymentMode === 'COD' ? computedTotalAmount : 0
+    const packageWeightGrams = this.normalizeWeightToGrams(payload?.package_weight)
+    const packageLengthCm = this.normalizeDimensionCm(payload?.package_length)
+    const packageHeightCm = this.normalizeDimensionCm(payload?.package_height)
+    const packageWidthCm = this.normalizeDimensionCm(payload?.package_breadth ?? payload?.package_width)
 
     const sellerName = this.sanitizeText(payload?.company?.name || payload?.pickup?.name, 'Delexpress')
     const sellerAddress = [
@@ -298,14 +316,9 @@ export class EkartService {
     )
 
     return {
-      trackingId: payload?.order_number,
-      referenceId: payload?.order_id || payload?.order_number,
       order_number: payload?.order_number,
-      order_id: payload?.order_id,
-      order_date: invoiceDate,
       invoice_number: invoiceNumber,
       invoice_date: invoiceDate,
-      invoice_amount: computedTotalAmount,
       seller_name: sellerName,
       seller_address: sellerAddress,
       seller_gst_tin: this.sanitizeText(payload?.company?.gst || payload?.pickup?.gst_number),
@@ -318,21 +331,18 @@ export class EkartService {
       integrated_gst_amount: 0,
       category_of_goods: categoryOfGoods,
       products_desc: normalizedItems.map((item: any) => item.name).join(', '),
-      paymentType: paymentMode,
       payment_mode: paymentMode,
-      codAmount,
+      return_reason: paymentMode === 'Pickup' ? this.sanitizeText(payload?.return_reason, 'Reverse pickup') : undefined,
       cod_amount: codAmount,
-      invoiceAmount: computedTotalAmount,
       total_amount: computedTotalAmount,
-      order_amount: computedTotalAmount,
-      collectable_amount: codAmount,
       tax_value: totalTaxValue,
       taxable_amount: taxableAmount,
       commodity_value: String(taxableAmount),
       quantity: totalQuantity || 1,
-      pickup: pickupContact,
-      drop: dropContact,
-      returnAddress: returnContact,
+      weight: packageWeightGrams,
+      length: packageLengthCm,
+      height: packageHeightCm,
+      width: packageWidthCm,
       pickup_location: {
         name: this.sanitizeText(
           payload?.pickup_location_alias || payload?.pickup?.warehouse_name || payload?.pickup?.name,
@@ -352,13 +362,6 @@ export class EkartService {
           payload?.return_location_alias || payload?.rto?.warehouse_name || returnContact.name,
           returnContact.name,
         ),
-      },
-      package: {
-        weight: this.toNumber(payload?.package_weight, 0.5),
-        length: this.toNumber(payload?.package_length, 10),
-        breadth: this.toNumber(payload?.package_breadth, 10),
-        height: this.toNumber(payload?.package_height, 10),
-        items: normalizedItems,
       },
       items: normalizedItems,
     }
