@@ -418,6 +418,21 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                       </TableCell>
                     )}
 
+                    {expandable && renderExpandedRow && (
+                      <TableCell
+                        sx={{
+                          position: 'sticky',
+                          top: 0,
+                          left: selectable ? 52 : 0,
+                          backgroundColor: '#f8fbff',
+                          borderBottom: `1.5px solid ${alpha(BRAND_NAVY, 0.2)}`,
+                          width: 48,
+                          minWidth: 48,
+                          zIndex: theme.zIndex.appBar + 2,
+                        }}
+                      />
+                    )}
+
                     {columns.map((col) =>
                       col.hiddenOnMobile && isMobile ? null : (
                         <TableCell
@@ -460,18 +475,6 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                       ),
                     )}
 
-                    {expandable && renderExpandedRow && (
-                      <TableCell
-                        sx={{
-                          position: 'sticky',
-                          top: 0,
-                          backgroundColor: '#f8fbff',
-                          borderBottom: `1.5px solid ${alpha(BRAND_NAVY, 0.2)}`,
-                          width: 40,
-                          zIndex: theme.zIndex.appBar + 1,
-                        }}
-                      />
-                    )}
                   </TableRow>
                 </TableHead>
 
@@ -503,6 +506,32 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                                 onChange={() => handleSelect(row.id)}
                                 sx={{ color: BRAND_NAVY }}
                               />
+                            </TableCell>
+                          )}
+
+                          {expandable && renderExpandedRow && (
+                            <TableCell
+                              sx={{
+                                py: 1.5,
+                                px: 1,
+                                width: 48,
+                                minWidth: 48,
+                                position: 'sticky',
+                                left: selectable ? 52 : 0,
+                                backgroundColor: '#FFFFFF',
+                                zIndex: 3,
+                              }}
+                            >
+                              <IconButton
+                                size="small"
+                                onClick={() => toggleExpand(row.id)}
+                                sx={{
+                                  color: BRAND_NAVY,
+                                  '&:hover': { backgroundColor: alpha(BRAND_NAVY, 0.1) },
+                                }}
+                              >
+                                {isExpanded ? <MdExpandLess /> : <MdExpandMore />}
+                              </IconButton>
                             </TableCell>
                           )}
 
@@ -564,23 +593,12 @@ export default function DataTable<T extends { id: string | number }>(props: Data
                             )
                           })}
 
-                          {expandable && renderExpandedRow && (
-                            <TableCell sx={{ py: 1.5, px: 2 }}>
-                              <IconButton
-                                size="small"
-                                onClick={() => toggleExpand(row.id)}
-                                sx={{ color: BRAND_NAVY, '&:hover': { backgroundColor: alpha(BRAND_NAVY, 0.1) } }}
-                              >
-                                {isExpanded ? <MdExpandLess /> : <MdExpandMore />}
-                              </IconButton>
-                            </TableCell>
-                          )}
                         </TableRow>
 
                         {expandable && renderExpandedRow && (
                           <TableRow>
                             <TableCell
-                              colSpan={columns.length + (selectable ? 2 : 1)}
+                              colSpan={columns.length + (selectable ? 1 : 0) + 1}
                               sx={{
                                 p: 0,
                                 backgroundColor: alpha(BRAND_NAVY, 0.03),

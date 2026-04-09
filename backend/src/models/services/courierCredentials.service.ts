@@ -111,6 +111,14 @@ const hasEnvForProviderAndType = (provider: ServiceProviderId, _type: BusinessTy
 
 const normalize = (val?: string | null) => String(val || '').trim()
 
+const looksLikeXpressbeesBearerToken = (value?: string | null) => {
+  const normalized = normalize(value)
+  if (!normalized) return false
+  if (normalized.split('.').length === 3) return true
+  if (normalized.length >= 80) return true
+  return false
+}
+
 const buildConfigFromRow = (provider: ServiceProviderId, row: typeof courierCredentials.$inferSelect) => {
   if (provider === 'ekart') {
     const cfg: EkartConfig = {
@@ -138,13 +146,17 @@ const buildConfigFromRow = (provider: ServiceProviderId, row: typeof courierCred
     return cfg
   }
 
+  const savedApiKey = normalize(row.apiKey)
+  const savedXbKey = normalize(row.clientName)
+  const apiKeyLooksLikeBearerToken = looksLikeXpressbeesBearerToken(savedApiKey)
+
   const cfg: XpressbeesConfig = {
     apiBase: normalize(row.apiBase),
-    apiToken: normalize(row.apiKey),
+    apiToken: apiKeyLooksLikeBearerToken ? savedApiKey : '',
     email: normalize(row.username),
     password: normalize(row.password),
     secretKey: normalize(row.clientId),
-    xbKey: normalize(row.clientName),
+    xbKey: savedXbKey || (apiKeyLooksLikeBearerToken ? '' : savedApiKey),
   }
   return cfg
 }

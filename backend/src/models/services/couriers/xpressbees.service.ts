@@ -843,7 +843,13 @@ export class XpressbeesService {
 
   async getApiToken(forceRefresh = false): Promise<string> {
     await this.ensureConfigLoaded()
-    if (!forceRefresh && this.apiToken) return this.apiToken
+    const savedToken = String(this.apiToken || '').trim()
+    const looksLikeBearerToken = savedToken.split('.').length === 3 || savedToken.length >= 80
+    if (!forceRefresh && savedToken && looksLikeBearerToken) return savedToken
+    if (savedToken && !looksLikeBearerToken) {
+      this.xbKey = this.xbKey || savedToken
+      this.apiToken = ''
+    }
     return this.generateApiToken()
   }
 

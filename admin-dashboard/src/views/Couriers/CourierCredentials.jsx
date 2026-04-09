@@ -396,18 +396,21 @@ const CourierCredentials = () => {
             </FormControl>
 
             <FormControl>
-              <FormLabel>API Key / Token</FormLabel>
+              <FormLabel>Generated Bearer Token</FormLabel>
               <Input
                 type="password"
                 value={xpressbeesForm.apiKey}
                 onChange={(e) =>
                   setXpressbeesForm((prev) => ({ ...prev, apiKey: e.target.value }))
                 }
-                placeholder={data?.xpressbees?.apiKeyMasked || 'Enter Xpressbees API key'}
+                placeholder={
+                  data?.xpressbees?.apiKeyMasked ||
+                  'Optional. Leave blank to generate from username/password'
+                }
               />
               {!!data?.xpressbees?.apiKeyMasked && (
                 <Text fontSize="xs" color="gray.500" mt={1}>
-                  Current key: {data.xpressbees.apiKeyMasked}
+                  Current bearer token: {data.xpressbees.apiKeyMasked}
                 </Text>
               )}
             </FormControl>
