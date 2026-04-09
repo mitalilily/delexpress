@@ -374,6 +374,7 @@ export class XpressbeesService {
   private buildAuthHeaders(token: string) {
     return {
       Authorization: `Bearer ${token}`,
+      Token: token,
       token,
       'Content-Type': 'application/json',
       Accept: 'application/json',
@@ -479,6 +480,24 @@ export class XpressbeesService {
     return status === 401 || message.includes('invalid token') || message.includes('missing or invalid token')
   }
 
+  private isInvalidTokenResponse(raw: any): boolean {
+    const returnCode = Number(raw?.ReturnCode ?? raw?.returnCode ?? raw?.code ?? 0)
+    const message = String(
+      raw?.ReturnMessage?.message ||
+        raw?.ReturnMessage ||
+        raw?.message ||
+        raw?.error ||
+        '',
+    ).toLowerCase()
+
+    return (
+      returnCode === 101 ||
+      message.includes('token not provided') ||
+      message.includes('invalid token') ||
+      message.includes('missing or invalid token')
+    )
+  }
+
   private extractErrorMessage(err: any, fallback: string): string {
     const candidates = [
       err?.response?.data?.message,
@@ -543,7 +562,7 @@ export class XpressbeesService {
                 data,
               })
 
-          if (baseCandidate !== this.baseApi) {
+          if (!isAbsoluteUrl && baseCandidate !== this.baseApi) {
             this.log('Resolved alternate Xpressbees base URL', {
               previousBaseApi: this.baseApi,
               resolvedBaseApi: baseCandidate,
@@ -557,6 +576,17 @@ export class XpressbeesService {
             payload: logPayload ? this.sanitizeForLogs(data) : undefined,
             response: this.sanitizeForLogs(response.data),
           })
+
+          if (!attemptedTokenRefresh && this.isInvalidTokenResponse(response.data)) {
+            attemptedTokenRefresh = true
+            this.apiToken = ''
+            this.log('Retrying request after Xpressbees token response error', {
+              method,
+              url: requestUrl,
+              response: this.sanitizeForLogs(response.data),
+            })
+            continue
+          }
 
           return response.data
         } catch (err: any) {
