@@ -84,21 +84,24 @@ export class EkartService {
       order_number: payload?.order_number,
       payment_type: payload?.payment_type ?? payload?.payment_mode ?? null,
       courier_id: payload?.courier_id ?? null,
-      package_weight: payload?.package_weight ?? payload?.package?.weight ?? null,
-      package_length: payload?.package_length ?? payload?.package?.length ?? null,
-      package_breadth: payload?.package_breadth ?? payload?.package?.breadth ?? null,
-      package_height: payload?.package_height ?? payload?.package?.height ?? null,
+      package_weight: payload?.package_weight ?? payload?.package?.weight ?? payload?.weight ?? null,
+      package_length: payload?.package_length ?? payload?.package?.length ?? payload?.length ?? null,
+      package_breadth: payload?.package_breadth ?? payload?.package?.breadth ?? payload?.width ?? null,
+      package_height: payload?.package_height ?? payload?.package?.height ?? payload?.height ?? null,
       order_amount: payload?.order_amount ?? payload?.total_amount ?? null,
       collectable_amount: payload?.collectable_amount ?? payload?.cod_amount ?? null,
       tax_value: payload?.tax_value ?? payload?.taxValue ?? null,
       consignee_gst_amount: payload?.consignee_gst_amount ?? payload?.consigneeGstAmount ?? null,
       invoice_number: payload?.invoice_number ?? null,
       invoice_date: payload?.invoice_date ?? null,
-      invoice_amount: payload?.invoice_amount ?? null,
+      invoice_amount: payload?.invoice_amount ?? payload?.total_amount ?? null,
       seller_name: payload?.seller_name ?? null,
-      consignee_name: payload?.consignee_name ?? payload?.drop?.name ?? null,
+      consignee_name: payload?.consignee_name ?? payload?.drop?.name ?? payload?.drop_location?.name ?? null,
       consignee_phone: this.maskPhone(
-        payload?.consignee_phone ?? payload?.consignee_alternate_phone ?? payload?.drop?.phone,
+        payload?.consignee_phone ??
+          payload?.consignee_alternate_phone ??
+          payload?.drop?.phone ??
+          payload?.drop_location?.phone,
       ),
       pickup: payload?.pickup
         ? {
@@ -117,13 +120,13 @@ export class EkartService {
               phone: this.maskPhone(payload.pickup_location.phone),
             }
           : null,
-      consignee: payload?.drop
+      consignee: payload?.drop || payload?.drop_location
         ? {
-            name: payload.drop.name ?? null,
-            city: payload.drop.city,
-            state: payload.drop.state,
-            pincode: payload.drop.pincode,
-            phone: this.maskPhone(payload.drop.phone),
+            name: payload?.drop?.name ?? payload?.drop_location?.name ?? null,
+            city: payload?.drop?.city ?? payload?.drop_location?.city ?? null,
+            state: payload?.drop?.state ?? payload?.drop_location?.state ?? null,
+            pincode: payload?.drop?.pincode ?? payload?.drop_location?.pin ?? null,
+            phone: this.maskPhone(payload?.drop?.phone ?? payload?.drop_location?.phone),
           }
         : null,
       order_items_count: Array.isArray(payload?.items)
@@ -203,6 +206,29 @@ export class EkartService {
     return Number(digits.slice(0, 6))
   }
 
+  private normalizePhoneInt(value: any, fallback = 1000000000) {
+    const digits = this.sanitizePhoneNumber(value)
+    const phone = Number(digits)
+    return Number.isInteger(phone) && phone >= 1000000000 ? phone : fallback
+  }
+
+  private normalizeCountry(value: any) {
+    const country = this.sanitizeText(value, 'India')
+    return country.toLowerCase() === 'in' ? 'IN' : country
+  }
+
+  private getEkartDimensions(payload: any) {
+    if (this.sanitizeText(payload?.templateName)) {
+      return {}
+    }
+
+    return {
+      length: this.normalizeDimensionCm(payload?.package_length),
+      height: this.normalizeDimensionCm(payload?.package_height),
+      width: this.normalizeDimensionCm(payload?.package_breadth ?? payload?.package_width),
+    }
+  }
+
   private buildEkartShipmentPayload(payload: any) {
     const paymentMode =
       String(payload?.payment_type || '').toLowerCase() === 'cod'
@@ -259,9 +285,7 @@ export class EkartService {
     const taxableAmount = Math.max(1, Number((computedTotalAmount - totalTaxValue).toFixed(2)))
     const codAmount = paymentMode === 'COD' ? computedTotalAmount : 0
     const packageWeightGrams = this.normalizeWeightToGrams(payload?.package_weight)
-    const packageLengthCm = this.normalizeDimensionCm(payload?.package_length)
-    const packageHeightCm = this.normalizeDimensionCm(payload?.package_height)
-    const packageWidthCm = this.normalizeDimensionCm(payload?.package_breadth ?? payload?.package_width)
+    const packageDimensions = this.getEkartDimensions(payload)
 
     const sellerName = this.sanitizeText(payload?.company?.name || payload?.pickup?.name, 'Delexpress')
     const sellerAddress = [
@@ -275,6 +299,7 @@ export class EkartService {
 
     const consigneeName = this.sanitizeText(payload?.consignee?.name, 'Consignee')
     const consigneePhone = this.sanitizePhoneNumber(payload?.consignee?.phone)
+    const consigneePhoneInt = this.normalizePhoneInt(payload?.consignee?.phone)
     const pickupPhone = this.sanitizePhoneNumber(payload?.pickup?.phone)
     const returnPhone = this.sanitizePhoneNumber(payload?.rto?.phone || payload?.pickup?.phone)
 
@@ -314,11 +339,26 @@ export class EkartService {
       payload?.category_of_goods || normalizedItems.map((item: any) => item.name).join(', '),
       'General Merchandise',
     )
+    const hsnCode = this.sanitizeText(
+      payload?.hsn_code || normalizedItems.map((item: any) => item.hsn).find(Boolean),
+    )
+    const templateName = this.sanitizeText(payload?.templateName)
+    const pickupLocationAlias = this.sanitizeText(
+      payload?.pickup_location_alias || payload?.pickup?.warehouse_name || payload?.pickup?.name,
+      pickupContact.name,
+    )
+    const returnLocationAlias = this.sanitizeText(
+      payload?.return_location_alias || payload?.rto?.warehouse_name || returnContact.name,
+      returnContact.name,
+    )
 
     return {
       order_number: payload?.order_number,
       invoice_number: invoiceNumber,
       invoice_date: invoiceDate,
+      document_number: this.sanitizeText(payload?.document_number) || undefined,
+      document_date: this.sanitizeText(payload?.document_date) || undefined,
+      ewbn: this.sanitizeText(payload?.ewbn || payload?.ewb || payload?.ewbn_number || payload?.ewaybill_number) || undefined,
       seller_name: sellerName,
       seller_address: sellerAddress,
       seller_gst_tin: this.sanitizeText(payload?.company?.gst || payload?.pickup?.gst_number),
@@ -330,6 +370,7 @@ export class EkartService {
       consignee_gst_amount: totalTaxValue,
       integrated_gst_amount: 0,
       category_of_goods: categoryOfGoods,
+      hsn_code: hsnCode || undefined,
       products_desc: normalizedItems.map((item: any) => item.name).join(', '),
       payment_mode: paymentMode,
       return_reason: paymentMode === 'Pickup' ? this.sanitizeText(payload?.return_reason, 'Reverse pickup') : undefined,
@@ -339,30 +380,31 @@ export class EkartService {
       taxable_amount: taxableAmount,
       commodity_value: String(taxableAmount),
       quantity: totalQuantity || 1,
+      templateName: templateName || undefined,
       weight: packageWeightGrams,
-      length: packageLengthCm,
-      height: packageHeightCm,
-      width: packageWidthCm,
+      ...packageDimensions,
       pickup_location: {
-        name: this.sanitizeText(
-          payload?.pickup_location_alias || payload?.pickup?.warehouse_name || payload?.pickup?.name,
-          pickupContact.name,
-        ),
+        name: pickupLocationAlias,
       },
       drop_location: {
+        location_type: this.sanitizeText(payload?.drop_location?.location_type || payload?.consignee?.location_type, 'Office'),
         name: dropContact.name,
         address: dropContact.address1,
         city: dropContact.city,
         state: dropContact.state,
+        country: this.normalizeCountry(payload?.consignee?.country),
         pin: dropContact.pincode,
-        phone: dropContact.phone,
+        phone: consigneePhoneInt,
       },
       return_location: {
-        name: this.sanitizeText(
-          payload?.return_location_alias || payload?.rto?.warehouse_name || returnContact.name,
-          returnContact.name,
-        ),
+        name: returnLocationAlias,
       },
+      preferred_dispatch_date: this.sanitizeText(payload?.preferred_dispatch_date) || undefined,
+      delayed_dispatch: typeof payload?.delayed_dispatch === 'boolean' ? payload.delayed_dispatch : undefined,
+      obd_shipment: typeof payload?.obd_shipment === 'boolean' ? payload.obd_shipment : undefined,
+      mps: typeof payload?.mps === 'boolean' ? payload.mps : undefined,
+      qc_details: payload?.qc_details || undefined,
+      what3words_address: this.sanitizeText(payload?.what3words_address) || undefined,
       items: normalizedItems,
     }
   }
