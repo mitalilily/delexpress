@@ -82,6 +82,7 @@ export class EkartService {
   private sanitizeShipmentPayload(payload: any) {
     return {
       order_number: payload?.order_number,
+      wbn: payload?.wbn ?? payload?.awb_number ?? payload?.tracking_id ?? null,
       payment_type: payload?.payment_type ?? payload?.payment_mode ?? null,
       courier_id: payload?.courier_id ?? null,
       package_weight: payload?.package_weight ?? payload?.package?.weight ?? payload?.weight ?? null,
@@ -370,6 +371,7 @@ export class EkartService {
 
     return {
       order_number: payload?.order_number,
+      wbn: this.sanitizeText(payload?.wbn || payload?.awb_number || payload?.tracking_id || payload?.order_number),
       invoice_number: invoiceNumber,
       invoice_date: invoiceDate,
       document_number: this.sanitizeText(payload?.document_number) || undefined,

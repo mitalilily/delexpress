@@ -3215,18 +3215,24 @@ export const createB2CShipmentService = async (
       shipmentData = await ekart.createShipment(params)
 
       const ekartWaybill =
+        shipmentData?.barcodes?.wbn ??
         shipmentData?.awb_number ??
-        shipmentData?.tracking_id ??
         shipmentData?.vendor_waybill ??
+        shipmentData?.waybill ??
+        null
+      const ekartTrackingId =
+        shipmentData?.tracking_id ??
+        shipmentData?.shipment_id ??
+        shipmentData?.barcodes?.order ??
         null
 
-      if (!ekartWaybill) {
+      if (!ekartWaybill && !ekartTrackingId) {
         console.error('❌ Invalid Ekart shipment:', shipmentData)
         throw new HttpError(500, 'Ekart shipment creation failed')
       }
 
       shipmentSuccessPackage = {
-        waybill: ekartWaybill,
+        waybill: ekartWaybill ?? ekartTrackingId,
         charge: shipmentData?.courier_cost ?? null,
         amount: shipmentData?.amount ?? null,
         shipping_mode: shipmentData?.shipping_mode ?? null,
@@ -3239,13 +3245,8 @@ export const createB2CShipmentService = async (
       providerSortCode = null
 
       shipmentMeta = {
-        shipment_id:
-          shipmentData?.shipment_id ??
-          shipmentData?.tracking_id ??
-          shipmentData?.awb_number ??
-          shipmentData?.vendor_waybill ??
-          undefined,
-        awb_number: ekartWaybill,
+        shipment_id: ekartTrackingId ?? ekartWaybill ?? undefined,
+        awb_number: ekartWaybill ?? ekartTrackingId ?? undefined,
         courier_name: 'Ekart Logistics',
         courier_id: params.courier_id ? Number(params.courier_id) : null,
         label: undefined,
@@ -4536,7 +4537,7 @@ export const generateManifestService = async (params: {
             integrationType === 'ekart'
               ? fetchedOrders
                   .map((order) =>
-                    String(order.shipment_id || order.awb_number || order.order_number || '').trim(),
+                    String(order.awb_number || order.shipment_id || order.order_number || '').trim(),
                   )
                   .filter(Boolean)
               : fetchedOrders
