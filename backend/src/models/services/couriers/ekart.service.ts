@@ -371,7 +371,9 @@ export class EkartService {
 
     return {
       order_number: payload?.order_number,
-      wbn: this.sanitizeText(payload?.wbn || payload?.awb_number || payload?.tracking_id || payload?.order_number),
+      ...(this.sanitizeText(payload?.wbn)
+        ? { wbn: this.sanitizeText(payload?.wbn) }
+        : {}),
       invoice_number: invoiceNumber,
       invoice_date: invoiceDate,
       document_number: this.sanitizeText(payload?.document_number) || undefined,
