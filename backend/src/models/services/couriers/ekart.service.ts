@@ -250,24 +250,40 @@ export class EkartService {
           ? directTaxValue
           : Number((taxableAmount * (taxRate / 100)).toFixed(2))
 
+        const itemQuantity = quantity > 0 ? quantity : 1
+        const productName = this.sanitizeText(item?.product_name || item?.name, 'Product')
+        const productSku = this.sanitizeText(item?.product_sku || item?.sku, 'SKU')
+        const hsn = this.sanitizeText(item?.hsn ?? item?.hsnCode)
+        const itemTaxValue = Math.max(0, taxValue)
+
         return {
-          name: this.sanitizeText(item?.name, 'Product'),
-          sku: this.sanitizeText(item?.sku, 'SKU'),
-          quantity: quantity > 0 ? quantity : 1,
+          product_name: productName,
+          product_sku: productSku,
+          product_desc: this.sanitizeText(item?.product_desc || item?.description, productName),
+          quantity: itemQuantity,
+          product_quantity: itemQuantity,
           price,
-          hsn: this.sanitizeText(item?.hsn ?? item?.hsnCode),
-          tax_value: Math.max(0, taxValue),
+          product_price: price,
+          product_value: Math.max(1, Number((price * itemQuantity).toFixed(2))),
+          hsn,
+          hsn_code: hsn || undefined,
+          tax_value: itemTaxValue,
         }
       })
       .filter((item: any) => item.quantity > 0)
 
     if (!normalizedItems.length) {
       normalizedItems.push({
-        name: 'Package',
-        sku: 'PKG',
+        product_name: 'Package',
+        product_sku: 'PKG',
+        product_desc: 'Package',
         quantity: 1,
+        product_quantity: 1,
         price: this.toNumber(payload?.order_amount, 0),
+        product_price: this.toNumber(payload?.order_amount, 0),
+        product_value: Math.max(1, this.toNumber(payload?.order_amount, 0)),
         hsn: '',
+        hsn_code: undefined,
         tax_value: 0,
       })
     }
@@ -336,7 +352,7 @@ export class EkartService {
     const invoiceDate = this.getNormalizedInvoiceDate(payload)
     const invoiceNumber = this.sanitizeText(payload?.invoice_number || payload?.order_number)
     const categoryOfGoods = this.sanitizeText(
-      payload?.category_of_goods || normalizedItems.map((item: any) => item.name).join(', '),
+      payload?.category_of_goods || normalizedItems.map((item: any) => item.product_name).join(', '),
       'General Merchandise',
     )
     const hsnCode = this.sanitizeText(
@@ -371,7 +387,7 @@ export class EkartService {
       integrated_gst_amount: 0,
       category_of_goods: categoryOfGoods,
       hsn_code: hsnCode || undefined,
-      products_desc: normalizedItems.map((item: any) => item.name).join(', '),
+      products_desc: normalizedItems.map((item: any) => item.product_name).join(', '),
       payment_mode: paymentMode,
       return_reason: paymentMode === 'Pickup' ? this.sanitizeText(payload?.return_reason, 'Reverse pickup') : undefined,
       cod_amount: codAmount,
