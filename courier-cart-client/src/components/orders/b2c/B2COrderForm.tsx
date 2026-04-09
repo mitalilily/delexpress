@@ -9,6 +9,7 @@ import type { CreateShipmentParams } from '../../../api/order.service'
 import { useCreateShipment } from '../../../hooks/Orders/useOrders'
 import { usePaymentOptions } from '../../../hooks/usePaymentOptions'
 import FormSectionAccordion from '../../UI/accordion/FormSectionAccordion'
+import CustomInput from '../../UI/inputs/CustomInput'
 import AmountSummaryCard from '../AmountSummaryCard'
 import DeliveryDetailsForm from '../DeliveryDetailsForm'
 import OptionalChargesForm from '../OptionalChargesForm'
@@ -74,7 +75,8 @@ export type B2CFormData = {
   pickupLocationId?: string
   pickupLocationPincode?: string
   pickupLocationName?: string
-  integrationType?: 'delhivery' | 'xpressbees' | 'icarry'
+  integrationType?: 'delhivery' | 'ekart' | 'xpressbees' | 'icarry'
+  wbn?: string
   pickupAddress?: string
   pickupLocationPOCName?: string
   courierPartnerId: string
@@ -140,6 +142,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
   const discount = Number(watch('discount') || 0)
   const prepaidAmount = Number(watch('prepaidAmount') || 0)
   const orderType = watch('orderType') || getDefaultOrderType()
+  const integrationType = watch('integrationType')
 
   // Ensure orderType is valid based on payment options
   useEffect(() => {
@@ -192,8 +195,17 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
         return
       }
 
+      if (data.integrationType === 'ekart' && !data.wbn?.trim()) {
+        methods.setError('wbn', {
+          type: 'manual',
+          message: 'WBN / AWB is required for Ekart shipments',
+        })
+        return
+      }
+
       const payload: CreateShipmentParams = {
         order_number: normalizedOrderId,
+        ...(data.wbn?.trim() ? { wbn: data.wbn.trim() } : {}),
         payment_type: data.orderType,
         order_amount: subtotal,
         order_date: data?.orderDate,
@@ -352,6 +364,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
     register('courierPartnerId', {
       required: 'Please select a courier partner',
     })
+    register('wbn')
   }, [register])
 
   return (
@@ -555,6 +568,21 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
                 </Alert>
               )}
               <SelectCourierForm shipment_type="b2c" />
+              {integrationType === 'ekart' && (
+                <Box sx={{ mt: 2 }}>
+                  <CustomInput
+                    label="Ekart WBN / AWB"
+                    placeholder="Enter the Ekart waybill number"
+                    topMargin={false}
+                    error={!!errors.wbn}
+                    helperText={
+                      (errors.wbn?.message as string) ||
+                      'Enter the real Ekart WBN/AWB. Merchant order ID will not work here.'
+                    }
+                    {...methods.register('wbn')}
+                  />
+                </Box>
+              )}
 
               {/* Error shown as Alert */}
             </FormSectionAccordion>

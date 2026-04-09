@@ -52,8 +52,15 @@ const B2C_MANIFESTABLE_STATUSES = new Set([
 
 export const isHttpUrl = (value?: string | null) => typeof value === 'string' && /^https?:\/\//i.test(value)
 
-export const getB2CManifestIdentifier = (order: BulkOrderDocumentShape) =>
-  order.order_number || order.awb_number || null
+export const getB2CManifestIdentifier = (order: BulkOrderDocumentShape) => {
+  const provider = getB2CManifestProvider(order)
+
+  if (provider === 'ekart' || provider === 'xpressbees') {
+    return order.awb_number || null
+  }
+
+  return order.order_number || order.awb_number || null
+}
 
 export const getB2CManifestProvider = (order: BulkOrderDocumentShape) => {
   const integrationType = String(order.integration_type || '').trim().toLowerCase()

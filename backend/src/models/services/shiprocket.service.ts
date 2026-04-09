@@ -4548,12 +4548,165 @@ export const generateManifestService = async (params: {
             throw new Error(`No ${providerName} identifiers found for manifest generation`)
           }
 
+          let ekartManifestResponse:
+            | {
+                ctime?: number
+                manifestNumber?: number | string
+                manifestDownloadUrl?: string
+              }
+            | null = null
+
           if (integrationType === 'ekart') {
             const ekart = new EkartService()
-            await ekart.generateManifest(providerManifestIds)
+            ekartManifestResponse = await ekart.generateManifest(providerManifestIds)
           } else {
             const xpressbees = new XpressbeesService()
             await xpressbees.generateManifest(providerManifestIds)
+          }
+
+          if (integrationType === 'ekart') {
+            const manifestWarnings: string[] = []
+            const ekartManifestUrl = String(ekartManifestResponse?.manifestDownloadUrl ?? '').trim()
+            const ekartManifestNumber = String(ekartManifestResponse?.manifestNumber ?? '').trim()
+
+            if (!ekartManifestUrl) {
+              throw new Error('Ekart manifest did not return a download URL')
+            }
+
+            const orderUpdatePromises = fetchedOrders.map(async (order) => {
+              const [freshOrder] = await tx
+                .select()
+                .from(b2c_orders)
+                .where(eq(b2c_orders.id, order.id))
+
+              if (!freshOrder) {
+                console.warn(
+                  `⚠️ Ekart order ${order.order_number} not found in database, skipping label generation`,
+                )
+                manifestWarnings.push(
+                  `${order.order_number}: label could not be generated because the order was not found after manifesting.`,
+                )
+                return
+              }
+
+              let labelKey: string | null =
+                typeof freshOrder.label === 'string' && freshOrder.label.trim()
+                  ? freshOrder.label.trim()
+                  : null
+
+              if (!labelKey && freshOrder.awb_number) {
+                try {
+                  labelKey = await generateLabelForOrder(freshOrder, freshOrder.user_id, tx)
+                  if (labelKey) {
+                    console.log(
+                      `✅ [Ekart] Custom label generated for order ${freshOrder.order_number}: ${labelKey}`,
+                    )
+                  }
+                } catch (labelErr: any) {
+                  console.error(
+                    `❌ [Ekart] Failed to generate custom label for order ${freshOrder.order_number}:`,
+                    labelErr?.message || labelErr,
+                  )
+                  manifestWarnings.push(`${freshOrder.order_number}: label could not be generated.`)
+                }
+              }
+
+              const updateDataEkart: any = {
+                manifest: ekartManifestUrl,
+                order_status: 'pickup_initiated',
+                updated_at: new Date(),
+              }
+
+              if (labelKey && typeof labelKey === 'string' && labelKey.trim().length > 0) {
+                const normalizedLabel = normalizeToR2Key(labelKey.trim())
+                if (normalizedLabel) {
+                  updateDataEkart.label = normalizedLabel
+                }
+              }
+
+              await tx
+                .update(b2c_orders)
+                .set(updateDataEkart)
+                .where(eq(b2c_orders.id, freshOrder.id))
+            })
+
+            await Promise.all(orderUpdatePromises)
+
+            const invoiceResults = await Promise.allSettled(
+              fetchedOrders.map((order) => generateInvoiceForOrder(order)),
+            )
+
+            const invoiceUpdateResults = await Promise.allSettled(
+              invoiceResults.map(async (result, index) => {
+                const order = fetchedOrders[index]
+
+                if (result.status !== 'fulfilled' || !result.value) {
+                  console.warn(
+                    `⚠️ [Manifest] Invoice generation failed for Ekart order ${order.order_number}`,
+                  )
+                  manifestWarnings.push(`${order.order_number}: invoice could not be generated.`)
+                  return
+                }
+
+                const invoiceResult = result.value as {
+                  key: string
+                  invoiceNumber?: string
+                  invoiceDate?: string
+                  invoiceAmount?: number
+                }
+                const invoiceKey = invoiceResult.key
+                if (!invoiceKey || typeof invoiceKey !== 'string' || !invoiceKey.trim()) {
+                  manifestWarnings.push(`${order.order_number}: invoice file is missing.`)
+                  return
+                }
+
+                const normalizedInvoiceKey = normalizeToR2Key(invoiceKey.trim())
+                if (!normalizedInvoiceKey) {
+                  console.warn(
+                    `⚠️ [Manifest] Could not normalize invoice key for Ekart order ${order.order_number}: ${invoiceKey.trim()}`,
+                  )
+                  manifestWarnings.push(`${order.order_number}: invoice file could not be saved.`)
+                  return
+                }
+
+                await db
+                  .update(b2c_orders)
+                  .set({
+                    invoice_link: normalizedInvoiceKey,
+                    invoice_number: invoiceResult.invoiceNumber ?? undefined,
+                    invoice_date: invoiceResult.invoiceDate ?? undefined,
+                    invoice_amount:
+                      invoiceResult.invoiceAmount !== undefined
+                        ? invoiceResult.invoiceAmount
+                        : undefined,
+                    updated_at: new Date(),
+                  })
+                  .where(eq(b2c_orders.id, order.id))
+
+                console.log(
+                  `✅ [Manifest] Invoice link updated for Ekart order ${order.order_number}: ${normalizedInvoiceKey}`,
+                )
+              }),
+            )
+
+            invoiceUpdateResults.forEach((result, index) => {
+              if (result.status === 'fulfilled') return
+              const order = fetchedOrders[index]
+              console.error(
+                `❌ [Manifest] Failed to update invoice_link for Ekart order ${order.order_number}:`,
+                result.reason?.message || result.reason,
+              )
+              manifestWarnings.push(`${order.order_number}: invoice could not be saved.`)
+            })
+
+            const uniqueWarnings = Array.from(new Set(manifestWarnings))
+
+            return {
+              manifest_id: ekartManifestNumber || ekartManifestUrl,
+              manifest_url: ekartManifestUrl,
+              manifest_key: null,
+              warnings: uniqueWarnings.length > 0 ? uniqueWarnings : undefined,
+            }
           }
 
           const normalizeDetails = (value: any) => {

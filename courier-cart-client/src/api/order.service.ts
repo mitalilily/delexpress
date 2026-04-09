@@ -2,6 +2,7 @@ import axiosInstance from './axiosInstance'
 
 export interface CreateShipmentParams {
   order_number: string
+  wbn?: string
   payment_type: 'cod' | 'prepaid' | 'reverse'
   package_weight?: number
   package_length?: number
@@ -9,7 +10,7 @@ export interface CreateShipmentParams {
   package_breadth?: number
   package_height?: number
   transaction_fee?: number
-  integration_type?: 'delhivery' | 'xpressbees' | 'icarry'
+  integration_type?: 'delhivery' | 'ekart' | 'xpressbees' | 'icarry'
   request_auto_pickup?: 'Yes' | 'No'
   gift_wrap?: number
   shipping_charges?: number // What seller charges customer (customer-facing price)
