@@ -14,6 +14,7 @@ export default function LandingHeader({ menuOpen, navigationLinks, onToggleMenu,
               alt="ExpressoPro"
               sx={{ width: { xs: 126, sm: 156 }, height: 'auto', display: 'block' }}
             />
+            {/* logo */}
             <div>
               <Typography variant="h6" className="brand-heading text-xl">
                 ExpressoPro
