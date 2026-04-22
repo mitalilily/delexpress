@@ -231,6 +231,51 @@ export class EkartService {
     return country.toLowerCase() === 'in' ? 'IN' : country
   }
 
+  private buildEkartLocation(
+    contact: {
+      name?: string
+      phone?: string
+      address1?: string
+      address2?: string
+      city?: string
+      state?: string
+      pincode?: number
+    },
+    fallbackAlias?: string,
+    locationType?: string,
+    country?: string,
+  ) {
+    const name = this.sanitizeText(contact?.name, fallbackAlias || 'Location')
+    const address = this.sanitizeText(contact?.address1)
+    const address2 = this.sanitizeText(contact?.address2)
+    const city = this.sanitizeText(contact?.city)
+    const state = this.sanitizeText(contact?.state)
+    const pin = this.normalizePin(contact?.pincode)
+    const phone = this.normalizePhoneInt(contact?.phone)
+    const normalizedCountry = this.normalizeCountry(country)
+    const normalizedLocationType = this.sanitizeText(locationType, 'Office')
+
+    const hasFullAddress = Boolean(address && city && state && pin)
+
+    if (!hasFullAddress && fallbackAlias) {
+      return {
+        name,
+      }
+    }
+
+    return {
+      location_type: normalizedLocationType,
+      name,
+      address,
+      city,
+      state,
+      country: normalizedCountry,
+      phone,
+      pin,
+      ...(address2 ? { address_2: address2 } : {}),
+    }
+  }
+
   private getEkartDimensions(payload: any) {
     if (this.sanitizeText(payload?.templateName)) {
       return {}
@@ -398,6 +443,24 @@ export class EkartService {
       payload?.return_location_alias || payload?.rto?.warehouse_name || returnContact.name,
       returnContact.name,
     )
+    const pickupLocation = this.buildEkartLocation(
+      pickupContact,
+      pickupLocationAlias,
+      payload?.pickup_location?.location_type || payload?.pickup?.location_type,
+      payload?.pickup?.country,
+    )
+    const dropLocation = this.buildEkartLocation(
+      dropContact,
+      consigneeName,
+      payload?.drop_location?.location_type || payload?.consignee?.location_type,
+      payload?.consignee?.country,
+    )
+    const returnLocation = this.buildEkartLocation(
+      returnContact,
+      returnLocationAlias || pickupLocationAlias,
+      payload?.return_location?.location_type || payload?.rto?.location_type,
+      payload?.rto?.country || payload?.pickup?.country,
+    )
 
     return {
       order_number: payload?.order_number,
@@ -408,17 +471,27 @@ export class EkartService {
             awb_number: resolvedWaybill,
           }
         : {}),
+      ...(this.sanitizeText(payload?.ewbn || payload?.ewaybill_number || payload?.ewb || payload?.ewbn_number)
+        ? {
+            ewbn: this.sanitizeText(
+              payload?.ewbn || payload?.ewaybill_number || payload?.ewb || payload?.ewbn_number,
+            ),
+          }
+        : {}),
       invoice_number: invoiceNumber,
       invoice_date: invoiceDate,
       document_number: this.sanitizeText(payload?.document_number) || undefined,
       document_date: this.sanitizeText(payload?.document_date) || undefined,
       seller_name: sellerName,
-      seller_address: sellerAddress,
-      seller_gst_tin: this.sanitizeText(payload?.company?.gst || payload?.pickup?.gst_number),
+      seller_address: sellerAddress || this.sanitizeText(payload?.pickup?.address, pickupLocationAlias),
+      seller_gst_tin: this.sanitizeText(
+        payload?.company?.gst || payload?.pickup?.gst_number,
+        'URP',
+      ),
       seller_gst_amount: totalTaxValue,
       consignee_name: consigneeName,
       consignee_phone: consigneePhone,
-      consignee_alternate_phone: consigneePhone,
+      consignee_alternate_phone: consigneePhone || '9999999999',
       consignee_gst_tin: this.sanitizeText(payload?.consignee?.gstin),
       consignee_gst_amount: totalTaxValue,
       integrated_gst_amount: 0,
@@ -439,25 +512,9 @@ export class EkartService {
       templateName: templateName || undefined,
       weight: packageWeightGrams,
       ...packageDimensions,
-      pickup_location: {
-        name: pickupLocationAlias,
-      },
-      drop_location: {
-        location_type: this.sanitizeText(
-          payload?.drop_location?.location_type || payload?.consignee?.location_type,
-          'Office',
-        ),
-        name: dropContact.name,
-        address: dropContact.address1,
-        city: dropContact.city,
-        state: dropContact.state,
-        country: this.normalizeCountry(payload?.consignee?.country),
-        pin: dropContact.pincode,
-        phone: consigneePhoneInt,
-      },
-      return_location: {
-        name: returnLocationAlias,
-      },
+      pickup_location: pickupLocation,
+      drop_location: dropLocation,
+      return_location: returnLocation,
       preferred_dispatch_date: this.sanitizeText(payload?.preferred_dispatch_date) || undefined,
       delayed_dispatch:
         typeof payload?.delayed_dispatch === 'boolean' ? payload.delayed_dispatch : undefined,
