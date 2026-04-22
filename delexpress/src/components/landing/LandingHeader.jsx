@@ -1,105 +1,224 @@
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
 import { Box, Button, Container, IconButton, Typography } from '@mui/material'
-import { clientAppUrl } from '../../utils/landingContent'
+import { useEffect, useRef, useState } from 'react'
+import { clientAppUrl, siteRoutes } from '../../utils/landingContent'
 
-export default function LandingHeader({ menuOpen, navigationLinks, onToggleMenu, onCloseMenu }) {
-  return (
-    <Box component="header" className="sticky top-0 z-40 px-3 pt-3 sm:px-4">
-      <Container maxWidth="xl" className="header-shell py-4">
-        <div className="flex items-center justify-between gap-4">
-          <a href="#top" className="flex items-center gap-3">
-            <Box
-              component="img"
-              src="/ExpressoPro-logo.svg"
-              alt="ExpressoPro"
-              sx={{ width: { xs: 126, sm: 156 }, height: 'auto', display: 'block' }}
-            />
-            {/* logo */}
-            <div>
-              <Typography variant="h6" className="brand-heading text-xl">
-                ExpressoPro
-              </Typography>
-              <Typography className="text-sm" sx={{ color: '#6d6067' }}>
-                Shipping operations for modern ecommerce teams
-              </Typography>
-            </div>
-          </a>
+function NavLink({ item, isOpen = false, onClick, onToggle, mobile = false }) {
+  const baseClass = mobile
+    ? 'header-mobile-link'
+    : `header-nav-chip ${isOpen ? 'header-nav-chip-active' : ''}`
 
-          <div className="hidden items-center gap-7 lg:flex">
-            {navigationLinks.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className="header-link text-sm font-medium text-[#4c4148] transition-colors hover:text-[#9b3150]"
-              >
-                {item.label}
-              </a>
-            ))}
-          </div>
-
-          <div className="hidden items-center gap-3 sm:flex">
-            <Button
-              component="a"
-              href="#calculator"
-              variant="outlined"
-              sx={{
-                borderColor: 'rgba(155, 49, 80, 0.24)',
-                backgroundColor: 'rgba(255,255,255,0.7)',
-                color: '#181318',
-                borderRadius: '999px',
-                px: 2.4,
-              }}
-            >
-              Calculate Shipping Cost
-            </Button>
-            <Button
-              component="a"
-              href={clientAppUrl}
-              variant="contained"
-              sx={{
-                borderRadius: '999px',
-                px: 2.6,
-                backgroundColor: '#181318',
-                boxShadow: '0 12px 24px rgba(24,19,24,0.16)',
-                '&:hover': { backgroundColor: '#30262e' },
-              }}
-            >
-              Get Started
-            </Button>
-          </div>
-
-          <IconButton
-            onClick={onToggleMenu}
+  if (item.children?.length) {
+    return (
+      <div className={mobile ? 'flex flex-col gap-2' : 'relative'}>
+        <button
+          type="button"
+          onClick={onClick}
+          className={`${baseClass} inline-flex items-center gap-1.5`}
+        >
+          {item.label}
+          <ExpandMoreRoundedIcon
             sx={{
-              display: { xs: 'inline-flex', lg: 'none' },
-              border: '1px solid rgba(155, 49, 80, 0.18)',
-              backgroundColor: 'rgba(255,255,255,0.7)',
+              fontSize: 18,
+              transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 180ms ease',
             }}
-          >
-            <MenuRoundedIcon />
-          </IconButton>
-        </div>
+          />
+        </button>
 
-        {menuOpen ? (
-          <div className="mt-4 rounded-[26px] border border-[#dacdc7] bg-white/85 p-4 shadow-[0_18px_36px_rgba(42,26,34,0.08)] lg:hidden">
-            <div className="flex flex-col gap-3">
-              {navigationLinks.map((item) => (
+        {isOpen ? (
+          <div
+            className={
+              mobile
+                ? 'ml-3 flex flex-col gap-2 border-l border-[#ead8d0] pl-3'
+                : 'header-dropdown-panel'
+            }
+          >
+            <div className="grid gap-2">
+              {item.children.map((child) => (
                 <a
-                  key={item.href}
-                  href={item.href}
-                  onClick={onCloseMenu}
-                  className="rounded-2xl px-3 py-2 text-sm font-medium text-[#4c4148] hover:bg-[#f5e6ea]"
+                  key={child.label}
+                  href={child.href}
+                  onClick={onToggle}
+                  className="header-dropdown-link"
                 >
-                  {item.label}
+                  <span className="block">{child.label}</span>
                 </a>
               ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  return (
+    <a
+      href={item.href}
+      onClick={onClick}
+      target={item.external ? '_self' : undefined}
+      rel={item.external ? 'noreferrer' : undefined}
+      className={baseClass}
+    >
+      {item.label}
+    </a>
+  )
+}
+
+export default function LandingHeader({ menuOpen, navigationLinks, onToggleMenu, onCloseMenu }) {
+  const [openDropdown, setOpenDropdown] = useState(null)
+  const desktopNavRef = useRef(null)
+
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (!desktopNavRef.current?.contains(event.target)) {
+        setOpenDropdown(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [])
+
+  useEffect(() => {
+    if (!menuOpen) {
+      setOpenDropdown(null)
+    }
+  }, [menuOpen])
+
+  return (
+    <Box component="header" className="sticky top-0 z-40 px-3 pt-3 sm:px-4">
+      <Container maxWidth="xl">
+        <div className="header-shell px-3 py-3 sm:px-4">
+          <div className="flex items-center justify-between gap-3 lg:gap-5">
+            <a href={siteRoutes.home} className="header-brand-lockup">
+              <div className="header-brand-mark">
+                <Box
+                  component="img"
+                  src="/Expressopro-logo.svg"
+                  alt="ExpressoPro"
+                  sx={{ width: { xs: 108, sm: 132 }, height: 'auto', display: 'block' }}
+                />
+              </div>
+              <div className="hidden min-w-0 sm:block">
+                <Typography variant="h6" className="brand-heading text-xl">
+                  ExpressoPro
+                </Typography>
+                <Typography className="text-sm leading-6" sx={{ color: '#6d6067' }}>
+                  Smart shipping stack for modern ecommerce teams
+                </Typography>
+              </div>
+            </a>
+
+            <div
+              ref={desktopNavRef}
+              className="header-nav-wrap hidden lg:flex lg:items-center lg:gap-2"
+            >
+              {navigationLinks.map((item) => (
+                <NavLink
+                  key={item.label}
+                  item={item}
+                  isOpen={openDropdown === item.label}
+                  onClick={
+                    item.children
+                      ? () =>
+                          setOpenDropdown((current) => (current === item.label ? null : item.label))
+                      : undefined
+                  }
+                  onToggle={() => setOpenDropdown(null)}
+                />
+              ))}
+            </div>
+
+            <div className="hidden items-center gap-2 sm:flex">
+              <Button
+                component="a"
+                href={siteRoutes.tools}
+                variant="outlined"
+                className="header-secondary-cta"
+                sx={{
+                  borderRadius: '999px',
+                  px: 2.2,
+                  py: 1.15,
+                  borderColor: 'rgba(155, 49, 80, 0.16)',
+                  color: '#20181d',
+                }}
+              >
+                Calculator
+              </Button>
               <Button
                 component="a"
                 href={clientAppUrl}
                 variant="contained"
+                className="header-primary-cta"
                 sx={{
-                  mt: 1,
                   borderRadius: '999px',
+                  px: 2.5,
+                  py: 1.15,
+                  backgroundColor: '#181318',
+                  '&:hover': { backgroundColor: '#30262e' },
+                }}
+              >
+                Get Started
+              </Button>
+            </div>
+
+            <IconButton
+              onClick={onToggleMenu}
+              className="header-menu-trigger"
+              sx={{
+                display: { xs: 'inline-flex', lg: 'none' },
+              }}
+            >
+              <MenuRoundedIcon />
+            </IconButton>
+          </div>
+        </div>
+
+        {menuOpen ? (
+          <div className="header-mobile-panel mt-3 lg:hidden">
+            <div className="flex flex-col gap-2">
+              {navigationLinks.map((item) => (
+                <NavLink
+                  key={item.label}
+                  item={item}
+                  mobile
+                  isOpen={openDropdown === item.label}
+                  onClick={
+                    item.children
+                      ? () =>
+                          setOpenDropdown((current) => (current === item.label ? null : item.label))
+                      : onCloseMenu
+                  }
+                  onToggle={onCloseMenu}
+                />
+              ))}
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <Button
+                component="a"
+                href={siteRoutes.tools}
+                onClick={onCloseMenu}
+                variant="outlined"
+                sx={{
+                  borderRadius: '999px',
+                  py: 1.15,
+                  borderColor: 'rgba(155, 49, 80, 0.18)',
+                  color: '#20181d',
+                }}
+              >
+                Open Calculator
+              </Button>
+              <Button
+                component="a"
+                href={clientAppUrl}
+                onClick={onCloseMenu}
+                variant="contained"
+                sx={{
+                  borderRadius: '999px',
+                  py: 1.15,
                   backgroundColor: '#181318',
                   '&:hover': { backgroundColor: '#30262e' },
                 }}

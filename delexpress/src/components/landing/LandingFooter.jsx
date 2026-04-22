@@ -1,4 +1,5 @@
 import { Box, Container, Divider, Typography } from '@mui/material'
+import { siteRoutes } from '../../utils/landingContent'
 
 function getFooterLinkHref(link) {
   if (link.startsWith('Phone:')) {
@@ -7,21 +8,21 @@ function getFooterLinkHref(link) {
   }
 
   const anchorMap = {
-    Features: '#features',
-    'Shipping Calculator': '#calculator',
-    'Courier Partners': '#network',
-    Pricing: '#get-started',
-    'About Us': '#problem',
-    Careers: '#get-started',
-    Contact: '#get-started',
-    'Help Center': '#faq',
-    'Shipping Guide': '#how-it-works',
-    'API Documentation': '#get-started',
-    'Privacy Policy': '#faq',
-    'Terms of Service': '#faq',
+    Features: siteRoutes.features,
+    'Shipping Calculator': siteRoutes.tools,
+    'Courier Partners': siteRoutes.features,
+    Pricing: siteRoutes.tools,
+    'About Us': siteRoutes.home,
+    Careers: siteRoutes.home,
+    Contact: siteRoutes.home,
+    'Help Center': siteRoutes.faq,
+    'Shipping Guide': siteRoutes.features,
+    'API Documentation': siteRoutes.tools,
+    'Privacy Policy': siteRoutes.legal,
+    'Terms of Service': siteRoutes.legal,
   }
 
-  return anchorMap[link] || '#top'
+  return anchorMap[link] || siteRoutes.home
 }
 
 export default function LandingFooter({ footerGroups, footerMeta }) {
@@ -36,7 +37,7 @@ export default function LandingFooter({ footerGroups, footerMeta }) {
               <div className="flex items-center gap-3">
                 <Box
                   component="img"
-                  src="/ExpressoPro-logo.svg"
+                  src="/Expressopro-logo.svg"
                   alt="ExpressoPro"
                   sx={{ width: { xs: 126, sm: 156 }, height: 'auto', display: 'block' }}
                 />
@@ -59,20 +60,22 @@ export default function LandingFooter({ footerGroups, footerMeta }) {
               </Typography>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
-                  <Typography
-                    className="text-xs font-semibold uppercase tracking-[0.2em]"
-                    sx={{ color: '#f2c7d1' }}
-                  >
-                    Head Office
-                  </Typography>
-                  <Typography
-                    className="mt-3 text-sm leading-7"
-                    sx={{ color: 'rgba(255,255,255,0.78)' }}
-                  >
-                    {footerMeta.address}
-                  </Typography>
-                </div>
+                {footerMeta.address ? (
+                  <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
+                    <Typography
+                      className="text-xs font-semibold uppercase tracking-[0.2em]"
+                      sx={{ color: '#f2c7d1' }}
+                    >
+                      Head Office
+                    </Typography>
+                    <Typography
+                      className="mt-3 text-sm leading-7"
+                      sx={{ color: 'rgba(255,255,255,0.78)' }}
+                    >
+                      {footerMeta.address}
+                    </Typography>
+                  </div>
+                ) : null}
                 <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
                   <Typography
                     className="text-xs font-semibold uppercase tracking-[0.2em]"

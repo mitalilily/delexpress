@@ -11,6 +11,8 @@ const IVORY = '#F7F2ED'
 const IVORY_SOFT = '#FFF9F4'
 const MINT = '#56C0A5'
 const TYPEFACE = '"Bahnschrift", "Segoe UI", "Helvetica Neue", Arial, sans-serif'
+const MARKETING_SITE_URL =
+  import.meta.env.VITE_MARKETING_SITE_URL?.trim() || 'https://expressopro.in/'
 
 const chips = ['Rate comparison', 'Shipment tracking', 'Courier automation']
 const highlights = [
@@ -92,11 +94,17 @@ export default function LoginForm() {
             </Stack>
 
             <Box
-              component="img"
-              src="/logo/ExpressoPro-logo.svg"
-              alt="ExpressoPro"
-              sx={{ width: { xs: 220, sm: 290 }, height: 'auto' }}
-            />
+              component="a"
+              href={MARKETING_SITE_URL}
+              sx={{ display: 'inline-flex', width: 'fit-content' }}
+            >
+              <Box
+                component="img"
+                src="/logo/ExpressoPro-logo.svg"
+                alt="ExpressoPro"
+                sx={{ width: { xs: 220, sm: 290 }, height: 'auto', cursor: 'pointer' }}
+              />
+            </Box>
 
             <Stack spacing={1} alignItems="flex-start" sx={{ maxWidth: 340 }}>
               <Box

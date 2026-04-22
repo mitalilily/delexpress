@@ -8,6 +8,7 @@ import LandingFooter from "../components/landing/LandingFooter";
 import LandingHeader from "../components/landing/LandingHeader";
 import { MotionProvider } from "../components/landing/LandingPrimitives";
 import OperationsSections from "../components/landing/OperationsSections";
+import PincodeServiceabilitySection from "../components/landing/PincodeServiceabilitySection";
 import ScrollProgress from "../components/landing/ScrollProgress";
 import SocialSections from "../components/landing/SocialSections";
 import { footerGroups, footerMeta, navigationLinks } from "../utils/landingContent";
@@ -182,21 +183,31 @@ function LandingPage() {
 
           <main id="top">
             <HeroSection />
-            <CommerceSections />
-            <OperationsSections />
-            <CalculatorSection
-              errorMessage={errorMessage}
-              hasCheckedRates={hasCheckedRates}
-              isLoading={isLoadingRates}
-              onCalculate={handleCalculateRates}
-              pincodeLookup={pincodeLookup}
-              rateOptions={rateOptions}
-              rateSummary={rateSummary}
-              shippingForm={shippingForm}
-              weightBreakdown={weightBreakdown}
-              onFieldChange={handleFieldChange}
-              hasValidPincodes={hasValidPincodes}
+            <CommerceSections
+              afterToolsContent={
+                <>
+                  <PincodeServiceabilitySection
+                    onFieldChange={handleFieldChange}
+                    pincodeLookup={pincodeLookup}
+                    shippingForm={shippingForm}
+                  />
+                  <CalculatorSection
+                    errorMessage={errorMessage}
+                    hasCheckedRates={hasCheckedRates}
+                    isLoading={isLoadingRates}
+                    onCalculate={handleCalculateRates}
+                    pincodeLookup={pincodeLookup}
+                    rateOptions={rateOptions}
+                    rateSummary={rateSummary}
+                    shippingForm={shippingForm}
+                    weightBreakdown={weightBreakdown}
+                    onFieldChange={handleFieldChange}
+                    hasValidPincodes={hasValidPincodes}
+                  />
+                </>
+              }
             />
+            <OperationsSections />
             <SocialSections />
           </main>
 

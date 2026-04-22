@@ -8,13 +8,26 @@ import {
   Container,
   Typography,
 } from '@mui/material'
-import { clientAppUrl, faqItems, testimonials } from '../../utils/landingContent'
+import {
+  clientAppUrl,
+  faqItems,
+  siteRoutes,
+  privacyPolicyHighlights,
+  termsOfServiceHighlights,
+  testimonials,
+} from '../../utils/landingContent'
 import { fadeUp, MotionDiv, SectionHeader } from './LandingPrimitives'
 
-export default function SocialSections() {
+export default function SocialSections({
+  showCta = true,
+  showFaq = true,
+  showLegal = true,
+  showTestimonials = true,
+}) {
   return (
     <>
-      <section id="testimonials" className="py-14 sm:py-18">
+      {showTestimonials ? (
+        <section id="testimonials" className="py-14 sm:py-18">
         <Container maxWidth="xl">
           <MotionDiv {...fadeUp}>
             <SectionHeader
@@ -51,9 +64,11 @@ export default function SocialSections() {
             ))}
           </div>
         </Container>
-      </section>
+        </section>
+      ) : null}
 
-      <section id="faq" className="py-14 sm:py-18">
+      {showFaq ? (
+        <section id="faq" className="py-14 sm:py-18">
         <Container maxWidth="lg">
           <MotionDiv {...fadeUp}>
             <SectionHeader
@@ -98,9 +113,81 @@ export default function SocialSections() {
             ))}
           </div>
         </Container>
+        </section>
+      ) : null}
+
+      {showLegal ? (
+        <>
+      <section id="privacy-policy" className="py-14 sm:py-18">
+        <Container maxWidth="lg">
+          <MotionDiv {...fadeUp}>
+            <SectionHeader
+              eyebrow="Legal"
+              title="Privacy Policy"
+              description="A simple overview of how ExpressoPro handles merchant and shipment information on the platform."
+              align="center"
+            />
+          </MotionDiv>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+            {privacyPolicyHighlights.map((item, index) => (
+              <MotionDiv
+                key={item}
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.45, delay: index * 0.05 }}
+                className="surface-panel rounded-[28px] p-5 sm:p-6"
+              >
+                <Typography className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b3150]">
+                  Privacy point {index + 1}
+                </Typography>
+                <Typography className="mt-4 text-sm leading-8 sm:text-base" sx={{ color: '#625b63' }}>
+                  {item}
+                </Typography>
+              </MotionDiv>
+            ))}
+          </div>
+        </Container>
       </section>
 
-      <section id="get-started" className="pt-14 pb-10 sm:pt-18 sm:pb-14">
+      <section id="terms-of-service" className="py-14 sm:py-18">
+        <Container maxWidth="lg">
+          <MotionDiv {...fadeUp}>
+            <SectionHeader
+              eyebrow="Legal"
+              title="Terms of Service"
+              description="Key conditions for using ExpressoPro to compare couriers, create shipments, and manage delivery operations."
+              align="center"
+            />
+          </MotionDiv>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+            {termsOfServiceHighlights.map((item, index) => (
+              <MotionDiv
+                key={item}
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.45, delay: index * 0.05 }}
+                className="dark-panel rounded-[28px] p-5 text-white sm:p-6"
+              >
+                <Typography className="text-xs font-semibold uppercase tracking-[0.2em] text-[#f1c5d1]">
+                  Terms point {index + 1}
+                </Typography>
+                <Typography className="mt-4 text-sm leading-8 text-white/74 sm:text-base">
+                  {item}
+                </Typography>
+              </MotionDiv>
+            ))}
+          </div>
+        </Container>
+      </section>
+        </>
+      ) : null}
+
+      {showCta ? (
+        <section id="get-started" className="pt-14 pb-10 sm:pt-18 sm:pb-14">
         <Container maxWidth="xl">
           <MotionDiv {...fadeUp} className="cta-panel rounded-[40px] p-7 text-white sm:p-10">
             <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
@@ -136,6 +223,19 @@ export default function SocialSections() {
                 >
                   Get Started Today
                 </Button>
+                <Button
+                  component="a"
+                  href={siteRoutes.tools}
+                  variant="text"
+                  sx={{
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    px: 0,
+                    '&:hover': { backgroundColor: 'transparent', color: '#f6d7c8' },
+                  }}
+                >
+                  Open shipping tools
+                </Button>
                 <Typography className="text-sm text-white/58">
                   No lengthy setup. Start with your next shipment.
                 </Typography>
@@ -143,7 +243,8 @@ export default function SocialSections() {
             </div>
           </MotionDiv>
         </Container>
-      </section>
+        </section>
+      ) : null}
     </>
   )
 }

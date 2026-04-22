@@ -1,12 +1,32 @@
 const defaultClientAppUrl = 'https://app.expressopro.in/'
+const defaultMarketingSiteUrl = 'https://expressopro.in/'
 
 export const clientAppUrl = import.meta.env.VITE_CLIENT_APP_URL?.trim() || defaultClientAppUrl
+export const marketingSiteUrl =
+  import.meta.env.VITE_MARKETING_SITE_URL?.trim() || defaultMarketingSiteUrl
+export const orderTrackingUrl = `${clientAppUrl.replace(/\/$/, '')}/tools/order_tracking`
+export const siteRoutes = {
+  home: '/',
+  features: '/features',
+  tools: '/tools',
+  faq: '/faq',
+  legal: '/legal',
+}
 
 export const navigationLinks = [
-  { label: 'Features', href: '#features' },
-  { label: 'How It Works', href: '#how-it-works' },
-  { label: 'Calculator', href: '#calculator' },
-  { label: 'FAQ', href: '#faq' },
+  {
+    label: 'Features',
+    href: siteRoutes.features,
+    children: [
+      { label: 'Shipping Features', href: siteRoutes.features },
+      { label: 'Tools & Serviceability', href: siteRoutes.tools },
+      { label: 'FAQs & Legal', href: siteRoutes.faq },
+    ],
+  },
+  { label: 'Track Order', href: orderTrackingUrl, external: true },
+  { label: 'Tools', href: siteRoutes.tools },
+  { label: 'FAQ', href: siteRoutes.faq },
+  { label: 'Legal', href: siteRoutes.legal },
 ]
 
 export const heroContent = {
@@ -153,6 +173,16 @@ export const featureList = [
     title: 'COD Management',
     description:
       'Track cash-on-delivery payments and manage remittances with complete transparency.',
+  },
+  {
+    title: 'Pincode Serviceability Check',
+    description:
+      'Verify pickup and delivery coverage before booking so your team can avoid failed routing at the last step.',
+  },
+  {
+    title: 'Instant Shipping Calculator',
+    description:
+      'Estimate shipping cost using weight, dimensions, payment mode, and route details before creating the shipment.',
   },
 ]
 
@@ -304,7 +334,7 @@ export const faqItems = [
   {
     question: 'Which courier partners are available on the platform?',
     answer:
-      'We work with multiple trusted courier providers to give sellers a wide range of shipping options based on price, delivery time, and serviceability.',
+      'We work with multiple trusted courier providers such as Delhivery, Blue Dart, DTDC, and other partners to give sellers a wide range of shipping options based on price, delivery time, and serviceability.',
   },
   {
     question: 'Do I need a website or store integration to use the platform?',
@@ -346,15 +376,29 @@ export const footerGroups = [
   },
   {
     title: 'Contact',
-    links: ['Phone: +91 8200661530', 'Address: 311 Square One Commercial, Althan, Surat'],
+    links: ['Phone: +91 8200661530'],
   },
 ]
 
 export const footerMeta = {
-  address: 'ExpressoPro, 311 Square One Commercial, Althan, Surat',
+  address: '',
   supportHours: '',
   contactNumber: '+91 8200661530',
 }
+
+export const privacyPolicyHighlights = [
+  'We collect only the information needed to create shipments, manage accounts, support deliveries, and improve platform performance.',
+  'Order details, contact information, and operational data are used to process shipments, provide customer support, and maintain service quality.',
+  'We do not sell merchant or customer personal information. Data may be shared only with logistics, payment, or compliance partners when needed to deliver the service.',
+  'Reasonable administrative and technical safeguards are used to protect stored account and shipment data.',
+]
+
+export const termsOfServiceHighlights = [
+  'By using ExpressoPro, merchants agree to provide accurate shipment, contact, and payment information for every order created on the platform.',
+  'Courier availability, delivery timelines, and pricing can vary by route, serviceability, weight, and partner policies.',
+  'Users are responsible for ensuring prohibited, restricted, or incorrectly declared shipments are not handed over through the platform.',
+  'Continued use of the platform means acceptance of updated policies, operational guidelines, and service terms published by ExpressoPro.',
+]
 
 export const mediaAssets = {
   hero: 'https://images.pexels.com/photos/6170405/pexels-photo-6170405.jpeg?auto=compress&cs=tinysrgb&w=1600',

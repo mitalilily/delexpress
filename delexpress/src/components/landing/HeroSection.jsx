@@ -8,6 +8,7 @@ import {
   heroSpotlightCards,
   heroStats,
   mediaAssets,
+  siteRoutes,
 } from '../../utils/landingContent'
 import { fadeUp, MotionCard, MotionDiv, ToolIcon } from './LandingPrimitives'
 
@@ -57,7 +58,7 @@ export default function HeroSection() {
               </Button>
               <Button
                 component="a"
-                href="#calculator"
+                href={siteRoutes.tools}
                 variant="text"
                 endIcon={<SouthEastRoundedIcon />}
                 sx={{

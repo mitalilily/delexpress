@@ -7,7 +7,11 @@ import {
 } from "../../utils/landingContent";
 import { fadeUp, LiteralVisual, MotionCard, MotionDiv, SectionHeader } from "./LandingPrimitives";
 
-export default function OperationsSections() {
+export default function OperationsSections({
+  showFeatures = true,
+  showHowItWorks = true,
+  showTracking = true,
+}) {
   const trackingMeta = [
     { tag: "Stage 01", note: "Order captured" },
     { tag: "Stage 02", note: "Pickup coordination" },
@@ -18,6 +22,7 @@ export default function OperationsSections() {
 
   return (
     <>
+      {showFeatures ? (
       <section id="features" className="py-14 sm:py-18">
         <Container maxWidth="xl">
           <MotionDiv {...fadeUp}>
@@ -59,7 +64,9 @@ export default function OperationsSections() {
           </div>
         </Container>
       </section>
+      ) : null}
 
+      {showHowItWorks ? (
       <section id="how-it-works" className="py-14 sm:py-18">
         <Container maxWidth="xl">
           <MotionDiv {...fadeUp}>
@@ -135,7 +142,9 @@ export default function OperationsSections() {
           </div>
         </Container>
       </section>
+      ) : null}
 
+      {showTracking ? (
       <section id="tracking" className="py-14 sm:py-18">
         <Container maxWidth="lg">
           <MotionDiv {...fadeUp}>
@@ -200,6 +209,7 @@ export default function OperationsSections() {
           </div>
         </Container>
       </section>
+      ) : null}
     </>
   );
 }

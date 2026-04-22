@@ -290,32 +290,145 @@ img {
 }
 
 .header-shell {
-  border: 1px solid rgba(216, 203, 196, 0.8);
-  border-radius: 999px;
-  background: rgba(248, 241, 234, 0.8);
+  border: 1px solid rgba(224, 211, 204, 0.9);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 244, 232, 0.82), transparent 32%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(247, 239, 232, 0.82));
   backdrop-filter: blur(20px);
+  box-shadow:
+    0 20px 50px rgba(43, 28, 32, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.header-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.header-brand-mark {
+  display: grid;
+  place-items: center;
+  min-height: 58px;
+  border-radius: 22px;
+  border: 1px solid rgba(224, 211, 204, 0.92);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 242, 236, 0.88));
+  padding: 0.7rem 0.85rem;
   box-shadow: 0 14px 30px rgba(43, 28, 32, 0.06);
 }
 
-.header-link {
+.header-nav-wrap {
   position: relative;
+  border: 1px solid rgba(224, 211, 204, 0.88);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 0.45rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
 
-.header-link::after {
-  content: "";
+.header-nav-chip {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  padding: 0.72rem 1rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #4c4148;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.header-nav-chip:hover {
+  color: #9b3150;
+  transform: translateY(-1px);
+}
+
+.header-nav-chip-active {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 242, 236, 0.9));
+  color: #9b3150;
+  box-shadow: 0 12px 24px rgba(42, 26, 34, 0.08);
+}
+
+.header-dropdown-panel {
   position: absolute;
+  top: calc(100% + 14px);
   left: 0;
-  bottom: -0.45rem;
-  width: 100%;
-  height: 2px;
-  transform: scaleX(0);
-  transform-origin: center;
-  background: linear-gradient(90deg, rgba(177, 77, 75, 0.1), rgba(177, 77, 75, 0.9), rgba(177, 77, 75, 0.1));
-  transition: transform 180ms ease;
+  z-index: 20;
+  min-width: 240px;
+  border: 1px solid rgba(224, 211, 204, 0.94);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 244, 240, 0.96));
+  padding: 0.7rem;
+  box-shadow: 0 28px 60px rgba(42, 26, 34, 0.14);
+  backdrop-filter: blur(16px);
 }
 
-.header-link:hover::after {
-  transform: scaleX(1);
+.header-dropdown-link {
+  display: block;
+  border-radius: 18px;
+  padding: 0.85rem 1rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #4c4148;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.header-dropdown-link:hover {
+  background: linear-gradient(180deg, rgba(245, 230, 234, 0.9), rgba(248, 236, 229, 0.78));
+  color: #9b3150;
+  transform: translateX(2px);
+}
+
+.header-secondary-cta {
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.header-primary-cta {
+  box-shadow: 0 14px 28px rgba(24, 19, 24, 0.16);
+}
+
+.header-menu-trigger {
+  border: 1px solid rgba(224, 211, 204, 0.9);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 241, 234, 0.88));
+  box-shadow: 0 12px 24px rgba(42, 26, 34, 0.07);
+}
+
+.header-mobile-panel {
+  border: 1px solid rgba(224, 211, 204, 0.92);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 241, 234, 0.92));
+  padding: 1rem;
+  box-shadow: 0 24px 50px rgba(42, 26, 34, 0.1);
+  backdrop-filter: blur(18px);
+}
+
+.header-mobile-link {
+  border: 0;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.56);
+  padding: 0.95rem 1rem;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #4c4148;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.header-mobile-link:hover {
+  background: rgba(245, 230, 234, 0.92);
+  color: #9b3150;
 }
 
 .hero-stage {

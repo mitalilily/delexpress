@@ -1,5 +1,5 @@
 import { Chip, Container, Typography } from '@mui/material'
-import { mediaAssets, problemPoints, quickToolCards } from '../../utils/landingContent'
+import { courierPartners, mediaAssets, problemPoints, quickToolCards } from '../../utils/landingContent'
 import {
   fadeUp,
   LiteralVisual,
@@ -9,10 +9,16 @@ import {
   ToolIcon,
 } from './LandingPrimitives'
 
-export default function CommerceSections() {
+export default function CommerceSections({
+  afterToolsContent = null,
+  showNetwork = true,
+  showProblem = true,
+  showTools = true,
+}) {
   return (
     <>
-      <section id="network" className="py-14 sm:py-18">
+      {showNetwork ? (
+        <section id="network" className="py-14 sm:py-18">
         <Container maxWidth="xl">
           <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
             <MotionDiv {...fadeUp} className="dark-panel rounded-[36px] p-6 text-white sm:p-8">
@@ -34,12 +40,21 @@ export default function CommerceSections() {
               </Typography>
 
               <div className="mt-8 rounded-[28px] border border-white/10 bg-white/8 p-5 sm:p-6">
-                <Typography className="text-sm leading-8 text-white/72 sm:text-base">
-                  Delhivery, Blue Dart, DTDC, Xpressbees, Ecom Express, and Shadowfax are among the
-                  courier partners merchants commonly compare when choosing the right shipping
-                  option for each order. ExpressoPro brings these choices into one workflow so teams
-                  can review coverage, pricing, and delivery timelines without switching between
-                  multiple dashboards.
+                <div className="flex flex-wrap gap-3">
+                  {courierPartners.map((partner) => (
+                    <div
+                      key={partner.name}
+                      className="rounded-full border border-white/12 bg-white/10 px-4 py-2.5"
+                    >
+                      <Typography className="text-base font-bold text-white sm:text-lg">
+                        {partner.name}
+                      </Typography>
+                    </div>
+                  ))}
+                </div>
+                <Typography className="mt-5 text-sm leading-8 text-white/72 sm:text-base">
+                  ExpressoPro brings these choices into one workflow so teams can review coverage,
+                  pricing, and delivery timelines without switching between multiple dashboards.
                 </Typography>
               </div>
             </MotionDiv>
@@ -77,9 +92,11 @@ export default function CommerceSections() {
             </MotionDiv>
           </div>
         </Container>
-      </section>
+        </section>
+      ) : null}
 
-      <section id="tools" className="py-14 sm:py-18">
+      {showTools ? (
+        <section id="tools" className="py-14 sm:py-18">
         <Container maxWidth="xl">
           <MotionDiv {...fadeUp} className="section-band rounded-[34px] px-5 py-8 sm:px-8 sm:py-10">
             <SectionHeader
@@ -126,9 +143,13 @@ export default function CommerceSections() {
             ))}
           </div>
         </Container>
-      </section>
+        </section>
+      ) : null}
 
-      <section id="problem" className="py-14 sm:py-18">
+      {afterToolsContent}
+
+      {showProblem ? (
+        <section id="problem" className="py-14 sm:py-18">
         <Container maxWidth="xl">
           <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
             <MotionDiv {...fadeUp}>
@@ -239,7 +260,8 @@ export default function CommerceSections() {
             </MotionDiv>
           </div>
         </Container>
-      </section>
+        </section>
+      ) : null}
     </>
   )
 }
