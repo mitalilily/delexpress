@@ -2733,25 +2733,37 @@ export const createB2CShipmentService = async (
       )
     }
 
-    const parsedDate = dayjs(pickupDate, 'YYYY-MM-DD', true)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate)) {
+      throw new HttpError(400, 'pickup_date must be in YYYY-MM-DD format.')
+    }
+    const parsedDate = dayjs(pickupDate)
     if (!parsedDate.isValid()) {
       throw new HttpError(400, 'pickup_date must be in YYYY-MM-DD format.')
     }
 
-    const timeFormats = ['HH:mm:ss', 'HH:mm']
-    const parsedTime = timeFormats
-      .map((format) => dayjs(pickupTime, format, true))
-      .find((candidate) => candidate.isValid())
-
-    if (!parsedTime) {
+    const timeMatch = pickupTime.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/)
+    if (!timeMatch) {
       throw new HttpError(400, 'pickup_time must be in HH:mm or HH:mm:ss 24-hour format.')
     }
+    const hours = Number(timeMatch[1])
+    const minutes = Number(timeMatch[2])
+    const seconds = Number(timeMatch[3] ?? '0')
+    if (
+      !Number.isInteger(hours) ||
+      !Number.isInteger(minutes) ||
+      !Number.isInteger(seconds) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59 ||
+      seconds < 0 ||
+      seconds > 59
+    ) {
+      throw new HttpError(400, 'pickup_time must be in HH:mm or HH:mm:ss 24-hour format.')
+    }
+    const normalizedPickupTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 
-    const scheduledDateTime = dayjs(
-      `${parsedDate.format('YYYY-MM-DD')} ${parsedTime.format('HH:mm:ss')}`,
-      'YYYY-MM-DD HH:mm:ss',
-      true,
-    )
+    const scheduledDateTime = dayjs(`${parsedDate.format('YYYY-MM-DD')}T${normalizedPickupTime}`)
 
     if (scheduledDateTime.isBefore(dayjs())) {
       throw new HttpError(400, 'pickup date and time cannot be in the past.')
@@ -2759,7 +2771,7 @@ export const createB2CShipmentService = async (
 
     return {
       pickupDate: parsedDate.format('YYYY-MM-DD'),
-      pickupTime: parsedTime.format('HH:mm:ss'),
+      pickupTime: normalizedPickupTime,
     }
   }
   const pickup = params.pickup || ({} as ShipmentParams['pickup'])
