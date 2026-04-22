@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios'
 import { HttpError } from '../../../utils/classes'
 import { EkartConfig, getEffectiveCourierConfig } from '../courierCredentials.service'
+import { reserveEkartWaybill, resolveEkartWaybillBucket } from '../ekartWaybill.service'
 
 export type EkartServiceabilityDetail = {
   status: boolean
@@ -201,6 +202,12 @@ export class EkartService {
     return Math.max(1, Math.round(numeric <= 50 ? numeric * 1000 : numeric))
   }
 
+  private normalizeWeightToKilograms(value: any, fallbackKg = 0.5) {
+    const numeric = this.toNumber(value, NaN)
+    if (!Number.isFinite(numeric) || numeric <= 0) return fallbackKg
+    return numeric <= 50 ? numeric : numeric / 1000
+  }
+
   private normalizeDimensionCm(value: any, fallbackCm = 10) {
     const numeric = this.toNumber(value, NaN)
     if (!Number.isFinite(numeric) || numeric <= 0) return fallbackCm
@@ -236,7 +243,7 @@ export class EkartService {
     }
   }
 
-  private buildEkartShipmentPayload(payload: any) {
+  private async buildEkartShipmentPayload(payload: any) {
     const paymentMode =
       String(payload?.payment_type || '').toLowerCase() === 'cod'
         ? 'COD'
@@ -310,7 +317,18 @@ export class EkartService {
     const taxableAmount = Math.max(1, Number((computedTotalAmount - totalTaxValue).toFixed(2)))
     const codAmount = paymentMode === 'COD' ? computedTotalAmount : 0
     const packageWeightGrams = this.normalizeWeightToGrams(payload?.package_weight)
+    const packageWeightKg = this.normalizeWeightToKilograms(payload?.package_weight)
     const packageDimensions = this.getEkartDimensions(payload)
+    const providedWaybill = this.sanitizeText(
+      payload?.wbn || payload?.waybill_number || payload?.awb_number,
+    )
+    const generatedWaybill =
+      paymentMode === 'Pickup'
+        ? ''
+        : await reserveEkartWaybill(
+            resolveEkartWaybillBucket(payload?.payment_type, packageWeightKg),
+          )
+    const resolvedWaybill = providedWaybill || generatedWaybill
 
     const sellerName = this.sanitizeText(
       payload?.company?.name || payload?.pickup?.name,
@@ -383,7 +401,7 @@ export class EkartService {
 
     return {
       order_number: payload?.order_number,
-      ...(this.sanitizeText(payload?.wbn) ? { wbn: this.sanitizeText(payload?.wbn) } : {}),
+      ...(resolvedWaybill ? { wbn: resolvedWaybill } : {}),
       invoice_number: invoiceNumber,
       invoice_date: invoiceDate,
       document_number: this.sanitizeText(payload?.document_number) || undefined,
@@ -694,7 +712,7 @@ export class EkartService {
   async createShipment(payload: any): Promise<EkartCreateShipmentResponse> {
     const http = await this.getHttp()
     const endpoint = '/api/v1/package/create'
-    const normalizedPayload = this.buildEkartShipmentPayload(payload)
+    const normalizedPayload = await this.buildEkartShipmentPayload(payload)
     const sanitizedPayload = this.sanitizeShipmentPayload(normalizedPayload)
 
     this.log('Create shipment request', {
