@@ -428,6 +428,10 @@ export class EkartService {
             resolveEkartWaybillBucket(payload?.payment_type, packageWeightKg),
           )
     const resolvedWaybill = providedWaybill || generatedWaybill
+    const resolvedEwbn = this.sanitizeText(
+      payload?.ewbn || payload?.ewaybill_number || payload?.ewb || payload?.ewbn_number,
+      resolvedWaybill,
+    )
 
     const sellerName = this.sanitizeText(
       payload?.company?.name || payload?.pickup?.name,
@@ -527,11 +531,9 @@ export class EkartService {
             awb_number: resolvedWaybill,
           }
         : {}),
-      ...(this.sanitizeText(payload?.ewbn || payload?.ewaybill_number || payload?.ewb || payload?.ewbn_number)
+      ...(resolvedEwbn
         ? {
-            ewbn: this.sanitizeText(
-              payload?.ewbn || payload?.ewaybill_number || payload?.ewb || payload?.ewbn_number,
-            ),
+            ewbn: resolvedEwbn,
           }
         : {}),
       invoice_number: invoiceNumber,
