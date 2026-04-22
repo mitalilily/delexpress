@@ -1,5 +1,5 @@
-import { Chip, Container, Typography } from "@mui/material";
-import { problemPoints, quickToolCards, mediaAssets } from "../../utils/landingContent";
+import { Chip, Container, Typography } from '@mui/material'
+import { mediaAssets, problemPoints, quickToolCards } from '../../utils/landingContent'
 import {
   fadeUp,
   LiteralVisual,
@@ -7,7 +7,7 @@ import {
   MotionDiv,
   SectionHeader,
   ToolIcon,
-} from "./LandingPrimitives";
+} from './LandingPrimitives'
 
 export default function CommerceSections() {
   return (
@@ -23,9 +23,9 @@ export default function CommerceSections() {
                 Reliable delivery partners without the dashboard chaos
               </Typography>
               <Typography className="mt-4 text-base leading-8 text-white/70 sm:text-lg">
-                Access a wide network of reliable courier partners from one platform. Compare
-                rates, delivery times, and serviceability to choose the best shipping option for
-                every order.
+                Access a wide network of reliable courier partners from one platform. Compare rates,
+                delivery times, and serviceability to choose the best shipping option for every
+                order.
               </Typography>
 
               <Typography className="mt-5 text-base leading-8 text-white/70">
@@ -35,9 +35,9 @@ export default function CommerceSections() {
 
               <div className="mt-8 rounded-[28px] border border-white/10 bg-white/8 p-5 sm:p-6">
                 <Typography className="text-sm leading-8 text-white/72 sm:text-base">
-                  Delhivery, Blue Dart, DTDC, Xpressbees, Ecom Express, and Shadowfax are among
-                  the courier partners merchants commonly compare when choosing the right shipping
-                  option for each order. Delexpress brings these choices into one workflow so teams
+                  Delhivery, Blue Dart, DTDC, Xpressbees, Ecom Express, and Shadowfax are among the
+                  courier partners merchants commonly compare when choosing the right shipping
+                  option for each order. ExpressoPro brings these choices into one workflow so teams
                   can review coverage, pricing, and delivery timelines without switching between
                   multiple dashboards.
                 </Typography>
@@ -59,9 +59,9 @@ export default function CommerceSections() {
                 />
                 <div className="grid content-start gap-4 self-start">
                   {[
-                    "Centralize courier selection",
-                    "Reduce manual comparison work",
-                    "Present one polished shipping workflow",
+                    'Centralize courier selection',
+                    'Reduce manual comparison work',
+                    'Present one polished shipping workflow',
                   ].map((item) => (
                     <div key={item} className="rounded-[24px] bg-[#f7efe5] p-5">
                       <Typography className="text-sm font-semibold uppercase tracking-[0.18em] text-[#ab5a43]">
@@ -81,10 +81,7 @@ export default function CommerceSections() {
 
       <section id="tools" className="py-14 sm:py-18">
         <Container maxWidth="xl">
-          <MotionDiv
-            {...fadeUp}
-            className="section-band rounded-[34px] px-5 py-8 sm:px-8 sm:py-10"
-          >
+          <MotionDiv {...fadeUp} className="section-band rounded-[34px] px-5 py-8 sm:px-8 sm:py-10">
             <SectionHeader
               eyebrow="Quick Tools"
               title="Useful checks before every shipment"
@@ -111,7 +108,7 @@ export default function CommerceSections() {
                 </Typography>
                 <Typography
                   className="mt-3 text-sm leading-7 sm:text-base"
-                  sx={{ color: "#635b63" }}
+                  sx={{ color: '#635b63' }}
                 >
                   {tool.description}
                 </Typography>
@@ -119,9 +116,9 @@ export default function CommerceSections() {
                   label={tool.stat}
                   className="mt-5"
                   sx={{
-                    borderRadius: "999px",
-                    backgroundColor: "#f6e9ed",
-                    color: "#7b3b52",
+                    borderRadius: '999px',
+                    backgroundColor: '#f6e9ed',
+                    color: '#7b3b52',
                     fontWeight: 700,
                   }}
                 />
@@ -143,17 +140,16 @@ export default function CommerceSections() {
 
               <div className="mt-9 grid gap-4 sm:grid-cols-2">
                 {problemPoints.map((item, index) => (
-                  <MotionCard
-                    key={item.title}
-                    delay={index * 0.05}
-                    className="problem-statement"
-                  >
+                  <MotionCard key={item.title} delay={index * 0.05} className="problem-statement">
                     <div className="problem-index">0{index + 1}</div>
                     <div className="problem-copy">
                       <Typography variant="h6" className="text-[1.35rem]">
                         {item.title}
                       </Typography>
-                      <Typography className="mt-3 text-sm leading-7 sm:text-base" sx={{ color: "#625b63" }}>
+                      <Typography
+                        className="mt-3 text-sm leading-7 sm:text-base"
+                        sx={{ color: '#625b63' }}
+                      >
                         {item.description}
                       </Typography>
                     </div>
@@ -161,7 +157,7 @@ export default function CommerceSections() {
                 ))}
               </div>
 
-              <Typography className="mt-7 text-base leading-8" sx={{ color: "#625b63" }}>
+              <Typography className="mt-7 text-base leading-8" sx={{ color: '#625b63' }}>
                 Our platform brings all your shipping operations together in one simple, powerful
                 dashboard.
               </Typography>
@@ -192,11 +188,7 @@ export default function CommerceSections() {
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
-                    {[
-                      "Rate comparison",
-                      "Tracking updates",
-                      "Courier performance",
-                    ].map((label) => (
+                    {['Rate comparison', 'Tracking updates', 'Courier performance'].map((label) => (
                       <div
                         key={label}
                         className="rounded-[22px] border border-white/10 bg-white/8 px-4 py-4"
@@ -215,9 +207,9 @@ export default function CommerceSections() {
                     <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
                       <div className="grid gap-3">
                         {[
-                          "Compare rates without switching dashboards",
-                          "Check active shipment status in one place",
-                          "Review delivery trends before choosing a partner",
+                          'Compare rates without switching dashboards',
+                          'Check active shipment status in one place',
+                          'Review delivery trends before choosing a partner',
                         ].map((item) => (
                           <div key={item} className="flex items-start gap-3">
                             <div className="mt-2 h-2.5 w-2.5 rounded-full bg-[#56c0a5]" />
@@ -229,18 +221,16 @@ export default function CommerceSections() {
                       </div>
 
                       <div className="grid gap-3">
-                        {[
-                          "Unified dashboard",
-                          "Lower manual work",
-                          "Faster decisions",
-                        ].map((item) => (
-                          <div
-                            key={item}
-                            className="rounded-full border border-white/10 bg-white/8 px-4 py-3 text-sm text-white/80"
-                          >
-                            {item}
-                          </div>
-                        ))}
+                        {['Unified dashboard', 'Lower manual work', 'Faster decisions'].map(
+                          (item) => (
+                            <div
+                              key={item}
+                              className="rounded-full border border-white/10 bg-white/8 px-4 py-3 text-sm text-white/80"
+                            >
+                              {item}
+                            </div>
+                          ),
+                        )}
                       </div>
                     </div>
                   </div>
@@ -251,5 +241,5 @@ export default function CommerceSections() {
         </Container>
       </section>
     </>
-  );
+  )
 }

@@ -1,31 +1,31 @@
-import { Box, Container, Divider, Typography } from "@mui/material";
+import { Box, Container, Divider, Typography } from '@mui/material'
 
 function getFooterLinkHref(link) {
-  if (link.startsWith("Phone:")) {
-    const phone = link.split(": ").at(-1)?.trim().replace(/\s+/g, "");
-    return `tel:${phone}`;
+  if (link.startsWith('Phone:')) {
+    const phone = link.split(': ').at(-1)?.trim().replace(/\s+/g, '')
+    return `tel:${phone}`
   }
 
   const anchorMap = {
-    Features: "#features",
-    "Shipping Calculator": "#calculator",
-    "Courier Partners": "#network",
-    Pricing: "#get-started",
-    "About Us": "#problem",
-    Careers: "#get-started",
-    Contact: "#get-started",
-    "Help Center": "#faq",
-    "Shipping Guide": "#how-it-works",
-    "API Documentation": "#get-started",
-    "Privacy Policy": "#faq",
-    "Terms of Service": "#faq",
-  };
+    Features: '#features',
+    'Shipping Calculator': '#calculator',
+    'Courier Partners': '#network',
+    Pricing: '#get-started',
+    'About Us': '#problem',
+    Careers: '#get-started',
+    Contact: '#get-started',
+    'Help Center': '#faq',
+    'Shipping Guide': '#how-it-works',
+    'API Documentation': '#get-started',
+    'Privacy Policy': '#faq',
+    'Terms of Service': '#faq',
+  }
 
-  return anchorMap[link] || "#top";
+  return anchorMap[link] || '#top'
 }
 
 export default function LandingFooter({ footerGroups, footerMeta }) {
-  const currentYear = new Date().getFullYear();
+  const currentYear = new Date().getFullYear()
 
   return (
     <Box component="footer" className="pb-10 pt-4">
@@ -36,15 +36,15 @@ export default function LandingFooter({ footerGroups, footerMeta }) {
               <div className="flex items-center gap-3">
                 <Box
                   component="img"
-                  src="/delexpress-logo.svg"
-                  alt="Delexpress"
-                  sx={{ width: { xs: 126, sm: 156 }, height: "auto", display: "block" }}
+                  src="/ExpressoPro-logo.svg"
+                  alt="ExpressoPro"
+                  sx={{ width: { xs: 126, sm: 156 }, height: 'auto', display: 'block' }}
                 />
                 <div>
-                  <Typography variant="h6" className="text-xl" sx={{ color: "#ffffff" }}>
-                    Delexpress
+                  <Typography variant="h6" className="text-xl" sx={{ color: '#ffffff' }}>
+                    ExpressoPro
                   </Typography>
-                  <Typography className="text-sm" sx={{ color: "rgba(255,255,255,0.68)" }}>
+                  <Typography className="text-sm" sx={{ color: 'rgba(255,255,255,0.68)' }}>
                     Shipping operations for growing ecommerce brands
                   </Typography>
                 </div>
@@ -52,9 +52,9 @@ export default function LandingFooter({ footerGroups, footerMeta }) {
 
               <Typography
                 className="mt-6 max-w-md text-sm leading-8 sm:text-base"
-                sx={{ color: "rgba(255,255,255,0.72)" }}
+                sx={{ color: 'rgba(255,255,255,0.72)' }}
               >
-                Delexpress helps sellers compare courier rates, automate fulfillment steps, and
+                ExpressoPro helps sellers compare courier rates, automate fulfillment steps, and
                 track every shipment from one clean workflow.
               </Typography>
 
@@ -62,22 +62,28 @@ export default function LandingFooter({ footerGroups, footerMeta }) {
                 <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
                   <Typography
                     className="text-xs font-semibold uppercase tracking-[0.2em]"
-                    sx={{ color: "#f2c7d1" }}
+                    sx={{ color: '#f2c7d1' }}
                   >
                     Head Office
                   </Typography>
-                  <Typography className="mt-3 text-sm leading-7" sx={{ color: "rgba(255,255,255,0.78)" }}>
+                  <Typography
+                    className="mt-3 text-sm leading-7"
+                    sx={{ color: 'rgba(255,255,255,0.78)' }}
+                  >
                     {footerMeta.address}
                   </Typography>
                 </div>
                 <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
                   <Typography
                     className="text-xs font-semibold uppercase tracking-[0.2em]"
-                    sx={{ color: "#f2c7d1" }}
+                    sx={{ color: '#f2c7d1' }}
                   >
                     Support
                   </Typography>
-                  <Typography className="mt-3 text-sm leading-7" sx={{ color: "rgba(255,255,255,0.78)" }}>
+                  <Typography
+                    className="mt-3 text-sm leading-7"
+                    sx={{ color: 'rgba(255,255,255,0.78)' }}
+                  >
                     {footerMeta.supportHours ? (
                       <>
                         {footerMeta.supportHours}
@@ -93,7 +99,7 @@ export default function LandingFooter({ footerGroups, footerMeta }) {
             <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5">
               {footerGroups.map((group) => (
                 <div key={group.title}>
-                  <Typography variant="h6" className="text-base" sx={{ color: "#ffffff" }}>
+                  <Typography variant="h6" className="text-base" sx={{ color: '#ffffff' }}>
                     {group.title}
                   </Typography>
                   <div className="mt-4 grid gap-3">
@@ -103,7 +109,7 @@ export default function LandingFooter({ footerGroups, footerMeta }) {
                         component="a"
                         href={getFooterLinkHref(link)}
                         className="text-sm leading-7 transition-colors hover:text-white"
-                        sx={{ color: "rgba(255,255,255,0.72)" }}
+                        sx={{ color: 'rgba(255,255,255,0.72)' }}
                       >
                         {link}
                       </Typography>
@@ -114,13 +120,13 @@ export default function LandingFooter({ footerGroups, footerMeta }) {
             </div>
           </div>
 
-          <Divider sx={{ my: 4, borderColor: "rgba(255,255,255,0.1)" }} />
+          <Divider sx={{ my: 4, borderColor: 'rgba(255,255,255,0.1)' }} />
 
           <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <Typography className="text-sm" sx={{ color: "rgba(255,255,255,0.62)" }}>
-              Delexpress (c) {currentYear}. All rights reserved.
+            <Typography className="text-sm" sx={{ color: 'rgba(255,255,255,0.62)' }}>
+              ExpressoPro (c) {currentYear}. All rights reserved.
             </Typography>
-            <Typography className="text-sm" sx={{ color: "rgba(255,255,255,0.62)" }}>
+            <Typography className="text-sm" sx={{ color: 'rgba(255,255,255,0.62)' }}>
               Built for ecommerce teams who want faster shipping decisions and clearer delivery
               visibility.
             </Typography>
@@ -128,5 +134,5 @@ export default function LandingFooter({ footerGroups, footerMeta }) {
         </div>
       </Container>
     </Box>
-  );
+  )
 }

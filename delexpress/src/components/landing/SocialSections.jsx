@@ -1,5 +1,5 @@
-import EastRoundedIcon from "@mui/icons-material/EastRounded";
-import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
+import EastRoundedIcon from '@mui/icons-material/EastRounded'
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import {
   Accordion,
   AccordionDetails,
@@ -7,9 +7,9 @@ import {
   Button,
   Container,
   Typography,
-} from "@mui/material";
-import { clientAppUrl, faqItems, testimonials } from "../../utils/landingContent";
-import { fadeUp, MotionDiv, SectionHeader } from "./LandingPrimitives";
+} from '@mui/material'
+import { clientAppUrl, faqItems, testimonials } from '../../utils/landingContent'
+import { fadeUp, MotionDiv, SectionHeader } from './LandingPrimitives'
 
 export default function SocialSections() {
   return (
@@ -20,7 +20,7 @@ export default function SocialSections() {
             <SectionHeader
               eyebrow="Testimonials"
               title="What Ecommerce Sellers Say"
-              description="Teams use Delexpress to simplify courier decisions, improve visibility, and make shipping operations easier to manage."
+              description="Teams use ExpressoPro to simplify courier decisions, improve visibility, and make shipping operations easier to manage."
               align="center"
             />
           </MotionDiv>
@@ -33,17 +33,17 @@ export default function SocialSections() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ duration: 0.45, delay: index * 0.05 }}
-                className={`rounded-[34px] p-6 ${index === 1 ? "dark-panel text-white" : "surface-panel"}`}
+                className={`rounded-[34px] p-6 ${index === 1 ? 'dark-panel text-white' : 'surface-panel'}`}
               >
                 <Typography
-                  className={`text-base leading-8 sm:text-lg ${index === 1 ? "text-white/78" : ""}`}
-                  sx={index === 1 ? undefined : { color: "#2b2428" }}
+                  className={`text-base leading-8 sm:text-lg ${index === 1 ? 'text-white/78' : ''}`}
+                  sx={index === 1 ? undefined : { color: '#2b2428' }}
                 >
                   "{item.quote}"
                 </Typography>
                 <Typography
-                  className={`mt-6 text-sm font-semibold uppercase tracking-[0.18em] ${index === 1 ? "text-[#f1c5d1]" : ""}`}
-                  sx={index === 1 ? undefined : { color: "#9b3150" }}
+                  className={`mt-6 text-sm font-semibold uppercase tracking-[0.18em] ${index === 1 ? 'text-[#f1c5d1]' : ''}`}
+                  sx={index === 1 ? undefined : { color: '#9b3150' }}
                 >
                   {item.author}
                 </Typography>
@@ -76,11 +76,11 @@ export default function SocialSections() {
                 <Accordion
                   disableGutters
                   sx={{
-                    borderRadius: "24px !important",
-                    border: "1px solid rgba(186, 170, 177, 0.74)",
-                    backgroundColor: "rgba(255,255,255,0.84)",
-                    boxShadow: "0 16px 34px rgba(39, 28, 35, 0.06)",
-                    "&::before": { display: "none" },
+                    borderRadius: '24px !important',
+                    border: '1px solid rgba(186, 170, 177, 0.74)',
+                    backgroundColor: 'rgba(255,255,255,0.84)',
+                    boxShadow: '0 16px 34px rgba(39, 28, 35, 0.06)',
+                    '&::before': { display: 'none' },
                   }}
                 >
                   <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />}>
@@ -89,7 +89,7 @@ export default function SocialSections() {
                     </Typography>
                   </AccordionSummary>
                   <AccordionDetails>
-                    <Typography className="leading-8" sx={{ color: "#625b63" }}>
+                    <Typography className="leading-8" sx={{ color: '#625b63' }}>
                       {item.answer}
                     </Typography>
                   </AccordionDetails>
@@ -109,7 +109,7 @@ export default function SocialSections() {
                   Get Started
                 </Typography>
                 <Typography variant="h2" className="mt-4 text-4xl text-white sm:text-5xl">
-                  Make Delexpress feel like the smartest part of your fulfillment stack
+                  Make ExpressoPro feel like the smartest part of your fulfillment stack
                 </Typography>
                 <Typography className="mt-5 max-w-2xl text-base leading-8 text-white/76 sm:text-lg">
                   Compare courier rates, automate shipping workflows, and gain full visibility into
@@ -125,13 +125,13 @@ export default function SocialSections() {
                   variant="contained"
                   endIcon={<EastRoundedIcon />}
                   sx={{
-                    borderRadius: "999px",
+                    borderRadius: '999px',
                     px: 3.2,
                     py: 1.35,
-                    backgroundColor: "#ffffff",
-                    color: "#181318",
-                    boxShadow: "0 16px 34px rgba(17,12,16,0.18)",
-                    "&:hover": { backgroundColor: "#f6edf1" },
+                    backgroundColor: '#ffffff',
+                    color: '#181318',
+                    boxShadow: '0 16px 34px rgba(17,12,16,0.18)',
+                    '&:hover': { backgroundColor: '#f6edf1' },
                   }}
                 >
                   Get Started Today
@@ -145,5 +145,5 @@ export default function SocialSections() {
         </Container>
       </section>
     </>
-  );
+  )
 }

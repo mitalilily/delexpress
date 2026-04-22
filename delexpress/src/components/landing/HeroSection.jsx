@@ -1,6 +1,6 @@
-import EastRoundedIcon from "@mui/icons-material/EastRounded";
-import SouthEastRoundedIcon from "@mui/icons-material/SouthEastRounded";
-import { Button, Chip, Container, Typography } from "@mui/material";
+import EastRoundedIcon from '@mui/icons-material/EastRounded'
+import SouthEastRoundedIcon from '@mui/icons-material/SouthEastRounded'
+import { Button, Chip, Container, Typography } from '@mui/material'
 import {
   clientAppUrl,
   heroContent,
@@ -8,8 +8,8 @@ import {
   heroSpotlightCards,
   heroStats,
   mediaAssets,
-} from "../../utils/landingContent";
-import { fadeUp, LiteralVisual, MotionCard, MotionDiv, ToolIcon } from "./LandingPrimitives";
+} from '../../utils/landingContent'
+import { fadeUp, MotionCard, MotionDiv, ToolIcon } from './LandingPrimitives'
 
 export default function HeroSection() {
   return (
@@ -43,14 +43,14 @@ export default function HeroSection() {
                 variant="contained"
                 endIcon={<EastRoundedIcon />}
                 sx={{
-                  alignSelf: "flex-start",
-                  borderRadius: "999px",
+                  alignSelf: 'flex-start',
+                  borderRadius: '999px',
                   px: 3.6,
                   py: 1.45,
-                  backgroundColor: "#151216",
-                  boxShadow: "0 14px 30px rgba(21,18,22,0.18)",
-                  "&:hover": { backgroundColor: "#2c242a" },
-                  width: { xs: "100%", sm: "auto" },
+                  backgroundColor: '#151216',
+                  boxShadow: '0 14px 30px rgba(21,18,22,0.18)',
+                  '&:hover': { backgroundColor: '#2c242a' },
+                  width: { xs: '100%', sm: 'auto' },
                 }}
               >
                 {heroContent.primaryCta}
@@ -61,20 +61,20 @@ export default function HeroSection() {
                 variant="text"
                 endIcon={<SouthEastRoundedIcon />}
                 sx={{
-                  alignSelf: "flex-start",
-                  borderRadius: "999px",
+                  alignSelf: 'flex-start',
+                  borderRadius: '999px',
                   px: 0.4,
                   py: 1.35,
-                  color: "#1d171c",
+                  color: '#1d171c',
                   fontWeight: 700,
-                  width: { xs: "100%", sm: "auto" },
+                  width: { xs: '100%', sm: 'auto' },
                 }}
               >
                 {heroContent.secondaryCta}
               </Button>
             </div>
 
-            <Typography className="mt-6 text-sm sm:text-base" sx={{ color: "#5f5760" }}>
+            <Typography className="mt-6 text-sm sm:text-base" sx={{ color: '#5f5760' }}>
               {heroContent.trustLine}
             </Typography>
 
@@ -84,7 +84,7 @@ export default function HeroSection() {
                   <Typography variant="h4" className="text-3xl sm:text-[2.2rem]">
                     {item.value}
                   </Typography>
-                  <Typography className="mt-2 text-sm leading-6" sx={{ color: "#665f67" }}>
+                  <Typography className="mt-2 text-sm leading-6" sx={{ color: '#665f67' }}>
                     {item.label}
                   </Typography>
                 </div>
@@ -112,7 +112,7 @@ export default function HeroSection() {
                 <div className="image-frame rounded-[30px] bg-white">
                   <img
                     src={mediaAssets.hero}
-                    alt="Delexpress shipping operations dashboard preview"
+                    alt="ExpressoPro shipping operations dashboard preview"
                     decoding="async"
                     fetchPriority="high"
                     className="h-[260px] w-full object-cover sm:h-[420px]"
@@ -175,9 +175,9 @@ export default function HeroSection() {
                 <Chip
                   label={tool.metric}
                   sx={{
-                    borderRadius: "999px",
-                    backgroundColor: "#f8ecdf",
-                    color: "#85582e",
+                    borderRadius: '999px',
+                    backgroundColor: '#f8ecdf',
+                    color: '#85582e',
                     fontWeight: 700,
                   }}
                 />
@@ -185,7 +185,7 @@ export default function HeroSection() {
               <Typography variant="h5" className="mt-5 text-2xl">
                 {tool.title}
               </Typography>
-              <Typography className="mt-3 text-sm leading-7 sm:text-base" sx={{ color: "#645c65" }}>
+              <Typography className="mt-3 text-sm leading-7 sm:text-base" sx={{ color: '#645c65' }}>
                 {tool.description}
               </Typography>
             </MotionCard>
@@ -193,5 +193,5 @@ export default function HeroSection() {
         </div>
       </Container>
     </section>
-  );
+  )
 }

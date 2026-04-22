@@ -1,32 +1,24 @@
-import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
-import { Box, Button, Container, IconButton, Typography } from "@mui/material";
-import { clientAppUrl } from "../../utils/landingContent";
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
+import { Box, Button, Container, IconButton, Typography } from '@mui/material'
+import { clientAppUrl } from '../../utils/landingContent'
 
-export default function LandingHeader({
-  menuOpen,
-  navigationLinks,
-  onToggleMenu,
-  onCloseMenu,
-}) {
+export default function LandingHeader({ menuOpen, navigationLinks, onToggleMenu, onCloseMenu }) {
   return (
-    <Box
-      component="header"
-      className="sticky top-0 z-40 px-3 pt-3 sm:px-4"
-    >
+    <Box component="header" className="sticky top-0 z-40 px-3 pt-3 sm:px-4">
       <Container maxWidth="xl" className="header-shell py-4">
         <div className="flex items-center justify-between gap-4">
           <a href="#top" className="flex items-center gap-3">
             <Box
               component="img"
-              src="/delexpress-logo.svg"
-              alt="Delexpress"
-              sx={{ width: { xs: 126, sm: 156 }, height: "auto", display: "block" }}
+              src="/ExpressoPro-logo.svg"
+              alt="ExpressoPro"
+              sx={{ width: { xs: 126, sm: 156 }, height: 'auto', display: 'block' }}
             />
             <div>
               <Typography variant="h6" className="brand-heading text-xl">
-                Delexpress
+                ExpressoPro
               </Typography>
-              <Typography className="text-sm" sx={{ color: "#6d6067" }}>
+              <Typography className="text-sm" sx={{ color: '#6d6067' }}>
                 Shipping operations for modern ecommerce teams
               </Typography>
             </div>
@@ -50,10 +42,10 @@ export default function LandingHeader({
               href="#calculator"
               variant="outlined"
               sx={{
-                borderColor: "rgba(155, 49, 80, 0.24)",
-                backgroundColor: "rgba(255,255,255,0.7)",
-                color: "#181318",
-                borderRadius: "999px",
+                borderColor: 'rgba(155, 49, 80, 0.24)',
+                backgroundColor: 'rgba(255,255,255,0.7)',
+                color: '#181318',
+                borderRadius: '999px',
                 px: 2.4,
               }}
             >
@@ -64,11 +56,11 @@ export default function LandingHeader({
               href={clientAppUrl}
               variant="contained"
               sx={{
-                borderRadius: "999px",
+                borderRadius: '999px',
                 px: 2.6,
-                backgroundColor: "#181318",
-                boxShadow: "0 12px 24px rgba(24,19,24,0.16)",
-                "&:hover": { backgroundColor: "#30262e" },
+                backgroundColor: '#181318',
+                boxShadow: '0 12px 24px rgba(24,19,24,0.16)',
+                '&:hover': { backgroundColor: '#30262e' },
               }}
             >
               Get Started
@@ -78,9 +70,9 @@ export default function LandingHeader({
           <IconButton
             onClick={onToggleMenu}
             sx={{
-              display: { xs: "inline-flex", lg: "none" },
-              border: "1px solid rgba(155, 49, 80, 0.18)",
-              backgroundColor: "rgba(255,255,255,0.7)",
+              display: { xs: 'inline-flex', lg: 'none' },
+              border: '1px solid rgba(155, 49, 80, 0.18)',
+              backgroundColor: 'rgba(255,255,255,0.7)',
             }}
           >
             <MenuRoundedIcon />
@@ -106,9 +98,9 @@ export default function LandingHeader({
                 variant="contained"
                 sx={{
                   mt: 1,
-                  borderRadius: "999px",
-                  backgroundColor: "#181318",
-                  "&:hover": { backgroundColor: "#30262e" },
+                  borderRadius: '999px',
+                  backgroundColor: '#181318',
+                  '&:hover': { backgroundColor: '#30262e' },
                 }}
               >
                 Get Started
@@ -118,5 +110,5 @@ export default function LandingHeader({
         ) : null}
       </Container>
     </Box>
-  );
+  )
 }
