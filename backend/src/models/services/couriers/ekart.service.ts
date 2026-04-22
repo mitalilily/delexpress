@@ -430,7 +430,6 @@ export class EkartService {
     const resolvedWaybill = providedWaybill || generatedWaybill
     const resolvedEwbn = this.sanitizeText(
       payload?.ewbn || payload?.ewaybill_number || payload?.ewb || payload?.ewbn_number,
-      resolvedWaybill,
     )
 
     const sellerName = this.sanitizeText(
