@@ -81,7 +81,12 @@ function SidebarResponsive(props) {
                 >
                   {prop.icon}
                 </IconBox>
-                <Text color={isActive ? activeTextColor : textColor} my="auto" fontSize="sm" fontWeight={isActive ? '700' : '600'}>
+                <Text
+                  color={isActive ? activeTextColor : textColor}
+                  my="auto"
+                  fontSize="sm"
+                  fontWeight={isActive ? '700' : '600'}
+                >
                   {document.documentElement.dir === 'rtl' ? prop.rtlName : prop.name}
                 </Text>
               </Flex>
@@ -97,7 +102,14 @@ function SidebarResponsive(props) {
   const brand = (
     <Box pt="24px" mb="10px">
       <Flex align="center" justify="center" gap="10px" mb="16px" fontWeight="bold">
-        <Box as="img" src="/delexpress-logo.svg" alt="Delexpress" h="32px" w="126px" objectFit="contain" />
+        <Box
+          as="img"
+          src="/ExpressoPro-logo.svg"
+          alt="ExpressoPro"
+          h="32px"
+          w="126px"
+          objectFit="contain"
+        />
         <Text fontSize="sm" color={textColor} fontWeight="700">
           {logoText}
         </Text>

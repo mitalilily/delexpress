@@ -18,10 +18,10 @@ async function runMigration() {
     console.log('🔄 Starting courier composite key migration...\n')
 
     // Step 1: Drop FK constraint
-    console.log('Step 1: Dropping FK constraint from DelExpress_zones...')
+    console.log('Step 1: Dropping FK constraint from ExpressoPro_zones...')
     await db.execute(sql`
-      ALTER TABLE "DelExpress_zones" 
-      DROP CONSTRAINT IF EXISTS "DelExpress_zones_courier_id_couriers_id_fk"
+      ALTER TABLE "ExpressoPro_zones" 
+      DROP CONSTRAINT IF EXISTS "ExpressoPro_zones_courier_id_couriers_id_fk"
     `)
     console.log('  ✓ Done\n')
 

@@ -36,7 +36,7 @@ export const DEFAULT_PREFERENCES = {
     otherCharges: true,
   },
   brand_logo: null,
-  powered_by: 'Delexpress',
+  powered_by: 'ExpressoPro',
   created_at: new Date(),
   updated_at: new Date(),
 }

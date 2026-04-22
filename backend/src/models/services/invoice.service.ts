@@ -5,8 +5,8 @@ import PdfPrinter from 'pdfmake'
 import type { TableCell } from 'pdfmake/interfaces'
 import { db } from '../client'
 import { invoices } from '../schema/invoices'
-import { presignDownload } from './upload.service'
 import { getAdminInvoicePreferences } from './invoicePreferences.service'
+import { presignDownload } from './upload.service'
 // Product + Invoice types
 // ----------------------
 export interface Product {
@@ -225,7 +225,7 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
 
   const adminPrefs = await getAdminInvoicePreferences()
 
-  // Platform (Delexpress) logo – try to load but don't fail if it doesn't work
+  // Platform (ExpressoPro) logo – try to load but don't fail if it doesn't work
   let platformLogoDataUrl: string | undefined
   try {
     const logoKey = adminPrefs?.logoFile ?? 'logo-white.png'
@@ -263,7 +263,6 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
   } else {
     console.log('ℹ️ No signature buffer provided for invoice')
   }
-
 
   // -------------------
   // Prepare images object for pdfmake (must be before content arrays)
@@ -430,7 +429,9 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
 
   const toSafeString = (value?: string | null) => (value ? value.trim() : '')
   const sellerDisplayName =
-    toSafeString(invoice.brandName) || toSafeString(invoice.sellerName) || toSafeString(invoice.companyName)
+    toSafeString(invoice.brandName) ||
+    toSafeString(invoice.sellerName) ||
+    toSafeString(invoice.companyName)
   const sellerAddressLines = (invoice.sellerAddress || '')
     .split('\n')
     .map((line) => line.trim())
@@ -481,7 +482,7 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
     hsnSummary[hsnCode].cgst += lineCgst
     hsnSummary[hsnCode].sgst += lineSgst
 
-    return ([
+    return [
       { text: String(index + 1), alignment: 'center', color: '#475467' },
       {
         text: p.name ?? p.box_name ?? 'N/A',
@@ -497,7 +498,7 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
         color: '#475467',
       },
       { text: formatCurrency(lineTotal), alignment: 'right', color: '#0f172a', bold: true },
-    ] as TableCell[])
+    ] as TableCell[]
   })
   const taxTotal = cgstTotal + sgstTotal + igstTotal
   const chargesBreakdown = [
@@ -516,7 +517,6 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
   const termsText = toSafeString(invoice.termsAndConditions)
   const supportContact = [invoice.supportEmail, invoice.supportPhone].filter(Boolean).join(' | ')
 
-
   const buildHeaderBand = () => ({
     table: {
       widths: ['*', 'auto'],
@@ -532,9 +532,7 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
                     bold: true,
                     color: '#000',
                   },
-              sellerDisplayName
-                ? { text: sellerDisplayName, fontSize: 10, color: '#000' }
-                : null,
+              sellerDisplayName ? { text: sellerDisplayName, fontSize: 10, color: '#000' } : null,
               invoice.gstNumber
                 ? { text: `GSTIN: ${invoice.gstNumber}`, fontSize: 9, color: mutedTextColor }
                 : null,
@@ -573,22 +571,30 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
       ...(sellerAddressLines.length
         ? sellerAddressLines.map((line) => ({ text: line, fontSize: 9, color: mutedTextColor }))
         : [{ text: 'Warehouse address not provided', fontSize: 9, color: mutedTextColor }]),
-      sellerStateCode ? { text: `State Code: ${sellerStateCode}`, fontSize: 9, color: mutedTextColor } : null,
+      sellerStateCode
+        ? { text: `State Code: ${sellerStateCode}`, fontSize: 9, color: mutedTextColor }
+        : null,
       invoice.gstNumber
         ? { text: `GSTIN: ${invoice.gstNumber}`, fontSize: 9, color: mutedTextColor }
         : null,
       invoice.panNumber
         ? { text: `PAN: ${invoice.panNumber}`, fontSize: 9, color: mutedTextColor }
         : null,
-      supportContact ? { text: `Support: ${supportContact}`, fontSize: 9, color: mutedTextColor } : null,
+      supportContact
+        ? { text: `Support: ${supportContact}`, fontSize: 9, color: mutedTextColor }
+        : null,
     ].filter(Boolean)
 
     const buyerDetails = [
       { text: 'TO', bold: true, fontSize: 8, color: '#000', characterSpacing: 1 },
       { text: invoice.buyerName, bold: true, fontSize: 12, color: '#000' },
       ...buyerAddressLines.map((line) => ({ text: line, fontSize: 9, color: mutedTextColor })),
-      invoice.buyerPhone ? { text: `Phone: ${invoice.buyerPhone}`, fontSize: 9, color: mutedTextColor } : null,
-      invoice.buyerEmail ? { text: `Email: ${invoice.buyerEmail}`, fontSize: 9, color: mutedTextColor } : null,
+      invoice.buyerPhone
+        ? { text: `Phone: ${invoice.buyerPhone}`, fontSize: 9, color: mutedTextColor }
+        : null,
+      invoice.buyerEmail
+        ? { text: `Email: ${invoice.buyerEmail}`, fontSize: 9, color: mutedTextColor }
+        : null,
     ].filter(Boolean)
 
     const createCard = (details: any[]) => ({
@@ -701,9 +707,21 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
           [
             { text: 'S.No', bold: true, fontSize: 9, color: mutedTextColor, alignment: 'center' },
             { text: 'Item Description', bold: true, fontSize: 9, color: mutedTextColor },
-            { text: 'HSN/SAC', bold: true, fontSize: 9, color: mutedTextColor, alignment: 'center' },
+            {
+              text: 'HSN/SAC',
+              bold: true,
+              fontSize: 9,
+              color: mutedTextColor,
+              alignment: 'center',
+            },
             { text: 'Qty', bold: true, fontSize: 9, color: mutedTextColor, alignment: 'right' },
-            { text: 'Unit Price', bold: true, fontSize: 9, color: mutedTextColor, alignment: 'right' },
+            {
+              text: 'Unit Price',
+              bold: true,
+              fontSize: 9,
+              color: mutedTextColor,
+              alignment: 'right',
+            },
             { text: 'Tax', bold: true, fontSize: 9, color: mutedTextColor, alignment: 'right' },
             { text: 'Total', bold: true, fontSize: 9, color: mutedTextColor, alignment: 'right' },
           ],
@@ -728,16 +746,17 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
 
     const chargesTableBody: TableCell[][] = filteredCharges
       .filter((row) => row.label !== 'Grand Total')
-      .map((row) =>
-        ([
-          { text: row.label, fontSize: 9, color: mutedTextColor },
-          {
-            text: formatCurrency(row.value),
-            fontSize: 9,
-            alignment: 'right',
-            color: '#000',
-          },
-        ] as TableCell[]),
+      .map(
+        (row) =>
+          [
+            { text: row.label, fontSize: 9, color: mutedTextColor },
+            {
+              text: formatCurrency(row.value),
+              fontSize: 9,
+              alignment: 'right',
+              color: '#000',
+            },
+          ] as TableCell[],
       )
     if (taxTotal > 0) {
       chargesTableBody.push([
@@ -892,7 +911,7 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
   // Thermal Layout
   // -------------------
   const contentThermal: any[] = [
-    { text: invoice.companyName ?? 'Delexpress', alignment: 'center', bold: true },
+    { text: invoice.companyName ?? 'ExpressoPro', alignment: 'center', bold: true },
     { text: 'TAX INVOICE', alignment: 'center', bold: true, margin: [0, 2, 0, 2] },
     {
       text: 'ORIGINAL FOR RECIPIENT',
@@ -991,12 +1010,18 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
     },
     images.signature
       ? { image: 'signature', width: 56, alignment: 'right', margin: [0, 4, 0, 0] }
-      : { text: 'Authorized Signatory', alignment: 'right', italics: true, fontSize, color: '#6b7280' },
+      : {
+          text: 'Authorized Signatory',
+          alignment: 'right',
+          italics: true,
+          fontSize,
+          color: '#6b7280',
+        },
     platformLogoDataUrl
       ? { image: 'platformLogo', width: 40, alignment: 'center', margin: [0, 4, 0, 0] }
       : null,
     {
-      text: 'Powered by Delexpress',
+      text: 'Powered by ExpressoPro',
       alignment: 'center',
       italics: true,
       margin: [0, 4, 0, 0],

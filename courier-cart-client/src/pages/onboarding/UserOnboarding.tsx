@@ -202,8 +202,8 @@ export default function UserOnboarding() {
       >
         <Box
           component="img"
-          src="/logo/delexpress-logo.svg"
-          alt="Delexpress"
+          src="/logo/ExpressoPro-logo.svg"
+          alt="ExpressoPro"
           sx={{ width: { xs: 150, md: 190 }, height: 'auto', display: 'block' }}
         />
         <SwitchAccountButton />
@@ -299,9 +299,7 @@ export default function UserOnboarding() {
                   sx={{
                     p: 1.5,
                     borderRadius: 2.5,
-                    border: `1px solid ${
-                      active ? alpha('#FFFFFF', 0.12) : alpha('#FFFFFF', 0.06)
-                    }`,
+                    border: `1px solid ${active ? alpha('#FFFFFF', 0.12) : alpha('#FFFFFF', 0.06)}`,
                     backgroundColor: active ? alpha('#FFFFFF', 0.08) : 'transparent',
                     transition: 'all 0.25s ease',
                   }}
@@ -409,74 +407,81 @@ export default function UserOnboarding() {
               boxShadow: `0 10px 28px ${alpha(TEXT_PRIMARY, 0.05)}`,
             }}
           >
-          {step === 1 && (
-            <StepOneForm
-              formData={formData}
-              errors={formErrors}
-              onChange={handleChange}
-              setFormData={setFormData}
-              setErrors={setFormErrors}
-              onNext={() => setStep(2)}
-            />
-          )}
-          {step === 2 && <StepTwoForm formData={formData} errors={formErrors} onChange={handleChange} />}
-          {step === 3 && (
-            <StepThree formData={formData} errors={formErrors} onChange={handleChange} setErrors={setFormErrors} />
-          )}
-
-          <Stack
-            direction="row"
-            spacing={2}
-            sx={{
-              mt: 4,
-              pt: 2.5,
-              borderTop: `1px solid ${alpha(PLUM, 0.08)}`,
-            }}
-          >
-            {step > 1 && (
-              <Button
-                onClick={() => setStep((p) => p - 1)}
-                startIcon={<MdArrowBack />}
-                sx={{
-                  color: PLUM,
-                  fontWeight: 800,
-                  textTransform: 'none',
-                  px: 3,
-                  borderRadius: 2,
-                  border: `1px solid ${alpha(PLUM, 0.12)}`,
-                  '&:hover': { bgcolor: alpha(PLUM, 0.05) },
-                }}
-              >
-                Previous
-              </Button>
+            {step === 1 && (
+              <StepOneForm
+                formData={formData}
+                errors={formErrors}
+                onChange={handleChange}
+                setFormData={setFormData}
+                setErrors={setFormErrors}
+                onNext={() => setStep(2)}
+              />
+            )}
+            {step === 2 && (
+              <StepTwoForm formData={formData} errors={formErrors} onChange={handleChange} />
+            )}
+            {step === 3 && (
+              <StepThree
+                formData={formData}
+                errors={formErrors}
+                onChange={handleChange}
+                setErrors={setFormErrors}
+              />
             )}
 
-            <CustomIconLoadingButton
-              fullWidth
-              loading={isPending}
-              onClick={handleNext}
-              text={step < steps.length ? 'Continue' : 'Complete Setup'}
-              loadingText={step < steps.length ? 'Saving...' : 'Finishing...'}
-              icon={step < steps.length ? <MdArrowForward /> : <FiCheckCircle />}
-              textColor="#FFF8F3"
-              styles={{
-                flex: 1,
-                bgcolor: PLUM,
-                borderRadius: 2,
-                fontWeight: 800,
-                fontSize: '1rem',
-                py: 1.25,
-                minHeight: 52,
-                boxShadow: `0 14px 30px ${alpha(PLUM, 0.24)}`,
-                '&:hover': { bgcolor: PLUM_DARK },
-                '& .MuiTypography-root': {
-                  fontWeight: 800,
-                  fontSize: '0.98rem',
-                  letterSpacing: '0.01em',
-                },
+            <Stack
+              direction="row"
+              spacing={2}
+              sx={{
+                mt: 4,
+                pt: 2.5,
+                borderTop: `1px solid ${alpha(PLUM, 0.08)}`,
               }}
-            />
-          </Stack>
+            >
+              {step > 1 && (
+                <Button
+                  onClick={() => setStep((p) => p - 1)}
+                  startIcon={<MdArrowBack />}
+                  sx={{
+                    color: PLUM,
+                    fontWeight: 800,
+                    textTransform: 'none',
+                    px: 3,
+                    borderRadius: 2,
+                    border: `1px solid ${alpha(PLUM, 0.12)}`,
+                    '&:hover': { bgcolor: alpha(PLUM, 0.05) },
+                  }}
+                >
+                  Previous
+                </Button>
+              )}
+
+              <CustomIconLoadingButton
+                fullWidth
+                loading={isPending}
+                onClick={handleNext}
+                text={step < steps.length ? 'Continue' : 'Complete Setup'}
+                loadingText={step < steps.length ? 'Saving...' : 'Finishing...'}
+                icon={step < steps.length ? <MdArrowForward /> : <FiCheckCircle />}
+                textColor="#FFF8F3"
+                styles={{
+                  flex: 1,
+                  bgcolor: PLUM,
+                  borderRadius: 2,
+                  fontWeight: 800,
+                  fontSize: '1rem',
+                  py: 1.25,
+                  minHeight: 52,
+                  boxShadow: `0 14px 30px ${alpha(PLUM, 0.24)}`,
+                  '&:hover': { bgcolor: PLUM_DARK },
+                  '& .MuiTypography-root': {
+                    fontWeight: 800,
+                    fontSize: '0.98rem',
+                    letterSpacing: '0.01em',
+                  },
+                }}
+              />
+            </Stack>
           </Box>
         </Box>
       </Paper>

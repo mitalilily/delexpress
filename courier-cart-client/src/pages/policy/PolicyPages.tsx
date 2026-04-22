@@ -10,7 +10,7 @@ const PolicyPages = () => {
       <Box display={'flex'} justifyContent={'center'}>
         <PageHeading
           title="Legal & Policy Information"
-          subtitle="All policies, terms, and privacy information for Delexpress"
+          subtitle="All policies, terms, and privacy information for ExpressoPro"
         />{' '}
       </Box>
 
@@ -33,11 +33,11 @@ const PolicyPages = () => {
           invoice via email. Once that invoice has been paid, no further charges will apply.
         </Typography>
         <Typography paragraph>
-          • Delexpress reserves the right to modify, suspend, or terminate the Service for
-          any reason, without prior notice at any time.
+          • ExpressoPro reserves the right to modify, suspend, or terminate the Service for any
+          reason, without prior notice at any time.
         </Typography>
         <Typography paragraph>
-          • Fraud Prevention: Without limiting any other remedies, Delexpress may suspend or
+          • Fraud Prevention: Without limiting any other remedies, ExpressoPro may suspend or
           terminate your account if we suspect that you (through conviction, settlement,
           investigation, or otherwise) have engaged in fraudulent or unlawful activity in connection
           with the Platform.
@@ -57,8 +57,8 @@ const PolicyPages = () => {
         </Box>
         <Typography paragraph>Last Updated: [Insert Date]</Typography>
         <Typography paragraph>
-          Delexpress ("we," "our," or "us") operates the services offered via our website
-          and related platforms (collectively, the “Platform”). Please read this Privacy Policy
+          ExpressoPro ("we," "our," or "us") operates the services offered via our website and
+          related platforms (collectively, the “Platform”). Please read this Privacy Policy
           carefully before accessing or using our Platform, as continued use indicates your
           acceptance of this Policy.
         </Typography>

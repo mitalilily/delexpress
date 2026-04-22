@@ -4,10 +4,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { db, pool } from '../models/client'
 import { users } from '../models/schema/users'
 
-const ADMIN_EMAIL = 'admin@delexpress.in'
+const ADMIN_EMAIL = 'admin@ExpressoPro.in'
 const ADMIN_PASSWORD = 'Admin@12345!'
 
-async function ensureDelexpressAdmin() {
+async function ensureExpressoProAdmin() {
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10)
   const [existing] = await db.select().from(users).where(eq(users.email, ADMIN_EMAIL))
 
@@ -41,9 +41,9 @@ async function ensureDelexpressAdmin() {
   console.log(`Admin login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`)
 }
 
-ensureDelexpressAdmin()
+ensureExpressoProAdmin()
   .catch((error) => {
-    console.error('Failed to ensure Delexpress admin:', error)
+    console.error('Failed to ensure ExpressoPro admin:', error)
     process.exitCode = 1
   })
   .finally(async () => {

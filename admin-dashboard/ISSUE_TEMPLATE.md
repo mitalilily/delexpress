@@ -1,6 +1,6 @@
 ## Summary
 
-Describe the issue clearly and include the affected DelExpress area.
+Describe the issue clearly and include the affected ExpressoPro area.
 
 ## Steps To Reproduce
 

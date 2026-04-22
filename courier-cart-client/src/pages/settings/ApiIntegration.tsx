@@ -256,7 +256,7 @@ const ApiIntegration = () => {
   const handleDownloadDocumentation = () => {
     const link = document.createElement('a')
     link.href = '/API_DOCUMENTATION.pdf'
-    link.download = 'Delexpress-API-Documentation-v1.pdf'
+    link.download = 'ExpressoPro-API-Documentation-v1.pdf'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)

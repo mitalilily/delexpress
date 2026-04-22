@@ -28,7 +28,7 @@ const getInitials = (fullName?: string) => {
 
   const parts = fullName.trim().split(/\s+/)
   const firstInitial = parts[0]?.[0] ?? ''
-  const lastInitial = parts.length > 1 ? parts.at(-1)?.[0] ?? '' : ''
+  const lastInitial = parts.length > 1 ? (parts.at(-1)?.[0] ?? '') : ''
 
   return `${firstInitial}${lastInitial}`.toUpperCase()
 }
@@ -170,10 +170,17 @@ const UserMenu = () => {
             </Avatar>
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="subtitle1" fontWeight={800} noWrap color={TEXT_PRIMARY}>
-                {user?.companyInfo?.contactPerson || user?.companyInfo?.businessName || 'Delexpress User'}
+                {user?.companyInfo?.contactPerson ||
+                  user?.companyInfo?.businessName ||
+                  'ExpressoPro User'}
               </Typography>
-              <Typography variant="body2" color="text.secondary" noWrap sx={{ fontSize: '12px', fontWeight: 500 }}>
-                {user?.companyInfo?.contactEmail || 'support@delexpress.in'}
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                noWrap
+                sx={{ fontSize: '12px', fontWeight: 500 }}
+              >
+                {user?.companyInfo?.contactEmail || 'support@ExpressoPro.in'}
               </Typography>
             </Box>
           </Stack>

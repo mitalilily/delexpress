@@ -31,11 +31,13 @@ function buildEkartWarehouseAlias(input: {
   id?: string | null
 }) {
   const seed = input.addressNickname || input.contactName || input.id || 'WAREHOUSE'
-  return String(seed)
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]/g, '_')
-    .replace(/_+/g, '_')
-    .slice(0, 50) || 'WAREHOUSE'
+  return (
+    String(seed)
+      .trim()
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .replace(/_+/g, '_')
+      .slice(0, 50) || 'WAREHOUSE'
+  )
 }
 
 function assertPresent(value: unknown, message: string, field?: string) {
@@ -48,12 +50,36 @@ function assertPresent(value: unknown, message: string, field?: string) {
 
 function preflightDelhiveryWarehouse(payload: CreatePickupDto) {
   const pickup = payload.pickup
-  assertPresent(pickup.contactName, 'Pickup contact name is required before registering courier warehouses.', 'pickup.contactName')
-  assertPresent(pickup.contactPhone, 'Pickup phone is required before registering courier warehouses.', 'pickup.contactPhone')
-  assertPresent(pickup.addressLine1, 'Pickup address is required before registering courier warehouses.', 'pickup.addressLine1')
-  assertPresent(pickup.city, 'Pickup city is required before registering courier warehouses.', 'pickup.city')
-  assertPresent(pickup.state, 'Pickup state is required before registering courier warehouses.', 'pickup.state')
-  assertPresent(pickup.pincode, 'Pickup pincode is required before registering courier warehouses.', 'pickup.pincode')
+  assertPresent(
+    pickup.contactName,
+    'Pickup contact name is required before registering courier warehouses.',
+    'pickup.contactName',
+  )
+  assertPresent(
+    pickup.contactPhone,
+    'Pickup phone is required before registering courier warehouses.',
+    'pickup.contactPhone',
+  )
+  assertPresent(
+    pickup.addressLine1,
+    'Pickup address is required before registering courier warehouses.',
+    'pickup.addressLine1',
+  )
+  assertPresent(
+    pickup.city,
+    'Pickup city is required before registering courier warehouses.',
+    'pickup.city',
+  )
+  assertPresent(
+    pickup.state,
+    'Pickup state is required before registering courier warehouses.',
+    'pickup.state',
+  )
+  assertPresent(
+    pickup.pincode,
+    'Pickup pincode is required before registering courier warehouses.',
+    'pickup.pincode',
+  )
 }
 
 function preflightEkartWarehouse(payload: CreatePickupDto) {
@@ -70,7 +96,10 @@ function preflightEkartWarehouse(payload: CreatePickupDto) {
   }
 }
 
-function preflightWarehouseSyncTargets(syncTargets: Awaited<ReturnType<typeof getWarehouseSyncTargets>>, payload: CreatePickupDto) {
+function preflightWarehouseSyncTargets(
+  syncTargets: Awaited<ReturnType<typeof getWarehouseSyncTargets>>,
+  payload: CreatePickupDto,
+) {
   if (syncTargets.delhivery.shouldSync) {
     preflightDelhiveryWarehouse(payload)
   }
@@ -94,18 +123,11 @@ function hasDelhiveryCredentials(config: DelhiveryConfig | null) {
 }
 
 function hasEkartCredentials(config: EkartConfig | null) {
-  return !!(
-    config?.clientId?.trim() &&
-    config?.username?.trim() &&
-    config?.password?.trim()
-  )
+  return !!(config?.clientId?.trim() && config?.username?.trim() && config?.password?.trim())
 }
 
 function hasXpressbeesCredentials(config: XpressbeesConfig | null) {
-  return !!(
-    config?.apiToken?.trim() ||
-    (config?.email?.trim() && config?.password?.trim())
-  )
+  return !!(config?.apiToken?.trim() || (config?.email?.trim() && config?.password?.trim()))
 }
 
 async function canSyncWarehouseToProvider(serviceProvider: 'delhivery' | 'ekart' | 'xpressbees') {
@@ -243,7 +265,7 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
         const delhivery = new DelhiveryService()
         const delhiveryResp = await delhivery.createWarehouse({
           name: pickupAddr.addressNickname ?? pickupAddr.contactName ?? 'Default Warehouse',
-          registered_name: 'Delexpress',
+          registered_name: 'ExpressoPro',
           phone: pickupAddr.contactPhone,
           email: pickupAddr.contactEmail ?? '',
           address: pickupAddr.addressLine1,
@@ -327,7 +349,7 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
 
         const payload = {
           alias,
-          contactName: pickupAddr.contactName || 'Delexpress',
+          contactName: pickupAddr.contactName || 'ExpressoPro',
           phone: Number(phoneDigits) || 0,
           email: pickupAddr.contactEmail || '',
           addressLine1: pickupAddr.addressLine1,
@@ -338,7 +360,7 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
           country: (pickupAddr.country || 'India').toUpperCase(),
           geo,
           returnAddress: {
-            contactName: pickupAddr.contactName || 'Delexpress',
+            contactName: pickupAddr.contactName || 'ExpressoPro',
             phone: Number(phoneDigits) || 0,
             addressLine1: pickupAddr.addressLine1,
             addressLine2: pickupAddr.addressLine2 || '',
@@ -352,7 +374,10 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
         await ekart.createWarehouse(payload)
         console.log(`✅ Ekart warehouse registered: ${alias}`)
       } catch (err: any) {
-        console.error('❌ Failed to register Ekart warehouse:', err?.response?.data || err?.message || err)
+        console.error(
+          '❌ Failed to register Ekart warehouse:',
+          err?.response?.data || err?.message || err,
+        )
         const ekartErr: any = new Error(
           'Ekart warehouse registration failed. No pickup location was saved. Please fix the pickup details and try again.',
         )
@@ -615,7 +640,7 @@ export async function getPickupAddressesService(
         createdAt: addresses.createdAt,
         updatedAt: addresses.updatedAt,
       },
-      rto: sql/*sql*/ `
+      rto: sql /*sql*/ `
       CASE 
         WHEN ${pickupAddresses.isRTOSame} = false THEN (
           SELECT row_to_json(a)

@@ -9,11 +9,7 @@ const CancellationPolicy = () => {
       <List sx={{ listStyleType: 'disc', pl: 3 }}>
         <ListItem sx={{ display: 'list-item' }}>
           <ListItemText
-            primary={
-              <>
-                You may cancel your account at any time by contacting our support team.
-              </>
-            }
+            primary={<>You may cancel your account at any time by contacting our support team.</>}
           />
         </ListItem>
 
@@ -26,11 +22,11 @@ const CancellationPolicy = () => {
         </ListItem>
 
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="Delexpress reserves the right to modify, suspend, or terminate the Service for any reason, without prior notice at any time." />
+          <ListItemText primary="ExpressoPro reserves the right to modify, suspend, or terminate the Service for any reason, without prior notice at any time." />
         </ListItem>
 
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="Fraud Prevention: Without limiting any other remedies, Delexpress may suspend or terminate your account if we suspect that you have engaged in fraudulent or unlawful activity in connection with the Platform." />
+          <ListItemText primary="Fraud Prevention: Without limiting any other remedies, ExpressoPro may suspend or terminate your account if we suspect that you have engaged in fraudulent or unlawful activity in connection with the Platform." />
         </ListItem>
 
         <ListItem sx={{ display: 'list-item' }}>

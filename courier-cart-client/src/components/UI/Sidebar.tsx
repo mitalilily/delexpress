@@ -241,19 +241,13 @@ const navItems: NavItem[] = [
   },
 ]
 
-export default function Sidebar({
-  role = 'customer',
-  pinned,
-  hovered,
-  setHovered,
-}: SidebarProps) {
+export default function Sidebar({ role = 'customer', pinned, hovered, setHovered }: SidebarProps) {
   const location = useLocation()
   const theme = useTheme()
   const isSidebarExpanded = pinned || hovered
 
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
-  const toggleExpand = (key: string) =>
-    setExpandedItems((prev) => ({ ...prev, [key]: !prev[key] }))
+  const toggleExpand = (key: string) => setExpandedItems((prev) => ({ ...prev, [key]: !prev[key] }))
 
   useEffect(() => {
     if (!isSidebarExpanded) {
@@ -300,7 +294,9 @@ export default function Sidebar({
         const isSelected = isActive(location.pathname, item.path)
         const hasChildren = item.children && item.children.length > 0
         const isExpanded = expandedItems[item.text]
-        const childSelected = Boolean(item.children?.some((sub) => isActive(location.pathname, sub.path)))
+        const childSelected = Boolean(
+          item.children?.some((sub) => isActive(location.pathname, sub.path)),
+        )
         const showExpanded = isSidebarExpanded && isExpanded
 
         return (
@@ -420,8 +416,8 @@ export default function Sidebar({
       <Box sx={{ p: 2.5, mb: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <Box
           component="img"
-          src="/logo/delexpress-logo.svg"
-          alt="Delexpress"
+          src="/logo/ExpressoPro-logo.svg"
+          alt="ExpressoPro"
           sx={{
             width: isSidebarExpanded ? 122 : 32,
             height: isSidebarExpanded ? 30 : 32,
@@ -442,7 +438,7 @@ export default function Sidebar({
                 letterSpacing: -0.5,
               }}
             >
-              Delexpress
+              ExpressoPro
             </Typography>
             <Typography
               sx={{
@@ -474,13 +470,15 @@ export default function Sidebar({
               fontSize: '0.65rem',
             }}
           >
-            Delexpress navigation
+            ExpressoPro navigation
           </Typography>
         )}
         {renderNavList(navItems.filter((i) => i.roles.includes(role || 'customer')))}
       </Box>
 
-      <Box sx={{ p: 1.5, borderTop: `1px solid ${alpha(DE_BLUE, 0.08)}`, bgcolor: alpha(MINT, 0.03) }}>
+      <Box
+        sx={{ p: 1.5, borderTop: `1px solid ${alpha(DE_BLUE, 0.08)}`, bgcolor: alpha(MINT, 0.03) }}
+      >
         <ListItemButton
           component={NavLink}
           to="/settings"

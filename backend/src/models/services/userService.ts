@@ -585,7 +585,7 @@ export async function createUserWithWallet(data: Partial<IUser>, txn: any = db) 
       printer_type: 'thermal',
       char_limit: 25,
       max_items: 3,
-      powered_by: 'Delexpress',
+      powered_by: 'ExpressoPro',
       order_info: {
         orderId: true,
         invoiceNumber: true,

@@ -52,7 +52,7 @@ const CarrierLogos: React.FC = () => {
             fontSize: '0.95rem',
           }}
         >
-          Connected carriers and commerce brands moving inside one Delexpress flow.
+          Connected carriers and commerce brands moving inside one ExpressoPro flow.
         </Typography>
       </Stack>
 

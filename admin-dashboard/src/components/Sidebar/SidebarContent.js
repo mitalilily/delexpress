@@ -12,7 +12,10 @@ const SidebarContent = ({ logoText, routes, sidebarWidth }) => {
 
   const sidebarBg = useColorModeValue('rgba(255, 253, 249, 0.96)', 'rgba(36, 9, 20, 0.94)')
   const sidebarBorder = useColorModeValue('rgba(138, 31, 67, 0.14)', 'rgba(228, 138, 165, 0.24)')
-  const sidebarShadow = useColorModeValue('10px 0 32px rgba(36, 9, 20, 0.1)', '10px 0 32px rgba(0, 0, 0, 0.38)')
+  const sidebarShadow = useColorModeValue(
+    '10px 0 32px rgba(36, 9, 20, 0.1)',
+    '10px 0 32px rgba(0, 0, 0, 0.38)',
+  )
   const activeBg = useColorModeValue('rgba(138, 31, 67, 0.1)', 'rgba(228, 138, 165, 0.16)')
   const hoverBg = useColorModeValue('rgba(138, 31, 67, 0.06)', 'rgba(255, 255, 255, 0.08)')
   const activeBorder = useColorModeValue('rgba(138, 31, 67, 0.22)', 'rgba(228, 138, 165, 0.28)')
@@ -91,7 +94,11 @@ const SidebarContent = ({ logoText, routes, sidebarWidth }) => {
           </Box>
         )}
         {showText && (
-          <Text color={isActive ? BRAND_PRIMARY : textColor} fontWeight={isActive ? '700' : '600'} fontSize={textSize}>
+          <Text
+            color={isActive ? BRAND_PRIMARY : textColor}
+            fontWeight={isActive ? '700' : '600'}
+            fontSize={textSize}
+          >
             {prop.name}
           </Text>
         )}
@@ -222,12 +229,25 @@ const SidebarContent = ({ logoText, routes, sidebarWidth }) => {
             border="1px solid"
             borderColor={brandCardBorder}
           >
-            <Box as="img" src="/delexpress-logo.svg" alt="Delexpress" h="34px" w="132px" objectFit="contain" />
+            <Box
+              as="img"
+              src="/ExpressoPro-logo.svg"
+              alt="ExpressoPro"
+              h="34px"
+              w="132px"
+              objectFit="contain"
+            />
             <Box textAlign="left">
               <Text fontWeight="800" fontSize="15px" color={brandText}>
                 {logoText}
               </Text>
-              <Text fontSize="10px" fontWeight="700" letterSpacing="1px" textTransform="uppercase" color={BRAND_SECONDARY}>
+              <Text
+                fontSize="10px"
+                fontWeight="700"
+                letterSpacing="1px"
+                textTransform="uppercase"
+                color={BRAND_SECONDARY}
+              >
                 Shipping control
               </Text>
             </Box>
@@ -235,8 +255,8 @@ const SidebarContent = ({ logoText, routes, sidebarWidth }) => {
         ) : (
           <Box
             as="img"
-            src="/delexpress-logo.svg"
-            alt="Delexpress"
+            src="/ExpressoPro-logo.svg"
+            alt="ExpressoPro"
             h="32px"
             w="48px"
             mx="auto"

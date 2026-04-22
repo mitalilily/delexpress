@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios'
-import { EkartConfig, getEffectiveCourierConfig } from '../courierCredentials.service'
 import { HttpError } from '../../../utils/classes'
+import { EkartConfig, getEffectiveCourierConfig } from '../courierCredentials.service'
 
 export type EkartServiceabilityDetail = {
   status: boolean
@@ -85,10 +85,14 @@ export class EkartService {
       wbn: payload?.wbn ?? payload?.awb_number ?? payload?.tracking_id ?? null,
       payment_type: payload?.payment_type ?? payload?.payment_mode ?? null,
       courier_id: payload?.courier_id ?? null,
-      package_weight: payload?.package_weight ?? payload?.package?.weight ?? payload?.weight ?? null,
-      package_length: payload?.package_length ?? payload?.package?.length ?? payload?.length ?? null,
-      package_breadth: payload?.package_breadth ?? payload?.package?.breadth ?? payload?.width ?? null,
-      package_height: payload?.package_height ?? payload?.package?.height ?? payload?.height ?? null,
+      package_weight:
+        payload?.package_weight ?? payload?.package?.weight ?? payload?.weight ?? null,
+      package_length:
+        payload?.package_length ?? payload?.package?.length ?? payload?.length ?? null,
+      package_breadth:
+        payload?.package_breadth ?? payload?.package?.breadth ?? payload?.width ?? null,
+      package_height:
+        payload?.package_height ?? payload?.package?.height ?? payload?.height ?? null,
       order_amount: payload?.order_amount ?? payload?.total_amount ?? null,
       collectable_amount: payload?.collectable_amount ?? payload?.cod_amount ?? null,
       tax_value: payload?.tax_value ?? payload?.taxValue ?? null,
@@ -97,7 +101,8 @@ export class EkartService {
       invoice_date: payload?.invoice_date ?? null,
       invoice_amount: payload?.invoice_amount ?? payload?.total_amount ?? null,
       seller_name: payload?.seller_name ?? null,
-      consignee_name: payload?.consignee_name ?? payload?.drop?.name ?? payload?.drop_location?.name ?? null,
+      consignee_name:
+        payload?.consignee_name ?? payload?.drop?.name ?? payload?.drop_location?.name ?? null,
       consignee_phone: this.maskPhone(
         payload?.consignee_phone ??
           payload?.consignee_alternate_phone ??
@@ -121,15 +126,16 @@ export class EkartService {
               phone: this.maskPhone(payload.pickup_location.phone),
             }
           : null,
-      consignee: payload?.drop || payload?.drop_location
-        ? {
-            name: payload?.drop?.name ?? payload?.drop_location?.name ?? null,
-            city: payload?.drop?.city ?? payload?.drop_location?.city ?? null,
-            state: payload?.drop?.state ?? payload?.drop_location?.state ?? null,
-            pincode: payload?.drop?.pincode ?? payload?.drop_location?.pin ?? null,
-            phone: this.maskPhone(payload?.drop?.phone ?? payload?.drop_location?.phone),
-          }
-        : null,
+      consignee:
+        payload?.drop || payload?.drop_location
+          ? {
+              name: payload?.drop?.name ?? payload?.drop_location?.name ?? null,
+              city: payload?.drop?.city ?? payload?.drop_location?.city ?? null,
+              state: payload?.drop?.state ?? payload?.drop_location?.state ?? null,
+              pincode: payload?.drop?.pincode ?? payload?.drop_location?.pin ?? null,
+              phone: this.maskPhone(payload?.drop?.phone ?? payload?.drop_location?.phone),
+            }
+          : null,
       order_items_count: Array.isArray(payload?.items)
         ? payload.items.length
         : Array.isArray(payload?.order_items)
@@ -295,7 +301,9 @@ export class EkartService {
       0,
     )
     const totalTaxValue = Number(
-      normalizedItems.reduce((sum: number, item: any) => sum + this.toNumber(item.tax_value, 0), 0).toFixed(2),
+      normalizedItems
+        .reduce((sum: number, item: any) => sum + this.toNumber(item.tax_value, 0), 0)
+        .toFixed(2),
     )
     const orderAmount = this.toNumber(payload?.order_amount ?? payload?.invoice_amount, 0)
     const computedTotalAmount = orderAmount > 0 ? orderAmount : itemSubtotal + totalTaxValue
@@ -304,7 +312,10 @@ export class EkartService {
     const packageWeightGrams = this.normalizeWeightToGrams(payload?.package_weight)
     const packageDimensions = this.getEkartDimensions(payload)
 
-    const sellerName = this.sanitizeText(payload?.company?.name || payload?.pickup?.name, 'Delexpress')
+    const sellerName = this.sanitizeText(
+      payload?.company?.name || payload?.pickup?.name,
+      'ExpressoPro',
+    )
     const sellerAddress = [
       this.sanitizeText(payload?.pickup?.address),
       this.sanitizeText(payload?.pickup?.address_2),
@@ -353,7 +364,8 @@ export class EkartService {
     const invoiceDate = this.getNormalizedInvoiceDate(payload)
     const invoiceNumber = this.sanitizeText(payload?.invoice_number || payload?.order_number)
     const categoryOfGoods = this.sanitizeText(
-      payload?.category_of_goods || normalizedItems.map((item: any) => item.product_name).join(', '),
+      payload?.category_of_goods ||
+        normalizedItems.map((item: any) => item.product_name).join(', '),
       'General Merchandise',
     )
     const hsnCode = this.sanitizeText(
@@ -371,9 +383,7 @@ export class EkartService {
 
     return {
       order_number: payload?.order_number,
-      ...(this.sanitizeText(payload?.wbn)
-        ? { wbn: this.sanitizeText(payload?.wbn) }
-        : {}),
+      ...(this.sanitizeText(payload?.wbn) ? { wbn: this.sanitizeText(payload?.wbn) } : {}),
       invoice_number: invoiceNumber,
       invoice_date: invoiceDate,
       document_number: this.sanitizeText(payload?.document_number) || undefined,
@@ -392,7 +402,10 @@ export class EkartService {
       hsn_code: hsnCode || undefined,
       products_desc: normalizedItems.map((item: any) => item.product_name).join(', '),
       payment_mode: paymentMode,
-      return_reason: paymentMode === 'Pickup' ? this.sanitizeText(payload?.return_reason, 'Reverse pickup') : undefined,
+      return_reason:
+        paymentMode === 'Pickup'
+          ? this.sanitizeText(payload?.return_reason, 'Reverse pickup')
+          : undefined,
       cod_amount: codAmount,
       total_amount: computedTotalAmount,
       tax_value: totalTaxValue,
@@ -406,7 +419,10 @@ export class EkartService {
         name: pickupLocationAlias,
       },
       drop_location: {
-        location_type: this.sanitizeText(payload?.drop_location?.location_type || payload?.consignee?.location_type, 'Office'),
+        location_type: this.sanitizeText(
+          payload?.drop_location?.location_type || payload?.consignee?.location_type,
+          'Office',
+        ),
         name: dropContact.name,
         address: dropContact.address1,
         city: dropContact.city,
@@ -419,7 +435,8 @@ export class EkartService {
         name: returnLocationAlias,
       },
       preferred_dispatch_date: this.sanitizeText(payload?.preferred_dispatch_date) || undefined,
-      delayed_dispatch: typeof payload?.delayed_dispatch === 'boolean' ? payload.delayed_dispatch : undefined,
+      delayed_dispatch:
+        typeof payload?.delayed_dispatch === 'boolean' ? payload.delayed_dispatch : undefined,
       obd_shipment: typeof payload?.obd_shipment === 'boolean' ? payload.obd_shipment : undefined,
       mps: typeof payload?.mps === 'boolean' ? payload.mps : undefined,
       qc_details: payload?.qc_details || undefined,
@@ -587,11 +604,11 @@ export class EkartService {
 
     const hasChargeSignal = Boolean(
       availability?.forwardDeliveredCharges ||
-        availability?.rtoDeliveredCharges ||
-        availability?.reverseDeliveredCharges ||
-        raw?.forwardDeliveredCharges ||
-        raw?.rtoDeliveredCharges ||
-        raw?.reverseDeliveredCharges,
+      availability?.rtoDeliveredCharges ||
+      availability?.reverseDeliveredCharges ||
+      raw?.forwardDeliveredCharges ||
+      raw?.rtoDeliveredCharges ||
+      raw?.reverseDeliveredCharges,
     )
 
     const serviceable =
@@ -641,9 +658,10 @@ export class EkartService {
       raw?.estimated_delivery_days,
       raw?.eta_days,
     ]
-    const tat = tatCandidates
-      .map((value) => Number(value))
-      .find((value) => Number.isFinite(value) && value > 0) ?? null
+    const tat =
+      tatCandidates
+        .map((value) => Number(value))
+        .find((value) => Number.isFinite(value) && value > 0) ?? null
 
     return {
       serviceable,

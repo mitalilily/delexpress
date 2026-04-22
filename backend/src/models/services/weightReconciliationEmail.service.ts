@@ -5,7 +5,7 @@ import path from 'path'
 const env = process.env.NODE_ENV || 'development'
 dotenv.config({ path: path.resolve(__dirname, `../../.env.${env}`) })
 
-const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@Delexpress.in'
+const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@ExpressoPro.in'
 const GOOGLE_SMTP_USER = process.env.GOOGLE_SMTP_USER || EMAIL_FROM
 const GOOGLE_SMTP_PASSWORD = process.env.GOOGLE_SMTP_PASSWORD!
 const SMTP_HOST = process.env.SMTP_HOST
@@ -40,7 +40,7 @@ async function sendEmail(to: string, subject: string, htmlContent: string) {
       })
 
   const mailOptions = {
-    from: `"Delexpress" <${EMAIL_FROM}>`,
+    from: `"ExpressoPro" <${EMAIL_FROM}>`,
     to,
     subject,
     html: htmlContent,
@@ -111,8 +111,8 @@ export async function sendWeightDiscrepancyEmail(data: WeightDiscrepancyNotifica
   const subject = autoAccepted
     ? `✅ Weight Discrepancy Auto-Accepted - Order ${orderNumber}`
     : isLargeDiscrepancy
-    ? `🚨 URGENT: Large Weight Discrepancy Detected - Order ${orderNumber}`
-    : `⚖️ Weight Discrepancy Detected - Order ${orderNumber}`
+      ? `🚨 URGENT: Large Weight Discrepancy Detected - Order ${orderNumber}`
+      : `⚖️ Weight Discrepancy Detected - Order ${orderNumber}`
 
   const html = `
       <!DOCTYPE html>
@@ -126,8 +126,8 @@ export async function sendWeightDiscrepancyEmail(data: WeightDiscrepancyNotifica
           .alert { background: ${
             autoAccepted ? '#d4edda' : isLargeDiscrepancy ? '#fff3cd' : '#d1ecf1'
           }; border-left: 4px solid ${
-    autoAccepted ? '#28a745' : isLargeDiscrepancy ? '#ffc107' : '#0dcaf0'
-  }; padding: 15px; margin: 20px 0; }
+            autoAccepted ? '#28a745' : isLargeDiscrepancy ? '#ffc107' : '#0dcaf0'
+          }; padding: 15px; margin: 20px 0; }
           .auto-accept-info { background: #e7f3ff; border-left: 4px solid #333369; padding: 15px; margin: 20px 0; border-radius: 4px; }
           .details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
           .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
@@ -162,8 +162,8 @@ export async function sendWeightDiscrepancyEmail(data: WeightDiscrepancyNotifica
                       <li><strong>Discrepancy Accepted:</strong> The weight difference (${Math.abs(
                         weightDifference,
                       ).toFixed(3)} kg) was within your auto-acceptance threshold${
-                    autoAcceptThreshold ? ` (${autoAcceptThreshold} kg)` : ''
-                  }</li>
+                        autoAcceptThreshold ? ` (${autoAcceptThreshold} kg)` : ''
+                      }</li>
                       <li><strong>Order Updated:</strong> The order's shipping charge has been updated to reflect the actual weight</li>
                       ${
                         additionalCharge > 0
@@ -179,8 +179,8 @@ export async function sendWeightDiscrepancyEmail(data: WeightDiscrepancyNotifica
                     </p>
                   </div>`
                 : isLargeDiscrepancy
-                ? '<div class="alert"><strong>⚠️ URGENT:</strong> A significant weight discrepancy has been detected that requires your immediate attention.</div>'
-                : '<p>A weight discrepancy has been detected for one of your orders.</p>'
+                  ? '<div class="alert"><strong>⚠️ URGENT:</strong> A significant weight discrepancy has been detected that requires your immediate attention.</div>'
+                  : '<p>A weight discrepancy has been detected for one of your orders.</p>'
             }
             
             <div class="details">
@@ -267,8 +267,8 @@ export async function sendWeightDiscrepancyEmail(data: WeightDiscrepancyNotifica
           </div>
           
           <div class="footer">
-            <p>This is an automated notification from Delexpress Weight Reconciliation System</p>
-            <p>© ${new Date().getFullYear()} Delexpress. All rights reserved.</p>
+            <p>This is an automated notification from ExpressoPro Weight Reconciliation System</p>
+            <p>© ${new Date().getFullYear()} ExpressoPro. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -386,8 +386,8 @@ export async function sendDailySummaryEmail(data: DailySummaryData) {
                         d.status === 'pending'
                           ? '#F39C12'
                           : d.status === 'accepted'
-                          ? '#27AE60'
-                          : '#3498DB'
+                            ? '#27AE60'
+                            : '#3498DB'
                       };">${d.status.toUpperCase()}</span></td>
                     </tr>
                   `,
@@ -414,11 +414,11 @@ export async function sendDailySummaryEmail(data: DailySummaryData) {
           </div>
           
           <div class="footer">
-            <p>This is an automated daily summary from Delexpress</p>
+            <p>This is an automated daily summary from ExpressoPro</p>
             <p>You can manage email preferences in your <a href="${
               process.env.FRONTEND_URL || 'http://localhost:5173'
             }/reconciliation/weight/settings">settings</a></p>
-            <p>© ${new Date().getFullYear()} Delexpress. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} ExpressoPro. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -501,7 +501,7 @@ export async function sendDisputeUpdateEmail(
           </div>
           
           <div class="footer">
-            <p>© ${new Date().getFullYear()} Delexpress. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} ExpressoPro. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -711,8 +711,8 @@ export async function sendWeeklyReportEmail(data: WeeklyReportData) {
                         d.status === 'pending'
                           ? '#F39C12'
                           : d.status === 'accepted'
-                          ? '#27AE60'
-                          : '#3498DB'
+                            ? '#27AE60'
+                            : '#3498DB'
                       };">${d.status.toUpperCase()}</span></td>
                     </tr>
                   `,
@@ -734,11 +734,11 @@ export async function sendWeeklyReportEmail(data: WeeklyReportData) {
           </div>
           
           <div class="footer">
-            <p>This is an automated weekly report from Delexpress</p>
+            <p>This is an automated weekly report from ExpressoPro</p>
             <p>You can manage email preferences in your <a href="${
               process.env.FRONTEND_URL || 'http://localhost:5173'
             }/reconciliation/weight/settings">settings</a></p>
-            <p>© ${new Date().getFullYear()} Delexpress. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} ExpressoPro. All rights reserved.</p>
           </div>
         </div>
       </body>

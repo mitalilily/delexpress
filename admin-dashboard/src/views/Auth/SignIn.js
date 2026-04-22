@@ -165,7 +165,14 @@ function SignIn() {
           <VStack align="flex-start" spacing={5} position="relative" zIndex="1">
             <HStack spacing={2.5} flexWrap="wrap">
               {['Operations', 'Billing', 'Analytics'].map((tag) => (
-                <Box key={tag} px={3} py={1.5} borderRadius="999px" bg={chipBg} border={`1px solid ${chipBorder}`}>
+                <Box
+                  key={tag}
+                  px={3}
+                  py={1.5}
+                  borderRadius="999px"
+                  bg={chipBg}
+                  border={`1px solid ${chipBorder}`}
+                >
                   <Text fontSize="xs" fontWeight="700" color={textSecondary}>
                     {tag}
                   </Text>
@@ -174,9 +181,16 @@ function SignIn() {
             </HStack>
 
             <HStack spacing={3}>
-              <Box as="img" src="/delexpress-logo.svg" alt="Delexpress" h="52px" w="180px" objectFit="contain" />
+              <Box
+                as="img"
+                src="/ExpressoPro-logo.svg"
+                alt="ExpressoPro"
+                h="52px"
+                w="180px"
+                objectFit="contain"
+              />
               <Text fontSize="sm" fontWeight="800" letterSpacing="0.6px" color={textSecondary}>
-                DELEXPRESS
+                ExpressoPro
               </Text>
             </HStack>
 
@@ -195,11 +209,17 @@ function SignIn() {
 
             <Text color={textSecondary} fontSize="sm" maxW="360px" lineHeight="1.8">
               Review orders, compare courier movement, and manage finance operations from one calm,
-              Delexpress admin panel.
+              ExpressoPro admin panel.
             </Text>
           </VStack>
 
-          <HStack spacing={3} position="relative" zIndex="1" flexWrap="wrap" pt={{ base: 5, lg: 0 }}>
+          <HStack
+            spacing={3}
+            position="relative"
+            zIndex="1"
+            flexWrap="wrap"
+            pt={{ base: 5, lg: 0 }}
+          >
             {[
               { value: '24/7', label: 'ops visibility' },
               { value: '1', label: 'admin workspace' },
@@ -225,7 +245,13 @@ function SignIn() {
           </HStack>
         </Flex>
 
-        <Flex w={{ base: '100%', lg: '54%' }} align="center" justify="center" px={{ base: 5, md: 8 }} py={{ base: 7, md: 9 }}>
+        <Flex
+          w={{ base: '100%', lg: '54%' }}
+          align="center"
+          justify="center"
+          px={{ base: 5, md: 8 }}
+          py={{ base: 7, md: 9 }}
+        >
           <Box as="form" onSubmit={handleSubmit} w="100%" maxW="450px">
             <VStack spacing={6} align="stretch">
               <Box>
@@ -255,7 +281,7 @@ function SignIn() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@delexpress.in"
+                  placeholder="admin@ExpressoPro.in"
                   h="52px"
                   borderRadius="18px"
                   bg={inputBg}

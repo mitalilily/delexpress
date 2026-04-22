@@ -56,12 +56,11 @@ export class XpressbeesService {
   private businessUnit =
     process.env.XPRESSBEES_BUSINESS_UNIT ||
     process.env.XPRESSBEES_BUSINESS_ACCOUNT_NAME ||
-    'DELEXPRESS B2C NDD'
+    'ExpressoPro B2C NDD'
   private businessFlow = process.env.XPRESSBEES_BUSINESS_FLOW || 'NDD'
   private businessService = process.env.XPRESSBEES_BUSINESS_SERVICE || 'NDD'
   private tokenEndpoint =
-    process.env.XPRESSBEES_TOKEN_ENDPOINT ||
-    'https://userauthapis.xbees.in/api/auth/generateToken'
+    process.env.XPRESSBEES_TOKEN_ENDPOINT || 'https://userauthapis.xbees.in/api/auth/generateToken'
   private serviceabilityEndpoint =
     process.env.XPRESSBEES_SERVICEABILITY_ENDPOINT ||
     'https://xbmasterapi.xbees.in/expose/get/serviceabilitypincode/details'
@@ -164,9 +163,7 @@ export class XpressbeesService {
 
   private extractValidationMessages(value: any): string[] {
     const details = Array.isArray(value?.details) ? value.details : []
-    return details
-      .map((item: any) => String(item?.message || '').trim())
-      .filter(Boolean)
+    return details.map((item: any) => String(item?.message || '').trim()).filter(Boolean)
   }
 
   private async ensureConfigLoaded() {
@@ -240,12 +237,12 @@ export class XpressbeesService {
       payload?.pickup?.addressNickname ||
       payload?.order_number ||
       payload?.unique_order_number ||
-      'DELEXPRESS'
+      'ExpressoPro'
 
     const normalizedDerived = this.normalizeVendorCode(derivedSeed)
     if (normalizedDerived) return normalizedDerived
 
-    return 'DELEXPRESS'
+    return 'ExpressoPro'
   }
 
   private extractAwbFromResponse(raw: any): string {
@@ -471,23 +468,20 @@ export class XpressbeesService {
   private isInvalidTokenError(err: any): boolean {
     const status = Number(err?.response?.status || 0)
     const message = String(
-      err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        '',
+      err?.response?.data?.message || err?.response?.data?.error || err?.message || '',
     ).toLowerCase()
 
-    return status === 401 || message.includes('invalid token') || message.includes('missing or invalid token')
+    return (
+      status === 401 ||
+      message.includes('invalid token') ||
+      message.includes('missing or invalid token')
+    )
   }
 
   private isInvalidTokenResponse(raw: any): boolean {
     const returnCode = Number(raw?.ReturnCode ?? raw?.returnCode ?? raw?.code ?? 0)
     const message = String(
-      raw?.ReturnMessage?.message ||
-        raw?.ReturnMessage ||
-        raw?.message ||
-        raw?.error ||
-        '',
+      raw?.ReturnMessage?.message || raw?.ReturnMessage || raw?.message || raw?.error || '',
     ).toLowerCase()
 
     return (
@@ -850,7 +844,9 @@ export class XpressbeesService {
         } catch (err: any) {
           lastError = err
           this.log('Auth attempt failed', {
-            url: this.isAbsoluteUrl(endpoint) ? endpoint : `${this.baseApi}${this.buildEndpoint(endpoint)}`,
+            url: this.isAbsoluteUrl(endpoint)
+              ? endpoint
+              : `${this.baseApi}${this.buildEndpoint(endpoint)}`,
             payloadKeys: Object.keys(body),
             status: err?.response?.status || null,
             statusText: err?.response?.statusText || null,
@@ -1014,7 +1010,9 @@ export class XpressbeesService {
       courier_id: payload?.courier_id ? String(payload.courier_id) : '',
       service_type:
         runtimeAwb.serviceType ||
-        this.normalizeServiceType(payload?.service_type || payload?.serviceType || payload?.transport_speed) ||
+        this.normalizeServiceType(
+          payload?.service_type || payload?.serviceType || payload?.transport_speed,
+        ) ||
         undefined,
       ...this.buildBusinessUnitFields(),
       ...this.buildBusinessFlowFields(
@@ -1044,9 +1042,7 @@ export class XpressbeesService {
     }
     const response = await this.requestWithFallback<XpressbeesShipmentResponse>({
       method: 'post',
-      pathCandidates: [
-        this.shipmentEndpoint,
-      ],
+      pathCandidates: [this.shipmentEndpoint],
       data: body,
     })
 

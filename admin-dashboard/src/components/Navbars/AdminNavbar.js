@@ -13,7 +13,16 @@ import AdminNavbarLinks from './AdminNavbarLinks'
 
 export default function AdminNavbar(props) {
   const [scrolled, setScrolled] = useState(false)
-  const { variant, children, fixed, secondary, brandText, onOpen, sidebarWidth = 275, ...rest } = props
+  const {
+    variant,
+    children,
+    fixed,
+    secondary,
+    brandText,
+    onOpen,
+    sidebarWidth = 275,
+    ...rest
+  } = props
 
   let mainText = useColorModeValue('gray.800', 'gray.100')
   let secondaryText = useColorModeValue('gray.500', 'gray.400')
@@ -32,7 +41,10 @@ export default function AdminNavbar(props) {
     'linear-gradient(110deg, rgba(255,253,249,0.94) 0%, rgba(247,242,237,0.92) 100%)',
     'linear-gradient(110deg, rgba(36,9,20,0.94) 0%, rgba(61,17,34,0.92) 100%)',
   )
-  const fixedNavbarBorder = useColorModeValue('1px solid rgba(138, 31, 67, 0.14)', '1px solid rgba(228, 138, 165, 0.22)')
+  const fixedNavbarBorder = useColorModeValue(
+    '1px solid rgba(138, 31, 67, 0.14)',
+    '1px solid rgba(228, 138, 165, 0.22)',
+  )
 
   if (fixed === true && scrolled === true) {
     navbarPosition = 'fixed'
@@ -87,12 +99,17 @@ export default function AdminNavbar(props) {
         xl: `calc(100vw - ${sidebarWidth + 56}px)`,
       }}
     >
-      <Flex w="100%" flexDirection={{ sm: 'column', md: 'row' }} alignItems={{ xl: 'center' }} gap={{ sm: 2, md: 0 }}>
+      <Flex
+        w="100%"
+        flexDirection={{ sm: 'column', md: 'row' }}
+        alignItems={{ xl: 'center' }}
+        gap={{ sm: 2, md: 0 }}
+      >
         <Box mb={{ sm: '4px', md: '0px' }} display="flex" alignItems="center" gap="14px">
           <Box
             as="img"
-            src="/delexpress-logo.svg"
-            alt="Delexpress"
+            src="/ExpressoPro-logo.svg"
+            alt="ExpressoPro"
             h="34px"
             w="134px"
             objectFit="contain"
@@ -105,12 +122,24 @@ export default function AdminNavbar(props) {
           <Box>
             <Breadcrumb separator="/" spacing="8px" mb="3px">
               <BreadcrumbItem>
-                <BreadcrumbLink href="#" color={secondaryText} fontSize="xs" fontWeight="600" _hover={{ color: 'secondary.500', textDecoration: 'none' }}>
-                  Delexpress
+                <BreadcrumbLink
+                  href="#"
+                  color={secondaryText}
+                  fontSize="xs"
+                  fontWeight="600"
+                  _hover={{ color: 'secondary.500', textDecoration: 'none' }}
+                >
+                  ExpressoPro
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbItem>
-                <BreadcrumbLink href="#" color={mainText} fontSize="xs" fontWeight="700" _hover={{ color: 'secondary.500', textDecoration: 'none' }}>
+                <BreadcrumbLink
+                  href="#"
+                  color={mainText}
+                  fontSize="xs"
+                  fontWeight="700"
+                  _hover={{ color: 'secondary.500', textDecoration: 'none' }}
+                >
                   {brandText}
                 </BreadcrumbLink>
               </BreadcrumbItem>
@@ -134,7 +163,12 @@ export default function AdminNavbar(props) {
         </Box>
 
         <Box ms="auto" w={{ sm: '100%', md: 'unset' }}>
-          <AdminNavbarLinks onOpen={onOpen} logoText={props.logoText} secondary={secondary} fixed={fixed} />
+          <AdminNavbarLinks
+            onOpen={onOpen}
+            logoText={props.logoText}
+            secondary={secondary}
+            fixed={fixed}
+          />
         </Box>
       </Flex>
     </Flex>

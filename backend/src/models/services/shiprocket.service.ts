@@ -28,21 +28,17 @@ import { b2b_orders } from '../schema/b2bOrders'
 import { b2c_orders } from '../schema/b2cOrders'
 import { invoicePreferences } from '../schema/invoicePreferences'
 // import { shippingRate, shippingRateCard } from '../schema/shippingRateCard'
+import dayjs from 'dayjs'
 import { sendWebhookEvent } from '../../services/webhookDelivery.service'
 import { users } from '../schema/users'
 import { wallets, walletTransactions } from '../schema/wallet'
-import dayjs from 'dayjs'
 import { computeRovChargeForOrder } from './insurance.service'
-import {
-  formatPickupAddress,
-  loadInvoiceAssets,
-  normalizePickupDetails,
-} from './invoiceHelpers'
 import { generateInvoicePDF, Product } from './invoice.service'
+import { formatPickupAddress, loadInvoiceAssets, normalizePickupDetails } from './invoiceHelpers'
+import { resolveInvoiceNumber } from './invoiceNumber.service'
 import { presignDownload, presignUpload } from './upload.service'
 import { createWalletTransaction } from './wallet.service'
 import { walletOfUser } from './walletTopupService'
-import { resolveInvoiceNumber } from './invoiceNumber.service'
 
 import * as dotenv from 'dotenv'
 import { PgTransaction } from 'drizzle-orm/pg-core'
@@ -54,16 +50,10 @@ import { couriers } from '../schema/couriers'
 import { locations } from '../schema/locations'
 import { addresses, pickupAddresses } from '../schema/pickupAddresses'
 import { plans } from '../schema/plans'
-import { shippingRates } from '../schema/shippingRates'
 import { userPlans } from '../schema/userPlans'
 import { userProfiles } from '../schema/userProfile'
 import { b2bPincodes, b2bZoneToZoneRates, zones } from '../schema/zones'
 import { calculateB2BRate } from './b2bAdmin.service'
-import { DelhiveryService } from './couriers/delhivery.service'
-import { EkartService } from './couriers/ekart.service'
-import { XpressbeesService } from './couriers/xpressbees.service'
-import { calculateOrderWeights } from './courierWeightCalculation.service'
-import { generateLabelForOrder } from './generateCustomLabelService'
 import {
   computeB2CRateCardCharge,
   fetchResolvedB2CRateCards,
@@ -71,7 +61,11 @@ import {
   formatCourierSlabDisplayName,
   normalizeB2CShippingMode,
 } from './b2cRateCard.service'
-import { calculateFreight } from './pricing/chargeableFreight'
+import { DelhiveryService } from './couriers/delhivery.service'
+import { EkartService } from './couriers/ekart.service'
+import { XpressbeesService } from './couriers/xpressbees.service'
+import { calculateOrderWeights } from './courierWeightCalculation.service'
+import { generateLabelForOrder } from './generateCustomLabelService'
 
 // Load correct .env based on NODE_ENV
 const env = process.env.NODE_ENV || 'development'
@@ -184,14 +178,13 @@ export const getOrderRefundOutstanding = async (
       reason: walletTransactions.reason,
     })
     .from(walletTransactions)
-    .where(
-      and(eq(walletTransactions.wallet_id, walletId), eq(walletTransactions.ref, orderId)),
-    )
+    .where(and(eq(walletTransactions.wallet_id, walletId), eq(walletTransactions.ref, orderId)))
 
   const totalOriginalDebit = transactions
-    .filter((transaction: any) =>
-      transaction.type === 'debit' &&
-      ORIGINAL_WALLET_DEBIT_REASONS.includes(String(transaction.reason ?? '')),
+    .filter(
+      (transaction: any) =>
+        transaction.type === 'debit' &&
+        ORIGINAL_WALLET_DEBIT_REASONS.includes(String(transaction.reason ?? '')),
     )
     .reduce((sum: number, transaction: any) => sum + Number(transaction.amount ?? 0), 0)
 
@@ -200,8 +193,7 @@ export const getOrderRefundOutstanding = async (
   const totalRefundCredits = transactions
     .filter(
       (transaction: any) =>
-        transaction.type === 'credit' &&
-        isOrderRefundCreditReason(transaction.reason, orderNumber),
+        transaction.type === 'credit' && isOrderRefundCreditReason(transaction.reason, orderNumber),
     )
     .reduce((sum: number, transaction: any) => sum + Number(transaction.amount ?? 0), 0)
 
@@ -225,11 +217,7 @@ const refundManifestFailureChargeOnce = async ({
   manifestErrorMessage: string
 }) => {
   await db.transaction(async (tx) => {
-    const [order] = await tx
-      .select()
-      .from(b2c_orders)
-      .where(eq(b2c_orders.id, orderId))
-      .limit(1)
+    const [order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.id, orderId)).limit(1)
 
     if (!order) return
 
@@ -242,7 +230,11 @@ const refundManifestFailureChargeOnce = async ({
       })
       .where(eq(b2c_orders.id, order.id))
 
-    const [wallet] = await tx.select().from(wallets).where(eq(wallets.userId, order.user_id)).limit(1)
+    const [wallet] = await tx
+      .select()
+      .from(wallets)
+      .where(eq(wallets.userId, order.user_id))
+      .limit(1)
     if (!wallet?.id) {
       return
     }
@@ -276,13 +268,7 @@ const refundManifestFailureChargeOnce = async ({
   })
 }
 
-const debitManifestSuccessChargeIfNeeded = async ({
-  tx,
-  order,
-}: {
-  tx: any
-  order: any
-}) => {
+const debitManifestSuccessChargeIfNeeded = async ({ tx, order }: { tx: any; order: any }) => {
   const [wallet] = await tx.select().from(wallets).where(eq(wallets.userId, order.user_id)).limit(1)
   if (!wallet?.id) {
     throw new Error(`Wallet not found for user ${order.user_id}`)
@@ -303,9 +289,10 @@ const debitManifestSuccessChargeIfNeeded = async ({
     .where(and(eq(walletTransactions.wallet_id, wallet.id), eq(walletTransactions.ref, order.id)))
 
   const totalOriginalDebit = transactions
-    .filter((transaction: any) =>
-      transaction.type === 'debit' &&
-      ORIGINAL_WALLET_DEBIT_REASONS.includes(String(transaction.reason ?? '')),
+    .filter(
+      (transaction: any) =>
+        transaction.type === 'debit' &&
+        ORIGINAL_WALLET_DEBIT_REASONS.includes(String(transaction.reason ?? '')),
     )
     .reduce((sum: number, transaction: any) => sum + Number(transaction.amount ?? 0), 0)
 
@@ -336,7 +323,8 @@ const debitManifestSuccessChargeIfNeeded = async ({
       payment_type: order.order_type,
       freight_charges: Number(order.freight_charges ?? 0),
       other_charges: Number(order.other_charges ?? 0),
-      cod_charges: String(order.order_type || '').toLowerCase() === 'cod' ? Number(order.cod_charges ?? 0) : 0,
+      cod_charges:
+        String(order.order_type || '').toLowerCase() === 'cod' ? Number(order.cod_charges ?? 0) : 0,
       triggered_by: 'manifest_success',
       debit_recovery_after_refund: totalManifestRefund > 0,
       total_wallet_debit: amountToDebit,
@@ -365,11 +353,13 @@ function buildEkartWarehouseAliasFromPickup(input: {
   pickupId?: string | null
 }) {
   const seed = input.warehouse_name || input.name || input.pickupId || 'WAREHOUSE'
-  return String(seed)
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]/g, '_')
-    .replace(/_+/g, '_')
-    .slice(0, 50) || 'WAREHOUSE'
+  return (
+    String(seed)
+      .trim()
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .replace(/_+/g, '_')
+      .slice(0, 50) || 'WAREHOUSE'
+  )
 }
 
 async function fetchPickupWarehouseRecord(
@@ -453,7 +443,10 @@ async function ensureUniqueMerchantOrderNumber(
   return normalizedOrderNumber
 }
 
-export async function checkMerchantOrderNumberAvailability(userId: string, orderNumber?: string | null) {
+export async function checkMerchantOrderNumberAvailability(
+  userId: string,
+  orderNumber?: string | null,
+) {
   const normalizedOrderNumber = typeof orderNumber === 'string' ? orderNumber.trim() : ''
   const normalizedOrderNumberKey = normalizedOrderNumber.toLowerCase()
 
@@ -509,7 +502,7 @@ function buildPickupFromWarehouse(
     city: warehouse.city,
     state: warehouse.state,
     pincode: warehouse.pincode,
-    name: warehouse.contactName || 'Delexpress',
+    name: warehouse.contactName || 'ExpressoPro',
     phone: warehouse.contactPhone || '',
     gst_number: previousPickup?.gst_number ?? warehouse.gstNumber ?? '',
     pickup_date: previousPickup?.pickup_date ?? fallbackDate,
@@ -530,7 +523,9 @@ const getTomorrowPickupDate = () => {
 
 const normalizePickupDateForRetry = (pickupDateRaw: unknown, isManifestRetry: boolean) => {
   const fallbackDate = isManifestRetry ? getTomorrowPickupDate() : getDefaultPickupDate()
-  const normalizedInput = String(pickupDateRaw || '').trim().slice(0, 10)
+  const normalizedInput = String(pickupDateRaw || '')
+    .trim()
+    .slice(0, 10)
 
   if (!normalizedInput) {
     return fallbackDate
@@ -851,13 +846,13 @@ export const computeB2CFreightForOrder = async (params: {
   const resolvedServiceProvider =
     params.serviceProvider?.trim() ||
     (params.courierId !== undefined && params.courierId !== null
-      ? (
+      ? ((
           await db
             .select({ serviceProvider: couriers.serviceProvider })
             .from(couriers)
             .where(eq(couriers.id, Number(params.courierId)))
             .limit(1)
-        )[0]?.serviceProvider ?? null
+        )[0]?.serviceProvider ?? null)
       : null)
 
   const [rateCard] = await fetchResolvedB2CRateCards({
@@ -1098,7 +1093,10 @@ export const fetchAvailableCouriersWithRates = async (
     }
 
     const systemCourierMap = Object.fromEntries(
-      [...providerCourierBuckets.entries()].map(([providerKey, bucket]) => [providerKey, bucket.idSet]),
+      [...providerCourierBuckets.entries()].map(([providerKey, bucket]) => [
+        providerKey,
+        bucket.idSet,
+      ]),
     ) as Record<string, Set<number>>
 
     interface ServiceableProviderMeta {
@@ -1413,9 +1411,7 @@ export const fetchAvailableCouriersWithRates = async (
           approxZone: null,
           createdAt: courier.createdAt,
           courier_cost_estimate:
-            xpressbeesRecord?.total_charges ??
-            xpressbeesRecord?.freight_charges ??
-            null,
+            xpressbeesRecord?.total_charges ?? xpressbeesRecord?.freight_charges ?? null,
           freight_charges: xpressbeesRecord?.freight_charges ?? null,
           cod_charges: xpressbeesRecord?.cod_charges ?? null,
           total_charges: xpressbeesRecord?.total_charges ?? null,
@@ -1432,9 +1428,13 @@ export const fetchAvailableCouriersWithRates = async (
     }))
     if (providerMappings.length) {
       console.log('[Serviceability] Provider-to-courier mapping', { providerMappings })
-      const unmatchedProviders = providerMappings.filter((mapping) => mapping.matchedCourierIds.length === 0)
+      const unmatchedProviders = providerMappings.filter(
+        (mapping) => mapping.matchedCourierIds.length === 0,
+      )
       if (unmatchedProviders.length) {
-        console.warn('[Serviceability] Serviceable providers missing DB configuration', { unmatchedProviders })
+        console.warn('[Serviceability] Serviceable providers missing DB configuration', {
+          unmatchedProviders,
+        })
       }
     }
 
@@ -1583,7 +1583,8 @@ export const fetchAvailableCouriersWithRates = async (
         }))
       }
 
-      const lastFiniteSlab = [...rateCard.slabs].reverse().find((slab: any) => slab.weight_to !== null) || null
+      const lastFiniteSlab =
+        [...rateCard.slabs].reverse().find((slab: any) => slab.weight_to !== null) || null
       if (
         lastFiniteSlab &&
         chargeableWeightKg > lastFiniteSlab.weight_to &&
@@ -1656,7 +1657,9 @@ export const fetchAvailableCouriersWithRates = async (
         // Compute slabbed freight if we have a matching rate
         const rateType = isReverseShipment ? 'rto' : 'forward'
         const applicableRateCards = effectiveCourierRates.filter((r) => r.type === rateType)
-        const applicableRateOptions = applicableRateCards.flatMap((r) => buildServiceabilityRateOptions(r))
+        const applicableRateOptions = applicableRateCards.flatMap((r) =>
+          buildServiceabilityRateOptions(r),
+        )
 
         if (!applicableRateOptions.length) {
           return [
@@ -1755,7 +1758,9 @@ export const fetchAvailableCouriersWithRates = async (
           const ordered: any[] = []
           profile.personalised_order.forEach((p) => {
             const personalisedKey = `${String(p.courierId)}__${normalizeProviderKey((p as any).serviceProvider || (p as any).integration_type || null)}`
-            const fallbackMatches = combined.filter((c: any) => String(c.id) === String(p.courierId))
+            const fallbackMatches = combined.filter(
+              (c: any) => String(c.id) === String(p.courierId),
+            )
             const matchedCourier =
               courierMap[personalisedKey] ||
               (fallbackMatches.length === 1 ? fallbackMatches[0] : null)
@@ -2288,7 +2293,11 @@ export async function createB2COrder({
   manifestError,
 }: InsertB2COrderParams) {
   const orderAmount = Number(params.order_amount ?? 0)
-  const normalizedOrderNumber = await ensureUniqueMerchantOrderNumber(tx, userId, params.order_number)
+  const normalizedOrderNumber = await ensureUniqueMerchantOrderNumber(
+    tx,
+    userId,
+    params.order_number,
+  )
   const normalizeJsonValue = (value: unknown) => {
     if (!value) return null
 
@@ -2847,7 +2856,7 @@ export const createB2CShipmentService = async (
 
     params.company = {
       ...(params.company || {}),
-      name: resolvedCompanyName || 'Delexpress',
+      name: resolvedCompanyName || 'ExpressoPro',
       gst: resolvedCompanyGst || '',
     }
 
@@ -3436,7 +3445,6 @@ export const createB2CShipmentService = async (
       })
     }
 
-
     // 🔹 Recalculate freight using slab pricing (ignore incoming freight_charges)
     const pickupPincode =
       (params.pickup as any)?.pincode ||
@@ -3636,7 +3644,9 @@ export const createB2CShipmentService = async (
       // 4️⃣ WALLET TRANSACTION
       // Delhivery forward orders use deferred manifest generation, so charge only after manifest succeeds.
       const shouldDeferWalletDebit =
-        integrationType === 'delhivery' && !isReverseShipment && shipmentData?.deferred_manifest === true
+        integrationType === 'delhivery' &&
+        !isReverseShipment &&
+        shipmentData?.deferred_manifest === true
       const finalWalletDebit = walletDebit ?? 0
       if (shouldDeferWalletDebit) {
         console.log('ℹ️ Deferring wallet debit until manifest success for Delhivery order', {
@@ -3869,7 +3879,11 @@ export const createB2BShipmentService = async (
 
   const pickupDetails = normalizeJsonValue(params.pickup) ?? {}
   const rtoDetails = normalizeJsonValue(params.rto)
-  const normalizedOrderNumber = await ensureUniqueMerchantOrderNumber(db as any, userId, params.order_number)
+  const normalizedOrderNumber = await ensureUniqueMerchantOrderNumber(
+    db as any,
+    userId,
+    params.order_number,
+  )
 
   const invoiceValue = Number(params.invoice_amount ?? params.order_amount ?? 0)
 
@@ -4485,7 +4499,11 @@ export const generateManifestService = async (params: {
         }
 
         const orderUserIds = Array.from(
-          new Set(orders.map((order) => String((order as { user_id?: string }).user_id ?? '').trim()).filter(Boolean)),
+          new Set(
+            orders
+              .map((order) => String((order as { user_id?: string }).user_id ?? '').trim())
+              .filter(Boolean),
+          ),
         )
 
         if (orderUserIds.length > 1) {
@@ -4496,23 +4514,21 @@ export const generateManifestService = async (params: {
           params.type === 'b2c'
             ? Array.from(
                 new Set(
-                  orders.map((order) =>
-                    String(
-                      (order as (typeof orders)[0] & { integration_type?: string })
-                        ?.integration_type ?? 'delhivery',
-                    )
-                      .trim()
-                      .toLowerCase() || 'delhivery',
+                  orders.map(
+                    (order) =>
+                      String(
+                        (order as (typeof orders)[0] & { integration_type?: string })
+                          ?.integration_type ?? 'delhivery',
+                      )
+                        .trim()
+                        .toLowerCase() || 'delhivery',
                   ),
                 ),
               )
             : ['delhivery']
 
         if (params.type === 'b2c' && integrationTypes.length > 1) {
-          throw new HttpError(
-            400,
-            'Select orders from only one courier at a time for manifesting.',
-          )
+          throw new HttpError(400, 'Select orders from only one courier at a time for manifesting.')
         }
 
         const integrationType = integrationTypes[0] || 'delhivery'
@@ -4524,7 +4540,10 @@ export const generateManifestService = async (params: {
 
           const fetchedOrders: any[] = []
           for (const order of orders) {
-            const [fullOrder] = await tx.select().from(b2c_orders).where(eq(b2c_orders.id, order.id))
+            const [fullOrder] = await tx
+              .select()
+              .from(b2c_orders)
+              .where(eq(b2c_orders.id, order.id))
             if (fullOrder) fetchedOrders.push(fullOrder)
           }
 
@@ -4537,24 +4556,22 @@ export const generateManifestService = async (params: {
             integrationType === 'ekart'
               ? fetchedOrders
                   .map((order) =>
-                    String(order.awb_number || order.shipment_id || order.order_number || '').trim(),
+                    String(
+                      order.awb_number || order.shipment_id || order.order_number || '',
+                    ).trim(),
                   )
                   .filter(Boolean)
-              : fetchedOrders
-                  .map((order) => String(order.awb_number || '').trim())
-                  .filter(Boolean)
+              : fetchedOrders.map((order) => String(order.awb_number || '').trim()).filter(Boolean)
 
           if (!providerManifestIds.length) {
             throw new Error(`No ${providerName} identifiers found for manifest generation`)
           }
 
-          let ekartManifestResponse:
-            | {
-                ctime?: number
-                manifestNumber?: number | string
-                manifestDownloadUrl?: string
-              }
-            | null = null
+          let ekartManifestResponse: {
+            ctime?: number
+            manifestNumber?: number | string
+            manifestDownloadUrl?: string
+          } | null = null
 
           if (integrationType === 'ekart') {
             const ekart = new EkartService()
@@ -4937,9 +4954,7 @@ export const generateManifestService = async (params: {
                   `❌ [${providerName}] Failed to generate custom label for order ${freshOrder.order_number}:`,
                   labelErr?.message || labelErr,
                 )
-                manifestWarnings.push(
-                  `${freshOrder.order_number}: label could not be generated.`,
-                )
+                manifestWarnings.push(`${freshOrder.order_number}: label could not be generated.`)
               }
             }
 
@@ -5109,17 +5124,12 @@ export const generateManifestService = async (params: {
         }
 
         // Helper function to generate invoice for an order
-        async function generateInvoiceForOrder(
-          order: any,
-        ): Promise<
-          | {
-              key: string
-              invoiceNumber: string
-              invoiceDate: string
-              invoiceAmount: number
-            }
-          | null
-        > {
+        async function generateInvoiceForOrder(order: any): Promise<{
+          key: string
+          invoiceNumber: string
+          invoiceDate: string
+          invoiceAmount: number
+        } | null> {
           try {
             console.log(
               `🧾 [Manifest] Generating invoice for order ${order.order_number} (ID: ${order.id})`,
@@ -5180,15 +5190,9 @@ export const generateManifestService = async (params: {
             const sellerAddress = pickupAddress || user?.companyAddress || ''
             const sellerStateCode = pickupDetails?.state || user?.companyState || ''
             const sellerName =
-              pickupDetails?.warehouse_name ||
-              user?.companyName ||
-              user?.brandName ||
-              'Seller'
+              pickupDetails?.warehouse_name || user?.companyName || user?.brandName || 'Seller'
             const brandName =
-              user?.brandName ||
-              user?.companyName ||
-              pickupDetails?.warehouse_name ||
-              ''
+              user?.brandName || user?.companyName || pickupDetails?.warehouse_name || ''
             const gstNumber = user?.companyGST || ''
             const panNumber = user?.panNumber || ''
             const supportPhone = pickupDetails?.phone || user?.supportPhone || ''
@@ -5947,29 +5951,31 @@ export const generateManifestService = async (params: {
           Promise.allSettled(invoicePromisesDel).then((results) => {
             results.forEach((result, index) => {
               const order = fetchedOrders[index]
-            if (result.status === 'fulfilled' && result.value) {
-              // Validate and update invoice_link in database (use db, not tx, since this runs after transaction)
-              // Ensure we store R2 key, not a full URL
-              const invoiceResult = result.value as {
-                key: string
-                invoiceNumber?: string
-                invoiceDate?: string
-                invoiceAmount?: number
-              }
-              const invoiceKey = invoiceResult.key
-              if (invoiceKey && typeof invoiceKey === 'string' && invoiceKey.trim().length > 0) {
-                const normalizedInvoiceKey = normalizeToR2Key(invoiceKey.trim())
-                if (normalizedInvoiceKey) {
-                  db.update(table)
+              if (result.status === 'fulfilled' && result.value) {
+                // Validate and update invoice_link in database (use db, not tx, since this runs after transaction)
+                // Ensure we store R2 key, not a full URL
+                const invoiceResult = result.value as {
+                  key: string
+                  invoiceNumber?: string
+                  invoiceDate?: string
+                  invoiceAmount?: number
+                }
+                const invoiceKey = invoiceResult.key
+                if (invoiceKey && typeof invoiceKey === 'string' && invoiceKey.trim().length > 0) {
+                  const normalizedInvoiceKey = normalizeToR2Key(invoiceKey.trim())
+                  if (normalizedInvoiceKey) {
+                    db.update(table)
                       .set({
                         invoice_link: normalizedInvoiceKey,
                         invoice_number: invoiceResult.invoiceNumber ?? undefined,
                         invoice_date: invoiceResult.invoiceDate ?? undefined,
                         invoice_amount:
-                          invoiceResult.invoiceAmount !== undefined ? invoiceResult.invoiceAmount : undefined,
+                          invoiceResult.invoiceAmount !== undefined
+                            ? invoiceResult.invoiceAmount
+                            : undefined,
                         updated_at: new Date(),
                       })
-                    .where(eq(table.id, order.id))
+                      .where(eq(table.id, order.id))
                       .then(() => {
                         console.log(
                           `✅ [Manifest] Invoice link updated for order ${order.order_number}: ${normalizedInvoiceKey}`,
@@ -6066,15 +6072,9 @@ export const generateManifestService = async (params: {
           const sellerAddress = pickupAddress || user?.companyAddress || ''
           const sellerStateCode = pickupDetails?.state || user?.companyState || ''
           const sellerName =
-            pickupDetails?.warehouse_name ||
-            user?.companyName ||
-            user?.brandName ||
-            'Seller'
+            pickupDetails?.warehouse_name || user?.companyName || user?.brandName || 'Seller'
           const brandName =
-            user?.brandName ||
-            user?.companyName ||
-            pickupDetails?.warehouse_name ||
-            ''
+            user?.brandName || user?.companyName || pickupDetails?.warehouse_name || ''
           const gstNumber = user?.companyGST || ''
           const panNumber = user?.panNumber || ''
           const supportPhone = pickupDetails?.phone || user?.supportPhone || ''
@@ -6131,7 +6131,7 @@ export const generateManifestService = async (params: {
             pickupPincode: pickupPincode ?? '',
             deliveryPincode: order.pincode ?? '',
             orderDate: order.order_date ?? '',
-              rtoCharges: Number((order as any).rto_charges ?? 0),
+            rtoCharges: Number((order as any).rto_charges ?? 0),
             layout: (prefs?.template as 'classic' | 'thermal') ?? 'classic',
           })
 
@@ -6279,10 +6279,7 @@ export const generateManifestService = async (params: {
         if (error instanceof HttpError) {
           throw error
         }
-        throw new HttpError(
-          getErrorStatusCode(error, 500),
-          getUserFacingManifestError(error),
-        )
+        throw new HttpError(getErrorStatusCode(error, 500), getUserFacingManifestError(error))
       }
     },
   )
@@ -6318,7 +6315,9 @@ export const retryFailedManifestService = async (
     throw new HttpError(404, 'Order not found.')
   }
 
-  const provider = String(order.integration_type || '').trim().toLowerCase()
+  const provider = String(order.integration_type || '')
+    .trim()
+    .toLowerCase()
   if (provider !== 'delhivery') {
     throw new HttpError(
       400,
@@ -6326,7 +6325,11 @@ export const retryFailedManifestService = async (
     )
   }
 
-  if (String(order.order_status || '').trim().toLowerCase() !== 'manifest_failed') {
+  if (
+    String(order.order_status || '')
+      .trim()
+      .toLowerCase() !== 'manifest_failed'
+  ) {
     throw new HttpError(400, 'Only orders with manifest_failed status can be retried.')
   }
 

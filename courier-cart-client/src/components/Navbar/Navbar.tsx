@@ -99,8 +99,8 @@ export default function Navbar({ handleDrawerToggle, pinned }: NavbarProps) {
             <Box sx={{ minWidth: 0, flexShrink: 1 }}>
               <Box
                 component="img"
-                src="/logo/delexpress-logo.svg"
-                alt="Delexpress"
+                src="/logo/ExpressoPro-logo.svg"
+                alt="ExpressoPro"
                 sx={{ width: { xs: 138, sm: 178 }, height: 'auto', display: 'block' }}
               />
             </Box>

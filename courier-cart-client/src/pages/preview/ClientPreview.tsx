@@ -1,6 +1,13 @@
 import { alpha, Box, Button, Chip, Grid, Stack, Typography } from '@mui/material'
 import { useState } from 'react'
-import { TbBolt, TbChartArcs3, TbMapPinBolt, TbRoute, TbSparkles, TbTruckDelivery } from 'react-icons/tb'
+import {
+  TbBolt,
+  TbChartArcs3,
+  TbMapPinBolt,
+  TbRoute,
+  TbSparkles,
+  TbTruckDelivery,
+} from 'react-icons/tb'
 import Sidebar, { COLLAPSED_WIDTH } from '../../components/UI/Sidebar'
 import { DRAWER_WIDTH } from '../../utils/constants'
 
@@ -13,9 +20,24 @@ const MINT = '#56C0A5'
 const TYPEFACE = '"Bahnschrift", "Segoe UI", "Helvetica Neue", Arial, sans-serif'
 
 const metricCards = [
-  { label: 'Shipments in motion', value: '1,284', note: 'Across B2C and B2B lanes', icon: <TbTruckDelivery size={18} /> },
-  { label: 'Courier savings', value: '18.6%', note: 'Compared with last week', icon: <TbChartArcs3 size={18} /> },
-  { label: 'Top destination', value: 'Delhi NCR', note: 'Highest volume zone today', icon: <TbMapPinBolt size={18} /> },
+  {
+    label: 'Shipments in motion',
+    value: '1,284',
+    note: 'Across B2C and B2B lanes',
+    icon: <TbTruckDelivery size={18} />,
+  },
+  {
+    label: 'Courier savings',
+    value: '18.6%',
+    note: 'Compared with last week',
+    icon: <TbChartArcs3 size={18} />,
+  },
+  {
+    label: 'Top destination',
+    value: 'Delhi NCR',
+    note: 'Highest volume zone today',
+    icon: <TbMapPinBolt size={18} />,
+  },
 ]
 
 const focusCards = [
@@ -29,7 +51,7 @@ const focusCards = [
   },
   {
     title: 'Help Center',
-    text: 'Support tickets, about content, and policy pages follow the same Delexpress theme.',
+    text: 'Support tickets, about content, and policy pages follow the same ExpressoPro theme.',
   },
 ]
 
@@ -86,8 +108,8 @@ export default function ClientPreview() {
               <Stack spacing={1.1}>
                 <Box
                   component="img"
-                  src="/logo/delexpress-logo.svg"
-                  alt="Delexpress"
+                  src="/logo/ExpressoPro-logo.svg"
+                  alt="ExpressoPro"
                   sx={{ width: { xs: 165, md: 210 }, height: 'auto' }}
                 />
                 <Stack direction="row" spacing={1} alignItems="center">
@@ -121,7 +143,7 @@ export default function ClientPreview() {
 
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 <Chip
-                  label="Delexpress theme"
+                  label="ExpressoPro theme"
                   icon={<TbBolt size={14} />}
                   sx={{
                     bgcolor: alpha(PLUM, 0.08),
@@ -181,11 +203,19 @@ export default function ClientPreview() {
               }}
             />
 
-            <Grid container spacing={3} sx={{ position: 'relative', zIndex: 1, p: { xs: 3, md: 5 } }}>
+            <Grid
+              container
+              spacing={3}
+              sx={{ position: 'relative', zIndex: 1, p: { xs: 3, md: 5 } }}
+            >
               <Grid size={{ xs: 12, lg: 7 }}>
                 <Stack spacing={2.2}>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    {['Shipping platform for ecommerce sellers', 'Shipment control', 'Finance visibility'].map((chip) => (
+                    {[
+                      'Shipping platform for ecommerce sellers',
+                      'Shipment control',
+                      'Finance visibility',
+                    ].map((chip) => (
                       <Box
                         key={chip}
                         sx={{
@@ -196,7 +226,9 @@ export default function ClientPreview() {
                           bgcolor: alpha('#ffffff', 0.58),
                         }}
                       >
-                        <Typography sx={{ fontSize: '0.76rem', fontWeight: 700, color: MUTED }}>{chip}</Typography>
+                        <Typography sx={{ fontSize: '0.76rem', fontWeight: 700, color: MUTED }}>
+                          {chip}
+                        </Typography>
                       </Box>
                     ))}
                   </Stack>
@@ -217,7 +249,7 @@ export default function ClientPreview() {
                   </Typography>
 
                   <Typography sx={{ maxWidth: 620, color: MUTED, lineHeight: 1.65 }}>
-                    This preview skips sign-in so you can review the client UI shell, Delexpress
+                    This preview skips sign-in so you can review the client UI shell, ExpressoPro
                     colors, logo treatment, sidebar labels, and the overall layout direction first.
                   </Typography>
 
@@ -285,7 +317,14 @@ export default function ClientPreview() {
                           <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: MUTED }}>
                             {card.label}
                           </Typography>
-                          <Typography sx={{ fontSize: '1.4rem', fontWeight: 700, lineHeight: 1.1, color: TEXT }}>
+                          <Typography
+                            sx={{
+                              fontSize: '1.4rem',
+                              fontWeight: 700,
+                              lineHeight: 1.1,
+                              color: TEXT,
+                            }}
+                          >
                             {card.value}
                           </Typography>
                           <Typography sx={{ fontSize: '0.8rem', color: MUTED }}>
@@ -327,10 +366,12 @@ export default function ClientPreview() {
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}
-                        >
-                          <TbRoute size={17} />
-                        </Box>
-                      <Typography sx={{ fontFamily: TYPEFACE, fontWeight: 700, color: TEXT }}>{card.title}</Typography>
+                      >
+                        <TbRoute size={17} />
+                      </Box>
+                      <Typography sx={{ fontFamily: TYPEFACE, fontWeight: 700, color: TEXT }}>
+                        {card.title}
+                      </Typography>
                     </Stack>
                     <Typography sx={{ color: MUTED, lineHeight: 1.7 }}>{card.text}</Typography>
                   </Stack>

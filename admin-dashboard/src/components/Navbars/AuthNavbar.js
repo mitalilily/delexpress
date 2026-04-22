@@ -2,7 +2,6 @@ import { Box, Button, Flex, HStack, Link, Text, useColorModeValue } from '@chakr
 import { DocumentIcon, HomeIcon, PersonIcon, RocketIcon } from 'components/Icons/Icons'
 import SidebarResponsive from 'components/Sidebar/SidebarResponsive'
 import PropTypes from 'prop-types'
-import React from 'react'
 import { NavLink } from 'react-router-dom'
 import routes from 'routes.js'
 
@@ -25,9 +24,31 @@ export default function AuthNavbar(props) {
     : useColorModeValue('0 14px 36px rgba(36, 9, 20, 0.12)', '0 14px 36px rgba(0, 0, 0, 0.42)')
 
   const brand = (
-    <Link href={`${process.env.PUBLIC_URL}/#/`} display="flex" lineHeight="100%" fontWeight="700" justifyContent="center" alignItems="center" color={mainText}>
-      <Box as="img" src="/delexpress-logo.svg" alt="Delexpress" h="34px" w="140px" objectFit="contain" me="12px" />
-      <Text fontSize="xs" mt="1px" letterSpacing="0.12em" textTransform="uppercase" color={secondary ? 'whiteAlpha.700' : 'gray.500'}>
+    <Link
+      href={`${process.env.PUBLIC_URL}/#/`}
+      display="flex"
+      lineHeight="100%"
+      fontWeight="700"
+      justifyContent="center"
+      alignItems="center"
+      color={mainText}
+    >
+      <Box
+        as="img"
+        src="/ExpressoPro-logo.svg"
+        alt="ExpressoPro"
+        h="34px"
+        w="140px"
+        objectFit="contain"
+        me="12px"
+      />
+      <Text
+        fontSize="xs"
+        mt="1px"
+        letterSpacing="0.12em"
+        textTransform="uppercase"
+        color={secondary ? 'whiteAlpha.700' : 'gray.500'}
+      >
         Shipping platform
       </Text>
     </Link>
@@ -36,22 +57,50 @@ export default function AuthNavbar(props) {
   const linksAuth = (
     <HStack display={{ sm: 'none', lg: 'flex' }}>
       <NavLink to="/admin/dashboard">
-        <Button fontSize="sm" px="0px" me={{ sm: '2px', md: '14px' }} color={navbarIcon} variant="transparent-with-icon" leftIcon={<HomeIcon color={navbarIcon} w="12px" h="12px" me="0px" />}>
+        <Button
+          fontSize="sm"
+          px="0px"
+          me={{ sm: '2px', md: '14px' }}
+          color={navbarIcon}
+          variant="transparent-with-icon"
+          leftIcon={<HomeIcon color={navbarIcon} w="12px" h="12px" me="0px" />}
+        >
           <Text>Control Center</Text>
         </Button>
       </NavLink>
       <NavLink to="/admin/profile">
-        <Button fontSize="sm" px="0px" me={{ sm: '2px', md: '14px' }} color={navbarIcon} variant="transparent-with-icon" leftIcon={<PersonIcon color={navbarIcon} w="12px" h="12px" me="0px" />}>
+        <Button
+          fontSize="sm"
+          px="0px"
+          me={{ sm: '2px', md: '14px' }}
+          color={navbarIcon}
+          variant="transparent-with-icon"
+          leftIcon={<PersonIcon color={navbarIcon} w="12px" h="12px" me="0px" />}
+        >
           <Text>Team Profile</Text>
         </Button>
       </NavLink>
       <NavLink to="/auth/signup">
-        <Button fontSize="sm" px="0px" me={{ sm: '2px', md: '14px' }} color={navbarIcon} variant="transparent-with-icon" leftIcon={<RocketIcon color={navbarIcon} w="12px" h="12px" me="0px" />}>
+        <Button
+          fontSize="sm"
+          px="0px"
+          me={{ sm: '2px', md: '14px' }}
+          color={navbarIcon}
+          variant="transparent-with-icon"
+          leftIcon={<RocketIcon color={navbarIcon} w="12px" h="12px" me="0px" />}
+        >
           <Text>Start Setup</Text>
         </Button>
       </NavLink>
       <NavLink to="/auth/signin">
-        <Button fontSize="sm" px="0px" me={{ sm: '2px', md: '14px' }} color={navbarIcon} variant="transparent-with-icon" leftIcon={<DocumentIcon color={navbarIcon} w="12px" h="12px" me="0px" />}>
+        <Button
+          fontSize="sm"
+          px="0px"
+          me={{ sm: '2px', md: '14px' }}
+          color={navbarIcon}
+          variant="transparent-with-icon"
+          leftIcon={<DocumentIcon color={navbarIcon} w="12px" h="12px" me="0px" />}
+        >
           <Text>Admin Access</Text>
         </Button>
       </NavLink>
@@ -79,7 +128,12 @@ export default function AuthNavbar(props) {
       <Flex w="100%" justifyContent={{ sm: 'start', lg: 'space-between' }}>
         {brand}
         <Box ms={{ base: 'auto', lg: '0px' }} display={{ base: 'flex', lg: 'none' }}>
-          <SidebarResponsive logoText={logoText || 'Delexpress'} secondary={secondary} routes={routes} {...rest} />
+          <SidebarResponsive
+            logoText={logoText || 'ExpressoPro'}
+            secondary={secondary}
+            routes={routes}
+            {...rest}
+          />
         </Box>
         {linksAuth}
         <Link href="/auth/signin">

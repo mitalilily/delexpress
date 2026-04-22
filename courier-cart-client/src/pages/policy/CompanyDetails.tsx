@@ -25,7 +25,7 @@ const CompanyDetails = () => {
       <PageHeading
         title="Contact Us"
         subtitle="  We’re here to help! Whether you have questions about our services, need support with your
-        account, or want to know more about how Delexpress can assist your business, feel free to
+        account, or want to know more about how ExpressoPro can assist your business, feel free to
         reach out to us."
       />
 
@@ -51,15 +51,13 @@ const CompanyDetails = () => {
           }}
         >
           <Typography variant="h6" fontWeight="bold" color="secondary" gutterBottom>
-            Delexpress
+            ExpressoPro
           </Typography>
 
           {/* Address */}
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
             <FiMapPin size={22} color={theme.palette.primary.main} />
-            <Typography fontSize="1rem">
-              311 Square One Commercial, Althan, Surat
-            </Typography>
+            <Typography fontSize="1rem">311 Square One Commercial, Althan, Surat</Typography>
           </Box>
 
           {/* Phone */}
@@ -103,7 +101,7 @@ const CompanyDetails = () => {
             width="100%"
             draggable={false}
             zoom={16}
-            popupText="Delexpress"
+            popupText="ExpressoPro"
             currentLocation={false}
           />
         </Paper>

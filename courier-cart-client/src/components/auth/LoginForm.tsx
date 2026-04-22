@@ -82,7 +82,9 @@ export default function LoginForm() {
                     backgroundColor: alpha('#FFFFFF', 0.72),
                   }}
                 >
-                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: MUTED, letterSpacing: 0.15 }}>
+                  <Typography
+                    sx={{ fontSize: '0.72rem', fontWeight: 700, color: MUTED, letterSpacing: 0.15 }}
+                  >
                     {chip}
                   </Typography>
                 </Box>
@@ -91,8 +93,8 @@ export default function LoginForm() {
 
             <Box
               component="img"
-              src="/logo/delexpress-logo.svg"
-              alt="Delexpress"
+              src="/logo/ExpressoPro-logo.svg"
+              alt="ExpressoPro"
               sx={{ width: { xs: 220, sm: 290 }, height: 'auto' }}
             />
 
@@ -222,8 +224,10 @@ export default function LoginForm() {
                 >
                   <TbTruckDelivery size={18} />
                 </Box>
-                <Typography sx={{ fontSize: '0.74rem', letterSpacing: 2, fontWeight: 700, color: PLUM }}>
-                  DELEXPRESS ACCESS
+                <Typography
+                  sx={{ fontSize: '0.74rem', letterSpacing: 2, fontWeight: 700, color: PLUM }}
+                >
+                  ExpressoPro ACCESS
                 </Typography>
               </Stack>
 

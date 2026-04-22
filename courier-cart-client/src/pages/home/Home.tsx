@@ -1,13 +1,13 @@
-import { alpha, Box, Grid, Stack, Typography, Button } from '@mui/material'
+import { alpha, Box, Button, Grid, Stack, Typography } from '@mui/material'
 import { motion } from 'framer-motion'
 import { TbBolt, TbShip, TbTruck, TbWorld } from 'react-icons/tb'
 import AccountSetup from '../../components/home/AccountSetup'
+import CarrierLogos from '../../components/home/CarrierLogos'
 import CourierDistribution from '../../components/home/CourierDistribution'
+import FeatureSection from '../../components/home/FeatureSection'
 import GettingStarted from '../../components/home/GettingStarted'
 import TopDestinations from '../../components/home/TopDestinations'
 import UpcomingPickupsHome from '../../components/home/UpcomingPickupsHome'
-import FeatureSection from '../../components/home/FeatureSection'
-import CarrierLogos from '../../components/home/CarrierLogos'
 import SectionHeading from '../../components/UI/SectionHeading'
 import { useRealtimeHomeDashboard } from '../../hooks/home/useRealtimeHomeDashboard'
 
@@ -28,15 +28,12 @@ const cardShell = {
     boxShadow: `0 20px 40px ${alpha(TEXT_PRIMARY, 0.08)}`,
     borderColor: alpha(PLUM, 0.15),
     transform: 'translateY(-4px)',
-  }
+  },
 }
 
 const Home = () => {
-  const {
-    incomingPickupsState,
-    courierDistributionState,
-    topDestinationsState,
-  } = useRealtimeHomeDashboard()
+  const { incomingPickupsState, courierDistributionState, topDestinationsState } =
+    useRealtimeHomeDashboard()
 
   return (
     <Stack spacing={{ xs: 2.5, md: 4 }} sx={{ pb: 5 }}>
@@ -79,8 +76,8 @@ const Home = () => {
             >
               <Box
                 component="img"
-                src="/logo/delexpress-logo.svg"
-                alt="Delexpress"
+                src="/logo/ExpressoPro-logo.svg"
+                alt="ExpressoPro"
                 sx={{ width: { xs: 132, md: 152 }, height: 'auto', display: 'block' }}
               />
               <Typography
@@ -100,10 +97,10 @@ const Home = () => {
             {/* Background Decorations */}
             <Box
               component={motion.div}
-              animate={{ 
+              animate={{
                 rotate: 360,
                 x: [0, 50, 0],
-                y: [0, 30, 0]
+                y: [0, 30, 0],
               }}
               transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
               sx={{
@@ -116,7 +113,7 @@ const Home = () => {
                 background: `radial-gradient(circle, ${alpha(PLUM, 0.08)} 0%, transparent 70%)`,
               }}
             />
-            
+
             <Stack
               spacing={3}
               sx={{
@@ -135,8 +132,16 @@ const Home = () => {
                   <Box sx={{ bgcolor: alpha(PLUM, 0.1), p: 0.6, borderRadius: 0.75, color: PLUM }}>
                     <TbBolt size={20} />
                   </Box>
-                  <Typography sx={{ fontWeight: 800, fontSize: '12px', letterSpacing: 2, textTransform: 'uppercase', color: PLUM }}>
-                    Delexpress control layer
+                  <Typography
+                    sx={{
+                      fontWeight: 800,
+                      fontSize: '12px',
+                      letterSpacing: 2,
+                      textTransform: 'uppercase',
+                      color: PLUM,
+                    }}
+                  >
+                    ExpressoPro control layer
                   </Typography>
                 </Stack>
               </motion.div>
@@ -146,7 +151,15 @@ const Home = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <Typography variant="h1" sx={{ fontSize: { xs: '2.2rem', md: '3.3rem' }, fontWeight: 700, lineHeight: 1.04, letterSpacing: '-0.03em' }}>
+                <Typography
+                  variant="h1"
+                  sx={{
+                    fontSize: { xs: '2.2rem', md: '3.3rem' },
+                    fontWeight: 700,
+                    lineHeight: 1.04,
+                    letterSpacing: '-0.03em',
+                  }}
+                >
                   Ship smarter.
                   <br />
                   <span style={{ color: PLUM }}>Run every order from one calm dashboard.</span>
@@ -158,7 +171,14 @@ const Home = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
               >
-                <Typography sx={{ fontSize: '1rem', color: TEXT_SECONDARY, maxWidth: '560px', lineHeight: 1.65 }}>
+                <Typography
+                  sx={{
+                    fontSize: '1rem',
+                    color: TEXT_SECONDARY,
+                    maxWidth: '560px',
+                    lineHeight: 1.65,
+                  }}
+                >
                   Compare courier options, manage pickups, track shipments, and keep daily shipping
                   operations under one light, focused workspace.
                 </Typography>
@@ -170,32 +190,32 @@ const Home = () => {
                 transition={{ delay: 0.5 }}
               >
                 <Stack direction="row" spacing={2}>
-                  <Button 
-                    variant="contained" 
+                  <Button
+                    variant="contained"
                     size="large"
-                    sx={{ 
-                      bgcolor: PLUM, 
-                      color: '#fffdf9', 
+                    sx={{
+                      bgcolor: PLUM,
+                      color: '#fffdf9',
                       fontWeight: 700,
                       px: 3.2,
                       borderRadius: 1,
                       '&:hover': { bgcolor: PLUM_DARK, transform: 'translateY(-2px)' },
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
                     }}
                   >
                     Get Started
                   </Button>
-                  <Button 
-                    variant="outlined" 
+                  <Button
+                    variant="outlined"
                     size="large"
-                    sx={{ 
-                      borderColor: alpha(PLUM, 0.22), 
-                      color: TEXT_PRIMARY, 
+                    sx={{
+                      borderColor: alpha(PLUM, 0.22),
+                      color: TEXT_PRIMARY,
                       fontWeight: 700,
                       px: 3.2,
                       borderRadius: 1,
                       bgcolor: alpha('#ffffff', 0.54),
-                      '&:hover': { borderColor: PLUM, bgcolor: alpha('#ffffff', 0.82) }
+                      '&:hover': { borderColor: PLUM, bgcolor: alpha('#ffffff', 0.82) },
                     }}
                   >
                     View Rates
@@ -205,19 +225,51 @@ const Home = () => {
             </Stack>
 
             {/* Floating Icons */}
-            <Box sx={{ position: 'absolute', right: '10%', top: '20%', display: { xs: 'none', lg: 'block' } }}>
+            <Box
+              sx={{
+                position: 'absolute',
+                right: '10%',
+                top: '20%',
+                display: { xs: 'none', lg: 'block' },
+              }}
+            >
               <motion.div
                 animate={{ y: [0, -20, 0] }}
                 transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
               >
                 <Stack spacing={4}>
-                  <Box sx={{ bgcolor: alpha('#ffffff', 0.1), p: 3, borderRadius: 2, backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                  <Box
+                    sx={{
+                      bgcolor: alpha('#ffffff', 0.1),
+                      p: 3,
+                      borderRadius: 2,
+                      backdropFilter: 'blur(12px)',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                    }}
+                  >
                     <TbTruck size={40} color={PLUM} />
                   </Box>
-                  <Box sx={{ bgcolor: alpha('#ffffff', 0.55), p: 3, borderRadius: 2, backdropFilter: 'blur(12px)', border: `1px solid ${alpha(PLUM, 0.14)}`, ml: 8 }}>
+                  <Box
+                    sx={{
+                      bgcolor: alpha('#ffffff', 0.55),
+                      p: 3,
+                      borderRadius: 2,
+                      backdropFilter: 'blur(12px)',
+                      border: `1px solid ${alpha(PLUM, 0.14)}`,
+                      ml: 8,
+                    }}
+                  >
                     <TbWorld size={40} color={TEXT_PRIMARY} />
                   </Box>
-                  <Box sx={{ bgcolor: alpha('#ffffff', 0.55), p: 3, borderRadius: 2, backdropFilter: 'blur(12px)', border: `1px solid ${alpha(PLUM, 0.14)}` }}>
+                  <Box
+                    sx={{
+                      bgcolor: alpha('#ffffff', 0.55),
+                      p: 3,
+                      borderRadius: 2,
+                      backdropFilter: 'blur(12px)',
+                      border: `1px solid ${alpha(PLUM, 0.14)}`,
+                    }}
+                  >
                     <TbShip size={40} color={DE_AMBER} />
                   </Box>
                 </Stack>
@@ -229,8 +281,8 @@ const Home = () => {
 
       {/* ─────────── Operations Overview ─────────── */}
       <Box>
-        <SectionHeading 
-          title="Operations Command Center" 
+        <SectionHeading
+          title="Operations Command Center"
           subtitle="Real-time monitoring and management of your global supply chain."
           icon={<TbBolt size={22} />}
         />
@@ -254,8 +306,8 @@ const Home = () => {
 
       {/* ─────────── Analytics ─────────── */}
       <Box>
-        <SectionHeading 
-          title="Logistics Intelligence" 
+        <SectionHeading
+          title="Logistics Intelligence"
           subtitle="Deep insights into courier performance and delivery hotspots."
           icon={<TbBolt size={22} />}
           color={DE_AMBER}
@@ -288,8 +340,8 @@ const Home = () => {
 
       {/* ─────────── Active Tasks ─────────── */}
       <Box>
-        <SectionHeading 
-          title="Pending Actions" 
+        <SectionHeading
+          title="Pending Actions"
           subtitle="Critical operations requiring your immediate attention."
           icon={<TbBolt size={22} />}
         />

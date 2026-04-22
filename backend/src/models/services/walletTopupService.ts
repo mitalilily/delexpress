@@ -19,11 +19,14 @@ export async function walletOfUser(userId: string, tx: any = db) {
 
   if (existingWallet) return existingWallet
 
-  await tx.insert(wallets).values({
-    userId,
-    balance: '0.00',
-    currency: 'INR',
-  }).onConflictDoNothing({ target: wallets.userId })
+  await tx
+    .insert(wallets)
+    .values({
+      userId,
+      balance: '0.00',
+      currency: 'INR',
+    })
+    .onConflictDoNothing({ target: wallets.userId })
 
   const createdWallet = await tx?.query.wallets.findFirst({
     where: eq(wallets.userId, userId),
@@ -76,7 +79,7 @@ export async function createWalletOrder(
     amount: razorpayOrder.amount,
     currency: razorpayOrder.currency,
     key: keyId,
-    name: 'Delexpress',
+    name: 'ExpressoPro',
     description: 'Wallet Recharge',
     prefill: {
       name: details.name,

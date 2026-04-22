@@ -110,7 +110,7 @@ const DEFAULT_LABEL_SETTINGS = {
     deadWeight: false,
     otherCharges: true,
   },
-  powered_by: 'Delexpress',
+  powered_by: 'ExpressoPro',
 }
 
 function mergeSettings(prefs: any) {
@@ -169,7 +169,7 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
   }
 
   const adminPrefs = await getAdminInvoicePreferences()
-  // Always show Delexpress platform logo (Powered by ...)
+  // Always show ExpressoPro platform logo (Powered by ...)
   let platformLogoBase64: string | null = null
   try {
     const platformLogoKey = adminPrefs?.logoFile ?? 'logo-white.png'
@@ -202,12 +202,12 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
   const pickup =
     typeof order.pickup_details === 'string'
       ? JSON.parse(order.pickup_details || '{}')
-      : order.pickup_details ?? {}
+      : (order.pickup_details ?? {})
 
   const rto =
     typeof order.rto_details === 'string'
       ? JSON.parse(order.rto_details || '{}')
-      : order.rto_details ?? {}
+      : (order.rto_details ?? {})
 
   const products = Array.isArray(order.products)
     ? order.products
@@ -403,7 +403,9 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
     weightLines.push(
       `Chargeable Weight: ${chargeableWeightKg ? chargeableWeightKg.toFixed(3) + ' kg' : '-'}`,
     )
-    weightLines.push(`Slab: ${slabWeightKg ? (slabWeightKg * 1000).toFixed(0) + ' g' : 'from rate card'}`)
+    weightLines.push(
+      `Slab: ${slabWeightKg ? (slabWeightKg * 1000).toFixed(0) + ' g' : 'from rate card'}`,
+    )
     weightLines.push(`Slabs Applied: ${slabsApplied ?? '-'}`)
     weightLines.push(`Freight: ${formatCurrency(freightValue)}`)
   }
@@ -494,7 +496,11 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
     },
   ]
   if (showCustomerPhone && consignee.phone) {
-    shipToStack.push({ text: `Ph: ${trimText(consignee.phone, 20)}`, fontSize: 7, margin: [0, 1, 0, 0] })
+    shipToStack.push({
+      text: `Ph: ${trimText(consignee.phone, 20)}`,
+      fontSize: 7,
+      margin: [0, 1, 0, 0],
+    })
   }
 
   const fromLine = [
@@ -516,7 +522,11 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
     })
   }
   if (showShipperPhone && pickup.phone) {
-    shipFromStack.push({ text: `Ph: ${trimText(pickup.phone, 20)}`, fontSize: 7, margin: [0, 1, 0, 0] })
+    shipFromStack.push({
+      text: `Ph: ${trimText(pickup.phone, 20)}`,
+      fontSize: 7,
+      margin: [0, 1, 0, 0],
+    })
   }
   if (showShipperGst && pickup.gst_number) {
     shipFromStack.push({
@@ -620,8 +630,8 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
         p.length && p.breadth && p.height
           ? `${p.length}x${p.breadth}x${p.height}`
           : order.length && order.breadth && order.height
-          ? `${order.length}x${order.breadth}x${order.height}`
-          : '-'
+            ? `${order.length}x${order.breadth}x${order.height}`
+            : '-'
       const deadWeight = order.weight ? `${order.weight}g` : '-'
 
       if (includeProductName) rowCells.push({ text: trimText(itemName, charLimit), fontSize: 7 })
@@ -664,11 +674,7 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
     const orderValue = normalizedOrderValue > 0 ? normalizedOrderValue : productValue
     const codCollectibleRaw = toAmount(order.cod_amount ?? order.order_amount)
     const codCollectible =
-      paymentType === 'cod'
-        ? codCollectibleRaw > 0
-          ? codCollectibleRaw
-          : orderValue
-        : 0
+      paymentType === 'cod' ? (codCollectibleRaw > 0 ? codCollectibleRaw : orderValue) : 0
 
     const summaryParts = [`Order Value: ${formatCurrency(orderValue)}`]
     summaryParts.push(
@@ -724,7 +730,13 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
   if (additionalBarcodes.length > 0) {
     pageContent.push({
       stack: [
-        { text: 'Reference Barcodes', fontSize: 7, color: primaryColor, bold: true, margin: [0, 0, 0, 2] },
+        {
+          text: 'Reference Barcodes',
+          fontSize: 7,
+          color: primaryColor,
+          bold: true,
+          margin: [0, 0, 0, 2],
+        },
         {
           table: {
             widths: additionalBarcodes.map(() => '*'),
@@ -750,7 +762,12 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
   if (showPlatformBranding) {
     const footerStack: any[] = []
     if (images.platformLogo) {
-      footerStack.push({ image: 'platformLogo', width: 40, alignment: 'center', margin: [0, 0, 0, 1] })
+      footerStack.push({
+        image: 'platformLogo',
+        width: 40,
+        alignment: 'center',
+        margin: [0, 0, 0, 1],
+      })
     }
     footerStack.push({
       text: `Powered by ${settings.powered_by}`,

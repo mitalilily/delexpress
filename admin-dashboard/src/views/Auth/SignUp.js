@@ -13,7 +13,6 @@ import {
   VStack,
   useColorModeValue,
 } from '@chakra-ui/react'
-import React from 'react'
 
 function SignUp() {
   const pageBg = useColorModeValue('#F7F2ED', '#161219')
@@ -56,7 +55,10 @@ function SignUp() {
         border="1px solid"
         borderColor={shellBorder}
         borderRadius={{ base: '24px', lg: '30px' }}
-        boxShadow={useColorModeValue('0 28px 72px rgba(24,19,24,0.12)', '0 28px 72px rgba(0,0,0,0.38)')}
+        boxShadow={useColorModeValue(
+          '0 28px 72px rgba(24,19,24,0.12)',
+          '0 28px 72px rgba(0,0,0,0.38)',
+        )}
         overflow="hidden"
         direction={{ base: 'column', lg: 'row' }}
         backdropFilter="blur(16px)"
@@ -75,7 +77,14 @@ function SignUp() {
           borderRight={{ base: 'none', lg: '1px solid rgba(155,49,80,0.08)' }}
         >
           <VStack align="flex-start" spacing={5} position="relative" zIndex="1">
-            <Box as="img" src="/delexpress-logo.svg" alt="Delexpress" h="52px" w="180px" objectFit="contain" />
+            <Box
+              as="img"
+              src="/ExpressoPro-logo.svg"
+              alt="ExpressoPro"
+              h="52px"
+              w="180px"
+              objectFit="contain"
+            />
             <Heading
               fontFamily="'Plus Jakarta Sans', 'Poppins', sans-serif"
               fontSize={{ base: '3xl', md: '5xl' }}
@@ -89,8 +98,8 @@ function SignUp() {
               </Text>
             </Heading>
             <Text color={textSecondary} fontSize="sm" maxW="360px" lineHeight="1.8">
-              Create a Delexpress workspace for operations teams that need courier control,
-              billing visibility, and a cleaner daily panel.
+              Create a ExpressoPro workspace for operations teams that need courier control, billing
+              visibility, and a cleaner daily panel.
             </Text>
           </VStack>
 
@@ -106,7 +115,10 @@ function SignUp() {
                 py={3}
                 borderRadius="20px"
                 bg={useColorModeValue('rgba(255,255,255,0.68)', 'rgba(255,255,255,0.06)')}
-                border={`1px solid ${useColorModeValue('rgba(155,49,80,0.14)', 'rgba(255,255,255,0.14)')}`}
+                border={`1px solid ${useColorModeValue(
+                  'rgba(155,49,80,0.14)',
+                  'rgba(255,255,255,0.14)',
+                )}`}
               >
                 <Text fontSize="lg" fontWeight="800" color={brand} lineHeight="1">
                   {item.value}
@@ -119,7 +131,13 @@ function SignUp() {
           </SimpleGrid>
         </Flex>
 
-        <Flex w={{ base: '100%', lg: '56%' }} align="center" justify="center" px={{ base: 5, md: 8 }} py={{ base: 7, md: 9 }}>
+        <Flex
+          w={{ base: '100%', lg: '56%' }}
+          align="center"
+          justify="center"
+          px={{ base: 5, md: 8 }}
+          py={{ base: 7, md: 9 }}
+        >
           <Box w="100%" maxW="460px">
             <VStack spacing={6} align="stretch">
               <Box>
@@ -137,7 +155,7 @@ function SignUp() {
                   Create your admin workspace
                 </Heading>
                 <Text mt={2} color={textSecondary} fontSize="sm" lineHeight="1.8">
-                  Use this setup form to onboard your Delexpress operations team.
+                  Use this setup form to onboard your ExpressoPro operations team.
                 </Text>
               </Box>
 
@@ -152,7 +170,10 @@ function SignUp() {
                     borderRadius="18px"
                     bg={inputBg}
                     borderColor={inputBorder}
-                    _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 4px rgba(155,49,80,0.12)' }}
+                    _focus={{
+                      borderColor: 'brand.500',
+                      boxShadow: '0 0 0 4px rgba(155,49,80,0.12)',
+                    }}
                   />
                 </FormControl>
                 <FormControl isRequired>
@@ -160,12 +181,15 @@ function SignUp() {
                     Company
                   </FormLabel>
                   <Input
-                    placeholder="Delexpress partner"
+                    placeholder="ExpressoPro partner"
                     h="52px"
                     borderRadius="18px"
                     bg={inputBg}
                     borderColor={inputBorder}
-                    _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 4px rgba(155,49,80,0.12)' }}
+                    _focus={{
+                      borderColor: 'brand.500',
+                      boxShadow: '0 0 0 4px rgba(155,49,80,0.12)',
+                    }}
                   />
                 </FormControl>
               </SimpleGrid>
@@ -176,7 +200,7 @@ function SignUp() {
                 </FormLabel>
                 <Input
                   type="email"
-                  placeholder="team@delexpress.in"
+                  placeholder="team@ExpressoPro.in"
                   h="52px"
                   borderRadius="18px"
                   bg={inputBg}
@@ -215,12 +239,17 @@ function SignUp() {
                 _hover={{ bg: 'brand.600' }}
                 _active={{ bg: 'brand.700' }}
               >
-                Start with Delexpress
+                Start with ExpressoPro
               </Button>
 
               <Text color={textSecondary} fontWeight="medium" textAlign="center">
                 Already have access?
-                <Link color={brand} ms="5px" href={`${process.env.PUBLIC_URL}/#/auth/signin`} fontWeight="bold">
+                <Link
+                  color={brand}
+                  ms="5px"
+                  href={`${process.env.PUBLIC_URL}/#/auth/signin`}
+                  fontWeight="bold"
+                >
                   Sign in
                 </Link>
               </Text>

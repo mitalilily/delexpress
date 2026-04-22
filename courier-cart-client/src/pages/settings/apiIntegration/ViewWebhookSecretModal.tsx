@@ -29,12 +29,12 @@ export const ViewWebhookSecretModal = ({
     if (!webhook) return
 
     const timestamp = new Date().toISOString()
-    const fileName = `delexpress-webhook-secret-${(webhook.name || 'webhook').replace(
+    const fileName = `ExpressoPro-webhook-secret-${(webhook.name || 'webhook').replace(
       /\s/g,
       '-',
     )}-${timestamp.split('T')[0]}.txt`
     const fileContent = `
-Delexpress Webhook Secret
+ExpressoPro Webhook Secret
 Generated: ${timestamp}
 Webhook Name: ${webhook.name || 'Unnamed'}
 Webhook URL: ${webhook.url}

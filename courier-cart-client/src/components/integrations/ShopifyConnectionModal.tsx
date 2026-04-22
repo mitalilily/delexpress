@@ -231,7 +231,7 @@ const ShopifyConnectionModal = ({
                   shopifyDetails.webhookSecret ??
                   shopifyDetails?.metadata?.shopifyWebhookSecret ??
                   shopifyDetails?.metadata?.webhookSecret ??
-                  ""
+                  ''
                 }
                 onChange={(e) =>
                   setShopifyDetails((prev) => ({
@@ -388,7 +388,7 @@ const ShopifyConnectionModal = ({
                       },
                     }))
                   }
-                  helperText="Automatically update order statuses in Shopify when they change in Delexpress."
+                  helperText="Automatically update order statuses in Shopify when they change in ExpressoPro."
                 />
 
                 {/* Auto cancel orders */}
@@ -404,7 +404,7 @@ const ShopifyConnectionModal = ({
                       },
                     }))
                   }
-                  helperText="Automatically cancel the order in Shopify when it’s marked as cancelled in Delexpress."
+                  helperText="Automatically cancel the order in Shopify when it’s marked as cancelled in ExpressoPro."
                 />
 
                 {/* Mark COD Orders Paid */}

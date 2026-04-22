@@ -208,7 +208,7 @@ export class DelhiveryService {
           ? pickupAddressParts.join(', ')
           : sanitizeString(pickup.warehouse_name)
 
-      const sellerName = sanitizeString(params.company?.name || pickup.name || 'Delexpress')
+      const sellerName = sanitizeString(params.company?.name || pickup.name || 'ExpressoPro')
       const sellerGst = sanitizeString(params.company?.gst || pickup.gst_number || '')
       const productNames = orderItems
         .map((item) => sanitizeString(item?.name))
@@ -412,11 +412,7 @@ export class DelhiveryService {
             .map((pkg) => {
               const joinedRemarks = pkg.remarks.join(' | ')
               return (
-                joinedRemarks ||
-                pkg?.message ||
-                pkg?.reason ||
-                pkg?.rmk ||
-                `status=${pkg?.status}`
+                joinedRemarks || pkg?.message || pkg?.reason || pkg?.rmk || `status=${pkg?.status}`
               )
             })
             .filter(Boolean)
@@ -727,7 +723,7 @@ export class DelhiveryService {
             shipment_width: Number(params.package_breadth ?? 10),
             shipment_height: Number(params.package_height ?? 10),
             pickup_location: params.pickup?.warehouse_name ?? 'Default Warehouse',
-            seller_name: params.pickup?.name ?? 'Delexpress',
+            seller_name: params.pickup?.name ?? 'ExpressoPro',
             seller_add: params.pickup?.address ?? '',
             order_date: new Date().toISOString().split('T')[0],
             return_name: reverseDrop?.name ?? params.pickup?.name ?? 'Return',

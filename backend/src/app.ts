@@ -1,11 +1,12 @@
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
+import { randomUUID } from 'crypto'
 import dotenv from 'dotenv'
 import express from 'express'
 import http from 'http'
 import path from 'path'
-import { randomUUID } from 'crypto'
 import { initSocketServer } from './config/socketServer'
+import { shopifyOrderWebhookController } from './controllers/shopify.controller'
 import {
   delhiveryDocumentPushHandler,
   delhiveryScanPushHandler,
@@ -13,7 +14,6 @@ import {
 } from './controllers/webhooks/delhivery.webhook'
 import { ekartWebhookHandler } from './controllers/webhooks/ekart.webhook'
 import { xpressbeesWebhookHandler } from './controllers/webhooks/xpressbees.webhook'
-import { shopifyOrderWebhookController } from './controllers/shopify.controller'
 import adminCourierRoutes from './routes/adminRoutes/adminCourier.routes'
 import adminSupportRoutes from './routes/adminRoutes/adminSupport.routes'
 import adminUserRoutes from './routes/adminRoutes/adminUser.routes'
@@ -51,13 +51,13 @@ import orderRoutes from './routes/order.routes'
 import paymentOptionsRoutes from './routes/paymentOptions.routes'
 import pickupRoutes from './routes/pickup.routes'
 import pickupAddressesRoutes from './routes/pickupAddresses.route'
+import reportsRoutes from './routes/reports.routes'
 import returnsRoutes from './routes/returns.routes'
 import rtoRoutes from './routes/rto.routes'
 import staticPagesRoutes from './routes/staticPages.routes'
 import supportRoutes from './routes/support.routes'
 import uploadRoutes from './routes/upload.route'
 import profileRoutes from './routes/userProfileRoutes'
-import reportsRoutes from './routes/reports.routes'
 import userRoutes from './routes/userRoutes'
 import walletRoutes from './routes/walletRoutes'
 import weightReconciliationRoutes from './routes/weightReconciliation.routes'
@@ -102,7 +102,11 @@ app.use(cookieParser())
 
 const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, '').toLowerCase()
 
-const configuredAllowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || process.env.CORS_ORIGINS || '')
+const configuredAllowedOrigins = (
+  process.env.CORS_ALLOWED_ORIGINS ||
+  process.env.CORS_ORIGINS ||
+  ''
+)
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean)
@@ -161,19 +165,23 @@ app.use(
 app.get('/', (_req, res) => {
   res.status(200).json({
     ok: true,
-    service: 'Delexpress backend',
+    service: 'ExpressoPro backend',
   })
 })
 
 app.get('/health', (_req, res) => {
   res.status(200).json({
     ok: true,
-    service: 'Delexpress backend',
+    service: 'ExpressoPro backend',
   })
 })
 
 // Shopify webhooks require raw body for HMAC verification
-app.post('/api/webhook/shopify/orders', express.raw({ type: 'application/json' }), shopifyOrderWebhookController)
+app.post(
+  '/api/webhook/shopify/orders',
+  express.raw({ type: 'application/json' }),
+  shopifyOrderWebhookController,
+)
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
@@ -257,12 +265,11 @@ app.use((err: any, req: any, res: any, next: any) => {
     return next(err)
   }
 
-  const statusCode =
-    err?.message?.startsWith('Not allowed by CORS')
-      ? 403
-      : typeof err?.statusCode === 'number'
-        ? err.statusCode
-        : 500
+  const statusCode = err?.message?.startsWith('Not allowed by CORS')
+    ? 403
+    : typeof err?.statusCode === 'number'
+      ? err.statusCode
+      : 500
 
   console.error('❌ Unhandled request error', {
     requestId: req?.requestId ?? null,

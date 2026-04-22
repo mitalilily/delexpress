@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { randomUUID } from 'crypto'
 import dayjs from 'dayjs'
-import { and, between, eq, inArray, sql } from 'drizzle-orm'
+import { and, between, eq, inArray } from 'drizzle-orm'
 import fileType from 'file-type'
 import fs from 'fs'
 import path from 'path'
@@ -14,10 +14,7 @@ import { billingInvoices } from '../schema/billingInvoices'
 import { invoicePayments } from '../schema/invoicePayments'
 import { userProfiles } from '../schema/userProfile'
 import { users } from '../schema/users'
-import {
-  getAdminInvoicePreferences,
-  getInvoicePreferences,
-} from './invoicePreferences.service'
+import { getAdminInvoicePreferences, getInvoicePreferences } from './invoicePreferences.service'
 import { presignDownload, presignUpload } from './upload.service'
 
 interface GenerateInvoiceParams {
@@ -238,7 +235,7 @@ export const generateInvoiceForUser = async (
     .where(eq(userProfiles.userId, userId))
     .limit(1)
 
-  const issuerName = adminPrefs?.brandName || 'Delexpress'
+  const issuerName = adminPrefs?.brandName || 'ExpressoPro'
   const issuerAddress = adminPrefs?.sellerAddress || 'N/A'
   const issuerStateCode = adminPrefs?.stateCode || 'N/A'
   const issuerGST = adminPrefs?.gstNumber || 'N/A'
@@ -354,7 +351,7 @@ export const generateInvoiceForUser = async (
     }
   }
 
-  // Platform (Delexpress) logo for footer branding
+  // Platform (ExpressoPro) logo for footer branding
   let platformLogoDataUrl: string | undefined
   try {
     const platformLogoKey = adminLogoFile || 'logo-white.png'
@@ -578,17 +575,17 @@ export const generateInvoiceForUser = async (
           adminIncludeSignature && images.signature
             ? { image: 'signature', width: 60, alignment: 'right', margin: [0, 5, 0, 0] }
             : adminIncludeSignature
-            ? {
-                text: 'Authorised Signatory',
-                alignment: 'right',
-                italics: true,
-                fontSize,
-                margin: [0, 5, 0, 0],
-              }
-            : null,
+              ? {
+                  text: 'Authorised Signatory',
+                  alignment: 'right',
+                  italics: true,
+                  fontSize,
+                  margin: [0, 5, 0, 0],
+                }
+              : null,
 
           {
-            text: 'Powered by Delexpress',
+            text: 'Powered by ExpressoPro',
             alignment: 'center',
             italics: true,
             fontSize: fontSize - 1,
@@ -836,13 +833,13 @@ export const generateInvoiceForUser = async (
                       ],
                     ]
                   : igst > 0
-                  ? [
-                      [
-                        { text: 'IGST (18%)', style: 'totalLabel' },
-                        { text: formatAmount(igst), style: 'totalValue' },
-                      ],
-                    ]
-                  : []),
+                    ? [
+                        [
+                          { text: 'IGST (18%)', style: 'totalLabel' },
+                          { text: formatAmount(igst), style: 'totalValue' },
+                        ],
+                      ]
+                    : []),
                 [
                   { text: 'Grand Total', style: 'totalLabelBold' },
                   { text: formatAmount(totalAmount), style: 'totalValueBold' },
@@ -866,7 +863,7 @@ export const generateInvoiceForUser = async (
 
           // FOOTER
           {
-            text: 'Thank you for trusting and doing business with Delexpress.',
+            text: 'Thank you for trusting and doing business with ExpressoPro.',
             style: 'footer',
           },
           // Show admin signature only if includeSignature is true
@@ -894,7 +891,7 @@ export const generateInvoiceForUser = async (
               }
             : null,
           {
-            text: 'Powered by Delexpress',
+            text: 'Powered by ExpressoPro',
             alignment: 'center',
             italics: true,
             margin: [0, 6, 0, 0],

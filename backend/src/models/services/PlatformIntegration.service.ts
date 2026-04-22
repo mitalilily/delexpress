@@ -56,7 +56,9 @@ const normalizeShopifyDomain = (domain: string) =>
     .replace(/\/+$/, '')
 
 const resolveWebhookAddress = () => {
-  const baseUrl = String(process.env.API_URL || '').trim().replace(/\/+$/, '')
+  const baseUrl = String(process.env.API_URL || '')
+    .trim()
+    .replace(/\/+$/, '')
   if (!baseUrl) {
     throw new Error('API_URL is not configured for Shopify webhook registration')
   }
@@ -85,7 +87,9 @@ export const ensureShopifyOrderWebhooks = async ({
 
   const existing = Array.isArray(data?.webhooks) ? data.webhooks : []
   const existingKeys = new Set(
-    existing.map((wh: any) => `${String(wh?.topic || '').toLowerCase()}::${String(wh?.address || '')}`),
+    existing.map(
+      (wh: any) => `${String(wh?.topic || '').toLowerCase()}::${String(wh?.address || '')}`,
+    ),
   )
 
   const subscribed: string[] = []
@@ -183,7 +187,7 @@ export async function upsertShopifySettingsMetafield({
 
   try {
     const { data: existing } = await axios.get(
-      `${baseUrl}/metafields.json?namespace=DelExpress&key=settings`,
+      `${baseUrl}/metafields.json?namespace=ExpressoPro&key=settings`,
       { headers },
     )
 
@@ -206,7 +210,7 @@ export async function upsertShopifySettingsMetafield({
         `${baseUrl}/metafields.json`,
         {
           metafield: {
-            namespace: 'DelExpress',
+            namespace: 'ExpressoPro',
             key: 'settings',
             value: JSON.stringify(settings),
             type: 'json',

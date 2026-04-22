@@ -122,11 +122,17 @@ export default function HeaderLinks({ variant, children, fixed, secondary, onOpe
                       Confirm Logout
                     </Text>
                     <Text fontSize="sm" color={styles.searchIcon}>
-                      You will leave the Delexpress admin workspace.
+                      You will leave the ExpressoPro admin workspace.
                     </Text>
                   </Box>
                   <Flex justify="flex-end" gap="8px">
-                    <Button size="sm" variant="ghost" onClick={onClose} borderRadius="10px" _hover={{ bg: styles.hoverBg }}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={onClose}
+                      borderRadius="10px"
+                      _hover={{ bg: styles.hoverBg }}
+                    >
                       Cancel
                     </Button>
                     <Button
@@ -151,7 +157,12 @@ export default function HeaderLinks({ variant, children, fixed, secondary, onOpe
         </Popover>
       ) : null}
 
-      <SidebarResponsive logoText={rest.logoText || 'Delexpress'} secondary={secondary} routes={routes} {...rest} />
+      <SidebarResponsive
+        logoText={rest.logoText || 'ExpressoPro'}
+        secondary={secondary}
+        routes={routes}
+        {...rest}
+      />
 
       <IconButton
         aria-label="Settings"

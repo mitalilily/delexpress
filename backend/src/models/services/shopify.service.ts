@@ -101,7 +101,9 @@ const mapShopifyStatus = (order: any): string => {
 }
 
 const normalizeFulfillTrigger = (value: unknown): FulfillTrigger => {
-  const trigger = String(value || 'do_not_fulfill').trim().toLowerCase()
+  const trigger = String(value || 'do_not_fulfill')
+    .trim()
+    .toLowerCase()
   if (
     trigger === 'order_booked' ||
     trigger === 'order_in_transit' ||
@@ -138,7 +140,10 @@ const shouldAttemptFulfillment = (orderStatus: unknown, trigger: unknown) => {
 
 const shouldNotifyCustomerOnFulfill = (settings: any) => {
   const value = String(
-    settings?.customerNotifyOnFulfill ?? settings?.notifyCustomerOnFulfill ?? settings?.notifyOnFulfill ?? '',
+    settings?.customerNotifyOnFulfill ??
+      settings?.notifyCustomerOnFulfill ??
+      settings?.notifyOnFulfill ??
+      '',
   )
     .trim()
     .toLowerCase()
@@ -175,7 +180,9 @@ const toPhone = (order: any): string => {
     order?.billing_address?.phone ||
     order?.customer?.phone ||
     ''
-  const clean = String(phone).replace(/[^\d+]/g, '').trim()
+  const clean = String(phone)
+    .replace(/[^\d+]/g, '')
+    .trim()
   return clean || '0000000000'
 }
 
@@ -204,7 +211,9 @@ const getStoreByDomain = async (domain: string, tx: any = db) => {
   const [store] = await tx
     .select()
     .from(stores)
-    .where(and(eq(stores.domain, normalizeDomain(domain)), eq(stores.platformId, SHOPIFY_PLATFORM_ID)))
+    .where(
+      and(eq(stores.domain, normalizeDomain(domain)), eq(stores.platformId, SHOPIFY_PLATFORM_ID)),
+    )
     .limit(1)
   return store as ShopifyStore | undefined
 }
@@ -222,7 +231,12 @@ const fetchShopifyOrders = async (store: ShopifyStore, limit = 50) => {
   return Array.isArray(res?.data?.orders) ? res.data.orders : []
 }
 
-const upsertFromShopifyOrder = async (store: ShopifyStore, order: any, settings: any, tx: any = db) => {
+const upsertFromShopifyOrder = async (
+  store: ShopifyStore,
+  order: any,
+  settings: any,
+  tx: any = db,
+) => {
   if (!order?.id) return 'skipped' as const
   if (!shouldIncludeByTags(order, settings?.orderTagsToFetch)) return 'skipped' as const
 
@@ -238,7 +252,8 @@ const upsertFromShopifyOrder = async (store: ShopifyStore, order: any, settings:
     : 0
   const products = mapProducts(order)
   const totalWeightGrams = (Array.isArray(order?.line_items) ? order.line_items : []).reduce(
-    (sum: number, item: any) => sum + toNumber(item?.grams, 0) * Math.max(1, toNumber(item?.quantity, 1)),
+    (sum: number, item: any) =>
+      sum + toNumber(item?.grams, 0) * Math.max(1, toNumber(item?.quantity, 1)),
     0,
   )
   const declaredWeight = totalWeightGrams > 0 ? totalWeightGrams : 500
@@ -259,15 +274,19 @@ const upsertFromShopifyOrder = async (store: ShopifyStore, order: any, settings:
     ).slice(0, 255),
     buyer_phone: toPhone(order).slice(0, 20),
     buyer_email: String(order?.email || '').slice(0, 255) || null,
-    address: String(shippingAddress?.address1 || shippingAddress?.address2 || 'Address not provided').slice(
-      0,
-      500,
-    ),
+    address: String(
+      shippingAddress?.address1 || shippingAddress?.address2 || 'Address not provided',
+    ).slice(0, 500),
     city: String(shippingAddress?.city || 'NA').slice(0, 100),
-    state: String(shippingAddress?.province || shippingAddress?.province_code || 'NA').slice(0, 100),
+    state: String(shippingAddress?.province || shippingAddress?.province_code || 'NA').slice(
+      0,
+      100,
+    ),
     country: String(shippingAddress?.country || 'India').slice(0, 100),
     pincode: String(shippingAddress?.zip || '000000').slice(0, 20),
-    products: products.length ? products : [{ name: 'Item', sku: 'NA', qty: 1, price: orderAmount }],
+    products: products.length
+      ? products
+      : [{ name: 'Item', sku: 'NA', qty: 1, price: orderAmount }],
     weight: declaredWeight,
     length: 10,
     breadth: 10,
@@ -323,7 +342,9 @@ export const syncShopifyOrdersForUser = async (
   storeId?: string,
   tx: any = db,
 ): Promise<SyncResult> => {
-  const storesToSync = storeId ? [await getStoreForUser(userId, storeId, tx)].filter(Boolean) : await getStoresForUser(userId, tx)
+  const storesToSync = storeId
+    ? [await getStoreForUser(userId, storeId, tx)].filter(Boolean)
+    : await getStoresForUser(userId, tx)
   if (!storesToSync.length) {
     throw new Error('No connected Shopify store found for this user')
   }
@@ -462,7 +483,8 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
       ])
 
       const shopifyOrder = shopifyOrderRes?.data?.order || {}
-      const isAlreadyFulfilled = String(shopifyOrder?.fulfillment_status || '').toLowerCase() === 'fulfilled'
+      const isAlreadyFulfilled =
+        String(shopifyOrder?.fulfillment_status || '').toLowerCase() === 'fulfilled'
 
       const allFulfillmentOrders = Array.isArray(fulfillmentOrdersRes?.data?.fulfillment_orders)
         ? fulfillmentOrdersRes.data.fulfillment_orders
@@ -471,7 +493,10 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
       const openFulfillmentOrders = allFulfillmentOrders.filter((fo: any) => {
         const foStatus = String(fo?.status || '').toLowerCase()
         const reqStatus = String(fo?.request_status || '').toLowerCase()
-        return foStatus === 'open' && (!reqStatus || reqStatus === 'unsubmitted' || reqStatus === 'submitted')
+        return (
+          foStatus === 'open' &&
+          (!reqStatus || reqStatus === 'unsubmitted' || reqStatus === 'submitted')
+        )
       })
 
       if (!isAlreadyFulfilled && openFulfillmentOrders.length) {
@@ -488,11 +513,14 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
         if (trackingNumber) {
           fulfillmentPayload.fulfillment.tracking_info = {
             number: trackingNumber,
-            company: String(order?.courier_partner || 'Delexpress').slice(0, 255),
+            company: String(order?.courier_partner || 'ExpressoPro').slice(0, 255),
           }
         }
 
-        await axios.post(`${base}/fulfillments.json`, fulfillmentPayload, { headers, timeout: 20000 })
+        await axios.post(`${base}/fulfillments.json`, fulfillmentPayload, {
+          headers,
+          timeout: 20000,
+        })
       }
     }
 

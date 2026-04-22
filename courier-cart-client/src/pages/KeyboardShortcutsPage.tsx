@@ -1,28 +1,12 @@
-import {
-  alpha,
-  Box,
-  Container,
-  Grid,
-  Paper,
-  Stack,
-  styled,
-  Typography,
-} from '@mui/material'
+import { alpha, Box, Container, Grid, Paper, Stack, styled, Typography } from '@mui/material'
 import React from 'react'
-import {
-  FiDollarSign,
-  FiGrid,
-  FiPackage,
-  FiSearch,
-  FiSettings,
-  FiTool,
-} from 'react-icons/fi'
+import { FiDollarSign, FiGrid, FiPackage, FiSearch, FiSettings, FiTool } from 'react-icons/fi'
 import PageHeading from '../components/UI/heading/PageHeading'
 
 /**
  * ──────────────────────────────────────────────────────────────────────────────
  *  KeyboardShortcutsPage
- *  A polished, professional keyboard shortcuts reference page for Delexpress.
+ *  A polished, professional keyboard shortcuts reference page for ExpressoPro.
  * ──────────────────────────────────────────────────────────────────────────────
  */
 
@@ -171,10 +155,7 @@ export default function KeyboardShortcutsPage() {
                       },
                     }}
                   >
-                    <Typography
-                      variant="body2"
-                      sx={{ fontWeight: 600, color: '#42526E' }}
-                    >
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#42526E' }}>
                       {shortcut.label}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
