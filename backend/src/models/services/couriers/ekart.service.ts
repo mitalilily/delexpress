@@ -401,7 +401,13 @@ export class EkartService {
 
     return {
       order_number: payload?.order_number,
-      ...(resolvedWaybill ? { wbn: resolvedWaybill } : {}),
+      ...(resolvedWaybill
+        ? {
+            wbn: resolvedWaybill,
+            waybill_number: resolvedWaybill,
+            awb_number: resolvedWaybill,
+          }
+        : {}),
       invoice_number: invoiceNumber,
       invoice_date: invoiceDate,
       document_number: this.sanitizeText(payload?.document_number) || undefined,
