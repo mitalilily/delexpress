@@ -244,8 +244,16 @@ export class EkartService {
     fallbackAlias?: string,
     locationType?: string,
     country?: string,
+    options?: {
+      preferAliasName?: boolean
+    },
   ) {
-    const name = this.sanitizeText(contact?.name, fallbackAlias || 'Location')
+    const aliasName = this.sanitizeText(fallbackAlias)
+    const contactName = this.sanitizeText(contact?.name)
+    const name =
+      options?.preferAliasName && aliasName
+        ? aliasName
+        : this.sanitizeText(contactName, aliasName || 'Location')
     const address = this.sanitizeText(contact?.address1)
     const address2 = this.sanitizeText(contact?.address2)
     const city = this.sanitizeText(contact?.city)
@@ -448,6 +456,7 @@ export class EkartService {
       pickupLocationAlias,
       payload?.pickup_location?.location_type || payload?.pickup?.location_type,
       payload?.pickup?.country,
+      { preferAliasName: true },
     )
     const dropLocation = this.buildEkartLocation(
       dropContact,
@@ -460,6 +469,7 @@ export class EkartService {
       returnLocationAlias || pickupLocationAlias,
       payload?.return_location?.location_type || payload?.rto?.location_type,
       payload?.rto?.country || payload?.pickup?.country,
+      { preferAliasName: true },
     )
 
     return {

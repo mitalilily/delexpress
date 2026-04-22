@@ -2715,6 +2715,53 @@ export const createB2CShipmentService = async (
 
   // ✅ Ensure pickup details are present (especially for Delhivery)
   const isMissingPickupField = (val?: string) => !val || val.toString().trim().length === 0
+  const normalizePickupSchedule = (
+    pickupDateRaw?: string,
+    pickupTimeRaw?: string,
+  ): { pickupDate?: string; pickupTime?: string } => {
+    const pickupDate = String(pickupDateRaw ?? '').trim()
+    const pickupTime = String(pickupTimeRaw ?? '').trim()
+
+    if (!pickupDate && !pickupTime) {
+      return {}
+    }
+
+    if (!pickupDate || !pickupTime) {
+      throw new HttpError(
+        400,
+        'pickup_date and pickup_time must both be provided together when scheduling pickup.',
+      )
+    }
+
+    const parsedDate = dayjs(pickupDate, 'YYYY-MM-DD', true)
+    if (!parsedDate.isValid()) {
+      throw new HttpError(400, 'pickup_date must be in YYYY-MM-DD format.')
+    }
+
+    const timeFormats = ['HH:mm:ss', 'HH:mm']
+    const parsedTime = timeFormats
+      .map((format) => dayjs(pickupTime, format, true))
+      .find((candidate) => candidate.isValid())
+
+    if (!parsedTime) {
+      throw new HttpError(400, 'pickup_time must be in HH:mm or HH:mm:ss 24-hour format.')
+    }
+
+    const scheduledDateTime = dayjs(
+      `${parsedDate.format('YYYY-MM-DD')} ${parsedTime.format('HH:mm:ss')}`,
+      'YYYY-MM-DD HH:mm:ss',
+      true,
+    )
+
+    if (scheduledDateTime.isBefore(dayjs())) {
+      throw new HttpError(400, 'pickup date and time cannot be in the past.')
+    }
+
+    return {
+      pickupDate: parsedDate.format('YYYY-MM-DD'),
+      pickupTime: parsedTime.format('HH:mm:ss'),
+    }
+  }
   const pickup = params.pickup || ({} as ShipmentParams['pickup'])
   const pickupIncomplete =
     !pickup ||
@@ -2892,6 +2939,21 @@ export const createB2CShipmentService = async (
       `Pickup details incomplete. Missing fields: ${missingPickupFields.join(', ')}. Please select a valid pickup address and retry.`,
     )
   }
+
+  const normalizedPickupSchedule = normalizePickupSchedule(
+    params.pickup?.pickup_date ?? params.pickup_date,
+    params.pickup?.pickup_time ?? params.pickup_time,
+  )
+  if (normalizedPickupSchedule.pickupDate || normalizedPickupSchedule.pickupTime) {
+    params.pickup_date = normalizedPickupSchedule.pickupDate
+    params.pickup_time = normalizedPickupSchedule.pickupTime
+    params.pickup = {
+      ...(params.pickup || ({} as ShipmentParams['pickup'])),
+      pickup_date: normalizedPickupSchedule.pickupDate,
+      pickup_time: normalizedPickupSchedule.pickupTime,
+    }
+  }
+
   // 💰 PRE-CHECK: Validate wallet balance BEFORE creating shipments with service providers
   const bookingPickupPincode = normalizePincode(
     params.origin ??
