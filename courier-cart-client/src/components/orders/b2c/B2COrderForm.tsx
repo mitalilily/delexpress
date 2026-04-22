@@ -8,6 +8,7 @@ import { fetchLocations } from '../../../api/locations'
 import type { CreateShipmentParams } from '../../../api/order.service'
 import { useCreateShipment } from '../../../hooks/Orders/useOrders'
 import { usePaymentOptions } from '../../../hooks/usePaymentOptions'
+import { normalizePickupTime } from '../../../utils/pickupSchedule'
 import FormSectionAccordion from '../../UI/accordion/FormSectionAccordion'
 import AmountSummaryCard from '../AmountSummaryCard'
 import DeliveryDetailsForm from '../DeliveryDetailsForm'
@@ -176,6 +177,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
   const onSubmit = async (data: B2CFormData) => {
     try {
       const normalizedOrderId = data.orderId.trim()
+      const normalizedPickupTime = normalizePickupTime(data.pickupTime)
 
       if (!normalizedOrderId) {
         methods.setError('orderId', {
@@ -232,7 +234,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
           state: data?.pickupState ?? '',
           pincode: data.pickupLocationPincode ?? data.pincode,
           pickup_date: data.pickupDate,
-          pickup_time: data.pickupTime,
+          pickup_time: normalizedPickupTime,
         },
 
         ...(!data?.isRtoSame && {
@@ -262,7 +264,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
             ? Number(data.selectedMaxSlabWeight)
             : undefined,
         pickup_date: data.pickupDate,
-        pickup_time: data.pickupTime,
+        pickup_time: normalizedPickupTime,
         delivery_location: data.zone,
         zone_id: data.zoneId,
       }

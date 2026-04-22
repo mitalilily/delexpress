@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 import { generateManifestService } from '../../api/order.service'
 import { useAllOrders } from '../../hooks/Orders/useOrders'
 import { usePresignedDownloadMutation } from '../../hooks/Uploads/usePresignedDownloadUrls'
+import { normalizePickupTime } from '../../utils/pickupSchedule'
 import { FilterBar, type FilterField } from '../FilterBar'
 import { toast } from '../UI/Toast'
 import StatusChip from '../UI/chip/StatusChip'
@@ -737,7 +738,7 @@ const AllOrders = () => {
         onConfirm={() =>
           closePickupDialog({
             pickup_date: pickupDialogDate,
-            pickup_time: pickupDialogTime,
+            pickup_time: normalizePickupTime(pickupDialogTime),
           })
         }
       />

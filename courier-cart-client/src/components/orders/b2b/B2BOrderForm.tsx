@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import type { CreateB2BShipmentParams } from '../../../api/order.service'
 import { useCreateB2BShipment } from '../../../hooks/Orders/useOrders'
 import { usePaymentOptions } from '../../../hooks/usePaymentOptions'
+import { normalizePickupTime } from '../../../utils/pickupSchedule'
 import FormSectionAccordion from '../../UI/accordion/FormSectionAccordion'
 import AmountSummaryCard from '../AmountSummaryCard'
 import DeliveryDetailsForm from '../DeliveryDetailsForm'
@@ -280,7 +281,7 @@ export default function B2BOrderForm({ onClose }: { onClose?: () => void }) {
         payload.pickup_date = data.pickupDate
       }
       if (data.pickupTime) {
-        payload.pickup_time = data.pickupTime
+        payload.pickup_time = normalizePickupTime(data.pickupTime)
       }
 
       // Add integration type if provided
