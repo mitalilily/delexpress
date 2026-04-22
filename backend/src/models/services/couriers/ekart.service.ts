@@ -82,8 +82,12 @@ export class EkartService {
 
   private sanitizeShipmentPayload(payload: any) {
     return {
+      payload_keys: payload && typeof payload === 'object' ? Object.keys(payload).sort() : [],
       order_number: payload?.order_number,
       wbn: payload?.wbn ?? payload?.awb_number ?? payload?.tracking_id ?? null,
+      waybill_number: payload?.waybill_number ?? null,
+      awb_number: payload?.awb_number ?? null,
+      ewbn: payload?.ewbn ?? null,
       payment_type: payload?.payment_type ?? payload?.payment_mode ?? null,
       courier_id: payload?.courier_id ?? null,
       package_weight:
@@ -110,6 +114,18 @@ export class EkartService {
           payload?.drop?.phone ??
           payload?.drop_location?.phone,
       ),
+      payment_mode: payload?.payment_mode ?? null,
+      products_desc: payload?.products_desc ?? null,
+      category_of_goods: payload?.category_of_goods ?? null,
+      hsn_code: payload?.hsn_code ?? null,
+      quantity: payload?.quantity ?? null,
+      weight: payload?.weight ?? null,
+      length: payload?.length ?? null,
+      width: payload?.width ?? null,
+      height: payload?.height ?? null,
+      taxable_amount: payload?.taxable_amount ?? null,
+      commodity_value: payload?.commodity_value ?? null,
+      cod_amount: payload?.cod_amount ?? payload?.collectable_amount ?? null,
       pickup: payload?.pickup
         ? {
             name: payload.pickup.name ?? payload.seller_name ?? null,
@@ -137,6 +153,36 @@ export class EkartService {
               phone: this.maskPhone(payload?.drop?.phone ?? payload?.drop_location?.phone),
             }
           : null,
+      pickup_location: payload?.pickup_location
+        ? {
+            name: payload.pickup_location.name ?? null,
+            location_type: payload.pickup_location.location_type ?? null,
+            city: payload.pickup_location.city ?? null,
+            state: payload.pickup_location.state ?? null,
+            pin: payload.pickup_location.pin ?? null,
+            phone: this.maskPhone(payload.pickup_location.phone),
+          }
+        : null,
+      drop_location: payload?.drop_location
+        ? {
+            name: payload.drop_location.name ?? null,
+            location_type: payload.drop_location.location_type ?? null,
+            city: payload.drop_location.city ?? null,
+            state: payload.drop_location.state ?? null,
+            pin: payload.drop_location.pin ?? null,
+            phone: this.maskPhone(payload.drop_location.phone),
+          }
+        : null,
+      return_location: payload?.return_location
+        ? {
+            name: payload.return_location.name ?? null,
+            location_type: payload.return_location.location_type ?? null,
+            city: payload.return_location.city ?? null,
+            state: payload.return_location.state ?? null,
+            pin: payload.return_location.pin ?? null,
+            phone: this.maskPhone(payload.return_location.phone),
+          }
+        : null,
       order_items_count: Array.isArray(payload?.items)
         ? payload.items.length
         : Array.isArray(payload?.order_items)
