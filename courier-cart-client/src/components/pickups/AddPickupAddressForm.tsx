@@ -50,6 +50,32 @@ const AddPickupAddressForm = ({
 
   const useDifferentRTO = watch('useDifferentRTO')
 
+  const savedSyncWarnings = [
+    initialData?.delhiverySyncError ? `Delhivery: ${initialData.delhiverySyncError}` : null,
+    initialData?.ekartSyncError ? `Ekart: ${initialData.ekartSyncError}` : null,
+  ].filter(Boolean) as string[]
+
+  const getProviderSyncSummary = (providerSync: {
+    delhivery?: { synced: boolean; error: string | null }
+    ekart?: { synced: boolean; error: string | null }
+  } | null | undefined) => {
+    const entries = [
+      providerSync?.delhivery ? { name: 'Delhivery', ...providerSync.delhivery } : null,
+      providerSync?.ekart ? { name: 'Ekart', ...providerSync.ekart } : null,
+    ].filter(Boolean) as Array<{ name: string; synced: boolean; error: string | null }>
+
+    const attempted = entries.filter((entry) => entry.synced || entry.error)
+    const syncedCount = attempted.filter((entry) => entry.synced).length
+    const failed = attempted.filter((entry) => !entry.synced && entry.error)
+
+    return {
+      attemptedCount: attempted.length,
+      syncedCount,
+      failed,
+      allFailed: attempted.length > 0 && syncedCount === 0,
+    }
+  }
+
   const onSubmit = async (formData: PickupFormValues) => {
     try {
       setServerError(null)
@@ -72,18 +98,33 @@ const AddPickupAddressForm = ({
               : 'Pickup address updated successfully',
           severity: warnings.length > 0 ? 'warning' : 'success',
         })
+        setDrawer(false)
+        reset()
       } else {
         const response = await createPickupAddressMutation.mutateAsync(payload)
         const warnings = Array.isArray(response?.warnings) ? response.warnings : []
+        const providerSummary = getProviderSyncSummary(response?.providerSync)
+
+        if (providerSummary.allFailed) {
+          const combinedMessage =
+            providerSummary.failed.map((entry) => `${entry.name}: ${entry.error}`).join(' ') ||
+            'Pickup address was saved locally, but courier warehouse sync failed.'
+          setServerError(combinedMessage)
+          toast.open({
+            message: combinedMessage,
+            severity: 'error',
+          })
+          return
+        }
+
         toast.open({
           message:
             warnings.length > 0 ? warnings[0] : 'Pickup address saved successfully',
           severity: warnings.length > 0 ? 'warning' : 'success',
         })
+        setDrawer(false)
+        reset()
       }
-
-      setDrawer(false)
-      reset()
     } catch (err) {
       console.error(err)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -120,6 +161,17 @@ const AddPickupAddressForm = ({
             }}
           >
             {serverError}
+          </Alert>
+        </Box>
+      )}
+      {!serverError && savedSyncWarnings.length > 0 && (
+        <Box mb={1}>
+          <Alert severity="warning">
+            {savedSyncWarnings.map((warning, index) => (
+              <Typography key={`${warning}-${index}`} variant="body2">
+                {warning}
+              </Typography>
+            ))}
           </Alert>
         </Box>
       )}

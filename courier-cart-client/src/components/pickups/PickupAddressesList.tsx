@@ -36,12 +36,21 @@ const PickupAddressesList = ({
   const isLgUp = useMediaQuery(theme.breakpoints.up('lg')) // large desktop
 
   let drawerWidth: string | number = '100%' // default full width
-  if (isXs) drawerWidth = '100%' // mobile full width
-  else if (isSm) drawerWidth = '95%' // tablets
-  else if (isMd) drawerWidth = '95%' // small desktops
+  if (isXs)
+    drawerWidth = '100%' // mobile full width
+  else if (isSm)
+    drawerWidth = '95%' // tablets
+  else if (isMd)
+    drawerWidth = '95%' // small desktops
   else if (isLgUp) drawerWidth = 1200 // large desktop fixed width
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedAddress, setSelectedAddress] = useState<HydratedPickup | undefined>(undefined)
+
+  const getSyncWarnings = (row: HydratedPickup) =>
+    [
+      row.delhiverySyncError ? `Error: ${row.delhiverySyncError}` : null,
+      row.ekartSyncError ? `Error: ${row.ekartSyncError}` : null,
+    ].filter(Boolean) as string[]
 
   const handleMakePrimary = (id: string) => {
     updatePickupAddress({ id, payload: { isPrimary: true } })
@@ -89,6 +98,16 @@ const PickupAddressesList = ({
           <Typography variant="body2" color="text.secondary">
             {row.pickup?.contactName} • {row.pickup?.contactPhone}
           </Typography>
+          {getSyncWarnings(row).length > 0 && (
+            <Stack direction="row" spacing={0.75} mt={0.75} flexWrap="wrap" useFlexGap>
+              {!row.delhiverySynced && row.delhiverySyncError && (
+                <Chip label="Delhivery Pending" size="small" color="warning" variant="outlined" />
+              )}
+              {!row.ekartSynced && row.ekartSyncError && (
+                <Chip label="Ekart Pending" size="small" color="warning" variant="outlined" />
+              )}
+            </Stack>
+          )}
         </Box>
       ),
     },
@@ -455,6 +474,36 @@ const PickupAddressesList = ({
                   {moment(row.updatedAt).format('DD MMM YYYY, hh:mm A')}
                 </Typography>
               </Grid>
+
+              {getSyncWarnings(row).length > 0 && (
+                <Grid size={12}>
+                  <Box
+                    sx={{
+                      mt: 1,
+                      p: 1.5,
+                      borderRadius: '10px',
+                      border: '1px solid',
+                      borderColor: 'warning.light',
+                      backgroundColor: 'rgba(237, 108, 2, 0.08)',
+                    }}
+                  >
+                    <Typography fontWeight={700} fontSize={13} mb={0.75}>
+                      Courier Sync Warnings
+                    </Typography>
+                    <Stack spacing={0.5}>
+                      {getSyncWarnings(row).map((warning, index) => (
+                        <Typography
+                          key={`${warning}-${index}`}
+                          fontSize={13}
+                          color="text.secondary"
+                        >
+                          {warning}
+                        </Typography>
+                      ))}
+                    </Stack>
+                  </Box>
+                </Grid>
+              )}
             </Grid>
           </Box>
         )}
