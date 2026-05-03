@@ -20,18 +20,7 @@ export const createB2CShipmentController = async (req: any, res: Response) => {
   try {
     const id = req.user?.sub
     // Local order creation (via dashboard), so is_external_api = false
-
-    // Set a longer timeout for B2C order creation (3 minutes)
-    // External courier API calls (Delhivery) can take time
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Order creation timed out after 3 minutes')), 180000)
-    })
-
-    const shipmentPromise = createB2CShipmentService(req.body, id, false)
-
-    const shipment = (await Promise.race([shipmentPromise, timeoutPromise])) as Awaited<
-      ReturnType<typeof createB2CShipmentService>
-    >
+    const shipment = await createB2CShipmentService(req.body, id, false)
 
     res.status(200).json({ success: true, shipment })
   } catch (error: any) {
@@ -271,21 +260,11 @@ export const generateManifestController = async (req: any, res: Response) => {
       return res.status(400).json({ success: false, message: 'Invalid manifest type' })
     }
 
-    // Manifest generation can take a while when couriers process multiple orders.
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Manifest generation timed out after 10 minutes')), 600000)
-    })
-
-    const manifestPromise = generateManifestService({
+    const { manifest_id, manifest_url, manifest_key, warnings } = await generateManifestService({
       awbs,
       type,
       userId,
     })
-
-    const { manifest_id, manifest_url, manifest_key, warnings } = (await Promise.race([
-      manifestPromise,
-      timeoutPromise,
-    ])) as Awaited<ReturnType<typeof generateManifestService>>
 
     return res.status(200).json({
       success: true,

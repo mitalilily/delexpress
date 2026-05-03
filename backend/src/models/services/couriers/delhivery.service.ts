@@ -845,6 +845,22 @@ export class DelhiveryService {
     } catch (err: any) {
       const providerError = err.response?.data
       console.error('❌ Delhivery pickup request error:', providerError || err.message)
+      const flattenProviderMessages = (value: unknown): string[] => {
+        if (!value) return []
+        if (typeof value === 'string') {
+          return value.trim() ? [value.trim()] : []
+        }
+        if (Array.isArray(value)) {
+          return value.flatMap((entry) => flattenProviderMessages(entry)).filter(Boolean)
+        }
+        if (typeof value === 'object') {
+          return Object.values(value as Record<string, unknown>)
+            .flatMap((entry) => flattenProviderMessages(entry))
+            .filter(Boolean)
+        }
+        return String(value).trim() ? [String(value).trim()] : []
+      }
+      const providerMessages = flattenProviderMessages(providerError)
 
       const providerMessage =
         typeof providerError?.pickup_date === 'string'
@@ -853,6 +869,8 @@ export class DelhiveryService {
             ? providerError.message
             : typeof providerError?.error === 'string'
               ? providerError.error
+              : providerMessages.length > 0
+                ? providerMessages.join(' | ')
               : typeof err.message === 'string' && err.message.trim().length > 0
                 ? err.message.trim()
                 : 'Failed to create pickup request in Delhivery'

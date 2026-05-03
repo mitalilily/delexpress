@@ -103,7 +103,7 @@ export const createReturnOrderController = async (req: any, res: Response) => {
     })
   } catch (error: any) {
     console.error('Error creating return order via API:', error)
-    res.status(500).json({
+    res.status(typeof error?.statusCode === 'number' ? error.statusCode : 500).json({
       success: false,
       error: 'Failed to create return order',
       message: error.message || 'Internal server error',

@@ -126,6 +126,7 @@ const B2COrdersList = () => {
   const [selectionResetToken, setSelectionResetToken] = useState(0)
   const [downloadingDocumentType, setDownloadingDocumentType] = useState<DocumentType | null>(null)
   const [bulkManifesting, setBulkManifesting] = useState(false)
+  const [manifestingOrderId, setManifestingOrderId] = useState<string | number | null>(null)
   const [bulkFeedback, setBulkFeedback] = useState<BulkFeedback | null>(null)
   const [filters, setFilters] = useState<OrderFilters>({
     status: '',
@@ -181,6 +182,7 @@ const B2COrdersList = () => {
       return
     }
     try {
+      setManifestingOrderId(order.id)
       setBulkFeedback({
         severity: 'info',
         title: 'Manifest in progress',
@@ -224,6 +226,8 @@ const B2COrdersList = () => {
         message: `${order.order_number}: ${errorMessage}`,
         severity: 'error',
       })
+    } finally {
+      setManifestingOrderId((current) => (current === order.id ? null : current))
     }
   }
 
@@ -683,16 +687,17 @@ const B2COrdersList = () => {
         }
 
         if (isB2CManifestEligible(row)) {
+          const isThisManifesting = manifestingOrderId === row.id
           actions.push(
             <Button
               key="manifest"
               size="small"
               variant="contained"
-              disabled={bulkManifesting}
+              disabled={bulkManifesting || isThisManifesting}
               onClick={() => handleGenerateManifest(row)}
               sx={{ px: 1.25, minWidth: 0 }}
             >
-              Manifest
+              {isThisManifesting ? 'Manifesting...' : 'Manifest'}
             </Button>,
           )
         }
