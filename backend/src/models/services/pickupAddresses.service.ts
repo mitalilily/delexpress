@@ -84,16 +84,6 @@ function preflightDelhiveryWarehouse(payload: CreatePickupDto) {
 
 function preflightEkartWarehouse(payload: CreatePickupDto) {
   preflightDelhiveryWarehouse(payload)
-
-  const geo = buildEkartGeo(payload.pickup.latitude, payload.pickup.longitude)
-  if (!geo) {
-    const err: any = new Error(
-      'Pickup latitude and longitude are required before registering this warehouse with Ekart.',
-    )
-    err.code = 'EKART_WAREHOUSE_GEO_REQUIRED'
-    err.field = 'pickup.latitude'
-    throw err
-  }
 }
 
 function preflightWarehouseSyncTargets(
@@ -338,14 +328,6 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
         const phoneRaw = String(pickupAddr.contactPhone || '')
         const phoneDigits = phoneRaw.replace(/\D/g, '')
         const geo = buildEkartGeo(pickupAddr.latitude, pickupAddr.longitude)
-        if (!geo) {
-          const err: any = new Error(
-            'Pickup latitude and longitude are required before registering this warehouse with Ekart.',
-          )
-          err.code = 'EKART_WAREHOUSE_GEO_REQUIRED'
-          err.field = 'pickup.latitude'
-          throw err
-        }
 
         const payload = {
           alias,
@@ -358,7 +340,7 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
           state: pickupAddr.state,
           pincode: Number(pickupAddr.pincode) || 0,
           country: (pickupAddr.country || 'India').toUpperCase(),
-          geo,
+          ...(geo ? { geo } : {}),
           returnAddress: {
             contactName: pickupAddr.contactName || 'ExpressoPro',
             phone: Number(phoneDigits) || 0,
@@ -368,7 +350,7 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
             state: pickupAddr.state,
             pincode: Number(pickupAddr.pincode) || 0,
             country: (pickupAddr.country || 'India').toUpperCase(),
-            geo,
+            ...(geo ? { geo } : {}),
           },
         }
         await ekart.createWarehouse(payload)

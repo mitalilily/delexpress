@@ -411,8 +411,18 @@ export class DelhiveryService {
           packageFailuresWithRemarks
             .map((pkg) => {
               const joinedRemarks = pkg.remarks.join(' | ')
+              const packageStatus =
+                pkg?.status ??
+                pkg?.Status ??
+                pkg?.status_message ??
+                pkg?.statusMessage ??
+                pkg?.message ??
+                pkg?.reason ??
+                pkg?.rmk
               return (
-                joinedRemarks || pkg?.message || pkg?.reason || pkg?.rmk || `status=${pkg?.status}`
+                joinedRemarks ||
+                packageStatus ||
+                'Delhivery rejected the package without returning a detailed status.'
               )
             })
             .filter(Boolean)
