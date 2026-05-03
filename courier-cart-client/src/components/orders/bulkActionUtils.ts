@@ -79,7 +79,8 @@ export const getB2CManifestProvider = (order: BulkOrderDocumentShape) => {
 
 export const isB2CManifestEligible = (order: BulkOrderDocumentShape) => {
   const status = String(order.order_status || '').toLowerCase()
-  return Boolean(getB2CManifestIdentifier(order)) && B2C_MANIFESTABLE_STATUSES.has(status)
+  const hasManifest = Boolean(order.manifest || order.manifest_key || order.manifest_url)
+  return Boolean(getB2CManifestIdentifier(order)) && B2C_MANIFESTABLE_STATUSES.has(status) && !hasManifest
 }
 
 const sanitizeFileNameSegment = (value: string) =>
