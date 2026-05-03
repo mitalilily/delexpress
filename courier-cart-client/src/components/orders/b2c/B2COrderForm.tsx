@@ -105,8 +105,8 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
   // Determine default order type based on enabled payment options
   const getDefaultOrderType = (): 'prepaid' | 'cod' => {
     if (!paymentOptions) return 'prepaid' // Default fallback
+    if (paymentOptions.prepaidEnabled) return 'prepaid' // Prioritize prepaid
     if (paymentOptions.codEnabled) return 'cod'
-    if (paymentOptions.prepaidEnabled) return 'prepaid'
     return 'prepaid' // Final fallback
   }
 
