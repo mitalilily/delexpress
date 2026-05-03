@@ -1,4 +1,4 @@
-import { Box, Chip, CircularProgress, Divider, Grid, Paper, Stack, Typography, alpha } from '@mui/material'
+import { Alert, Box, Chip, CircularProgress, Divider, Grid, Paper, Stack, Typography, alpha } from '@mui/material'
 import { useFormContext } from 'react-hook-form'
 import { BiCalendar, BiCheckCircle, BiMap, BiPackage, BiUser } from 'react-icons/bi'
 import { TbPlane, TbTruck } from 'react-icons/tb'
@@ -387,29 +387,39 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
       </Grid>
 
       <Grid size={{ md: 7.5, xs: 12 }}>
-        <Paper
-          sx={{
-            p: 2.5,
-            borderRadius: 4,
-            border: `1px solid ${alpha(ACCENT, 0.1)}`,
-            boxShadow: '0 18px 40px rgba(16,42,84,0.06)',
-          }}
-        >
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            justifyContent="space-between"
-            alignItems={{ xs: 'flex-start', md: 'center' }}
-            spacing={1}
-            sx={{ mb: 2.5 }}
+        <Stack spacing={2.5}>
+          <Alert severity="warning" sx={{ borderRadius: 3 }}>
+            <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+              ⚠️ Please review all details before booking
+            </Typography>
+            <Typography sx={{ fontSize: 14, color: 'inherit' }}>
+              Verify customer address, package details, order amount, and shipping preferences. Once booked, changes may incur additional charges or delays.
+            </Typography>
+          </Alert>
+
+          <Paper
+            sx={{
+              p: 2.5,
+              borderRadius: 4,
+              border: `1px solid ${alpha(ACCENT, 0.1)}`,
+              boxShadow: '0 18px 40px rgba(16,42,84,0.06)',
+            }}
           >
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: TEXT_PRIMARY }}>
-                Select Courier Partner
-              </Typography>
-              <Typography sx={{ mt: 0.5, color: TEXT_SECONDARY }}>
-                Compare freight, speed and chargeable weight before locking the shipment.
-              </Typography>
-            </Box>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'flex-start', md: 'center' }}
+              spacing={1}
+              sx={{ mb: 2.5 }}
+            >
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: TEXT_PRIMARY }}>
+                  Select Courier Partner
+                </Typography>
+                <Typography sx={{ mt: 0.5, color: TEXT_SECONDARY }}>
+                  Compare freight, speed and chargeable weight before locking the shipment.
+                </Typography>
+              </Box>
             <Chip
               label={`${availableCouriers.length} options`}
               sx={{
@@ -537,10 +547,24 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
 
                       <Stack alignItems={{ xs: 'flex-start', sm: 'flex-end' }} spacing={0.25}>
                         <Typography sx={{ fontSize: 12, color: TEXT_SECONDARY }}>
-                          Forward Freight
+                          Total Courier Cost
                         </Typography>
-                        <Typography sx={{ fontSize: 28, fontWeight: 900, color: TEXT_PRIMARY }}>
-                          {formatCurrency(forwardCharge)}
+                        <Typography
+                          sx={{
+                            fontSize: 28,
+                            fontWeight: 900,
+                            color: '#fff',
+                            bgcolor: ACCENT,
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: 2,
+                          }}
+                        >
+                          {formatCurrency(
+                            (forwardCharge || 0) +
+                            (local?.forward?.cod_charges || 0) +
+                            (local?.forward?.other_charges || 0)
+                          )}
                         </Typography>
                       </Stack>
                     </Stack>
@@ -592,7 +616,8 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
               )
             })}
           </Stack>
-        </Paper>
+            </Paper>
+          </Stack>
       </Grid>
     </Grid>
   )

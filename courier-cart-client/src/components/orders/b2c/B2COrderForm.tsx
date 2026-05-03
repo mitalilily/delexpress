@@ -564,6 +564,17 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
             </FormSectionAccordion>
           )}
 
+          {currentStep === 2 && (
+            <Alert severity="info" sx={{ mt: 2.5, borderRadius: 2 }}>
+              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                ℹ️ Final Check Before Booking
+              </Typography>
+              <Typography sx={{ fontSize: 14 }}>
+                Ensure customer details, delivery address, package weight, and selected courier are correct. Once booked, modifications may not be possible.
+              </Typography>
+            </Alert>
+          )}
+
           {/* Sticky footer inside scroll */}
           <Box
             sx={{
