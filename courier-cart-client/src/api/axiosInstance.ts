@@ -32,7 +32,8 @@ const API_BASE_URL = getApiBaseUrl()
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  // Courier operations can legitimately take a long time, so don't force a client-side cutoff.
+  timeout: 0,
   headers: { 'Content-Type': 'application/json' },
 })
 

@@ -638,6 +638,7 @@ const AllOrders = () => {
                 <Button
                   variant="contained"
                   onClick={handleBulkManifest}
+                  loading={bulkManifesting}
                   disabled={bulkManifesting || Boolean(manifestValidationMessage)}
                   sx={{ textTransform: 'none', minWidth: 170 }}
                 >

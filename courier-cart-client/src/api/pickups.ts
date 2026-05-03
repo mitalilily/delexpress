@@ -8,10 +8,25 @@ export type CreatePickupAddressPayload = Omit<
   'id' | 'createdAt' | 'updatedAt' | 'userId'
 >
 
+export interface PickupProviderSyncState {
+  synced: boolean
+  error: string | null
+}
+
+export interface CreatePickupAddressResponse {
+  message: string
+  data: HydratedPickup
+  warnings?: string[]
+  providerSync?: {
+    delhivery?: PickupProviderSyncState
+    ekart?: PickupProviderSyncState
+  } | null
+}
+
 export const createPickupAddress = async (payload: CreatePickupAddressPayload) => {
   console.log('payload', payload)
   const response = await axiosInstance.post('/pickup-addresses', payload)
-  return response.data as HydratedPickup
+  return response.data as CreatePickupAddressResponse
 }
 
 // ✅ Enhance API util
@@ -35,9 +50,9 @@ export const getPickupAddresses = async (filters?: PickupAddressFilters) => {
 export const updatePickupAddress = async (
   id: string,
   payload: Partial<HydratedPickup>,
-): Promise<HydratedPickup> => {
+): Promise<{ data: HydratedPickup; warnings?: string[]; message?: string }> => {
   const res = await axiosInstance.patch(`/pickup-addresses/${id}`, payload)
-  return res.data.data
+  return res.data
 }
 
 export const exportPickupAddresses = async (filters: PickupAddressFilters) => {

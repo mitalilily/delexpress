@@ -42,6 +42,10 @@ export interface IPickupAddress {
 
   isPrimary: boolean
   isPickupEnabled: boolean
+  delhiverySynced?: boolean
+  delhiverySyncError?: string | null
+  ekartSynced?: boolean
+  ekartSyncError?: string | null
 
   createdAt?: Date
   updatedAt?: Date
@@ -70,6 +74,10 @@ export interface HydratedPickupAddress {
   pickupId: string
   isPrimary: boolean
   isPickupEnabled: boolean
+  delhiverySynced?: boolean
+  delhiverySyncError?: string | null
+  ekartSynced?: boolean
+  ekartSyncError?: string | null
   pickup: IAddress
   rto: IAddress | null
 }

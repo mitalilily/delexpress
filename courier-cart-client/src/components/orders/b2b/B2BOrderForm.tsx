@@ -486,12 +486,17 @@ export default function B2BOrderForm({ onClose }: { onClose?: () => void }) {
                   loading={createShipmentMutation?.isPending}
                   variant="outlined"
                   onClick={prevStep}
+                  disabled={createShipmentMutation?.isPending}
                 >
                   Back
                 </Button>
               )}
               {currentStep < 2 ? (
-                <Button variant="contained" onClick={nextStep}>
+                <Button
+                  variant="contained"
+                  onClick={nextStep}
+                  disabled={createShipmentMutation?.isPending}
+                >
                   Next
                 </Button>
               ) : (
@@ -501,6 +506,7 @@ export default function B2BOrderForm({ onClose }: { onClose?: () => void }) {
                   onClick={handleSubmit(onSubmit)}
                   color="primary"
                   loading={createShipmentMutation?.isPending}
+                  disabled={createShipmentMutation?.isPending}
                 >
                   Create & Book Order
                 </Button>

@@ -60,11 +60,26 @@ const AddPickupAddressForm = ({
       }
 
       if (isEdit && initialData?.pickup?.id) {
-        await updatePickupAddressMutation.mutateAsync({ id: initialData.pickupId, payload })
-        toast.open({ message: 'Pickup address updated successfully', severity: 'success' })
+        const response = await updatePickupAddressMutation.mutateAsync({
+          id: initialData.pickupId,
+          payload,
+        })
+        const warnings = Array.isArray((response as any)?.warnings) ? (response as any).warnings : []
+        toast.open({
+          message:
+            warnings.length > 0
+              ? warnings[0]
+              : 'Pickup address updated successfully',
+          severity: warnings.length > 0 ? 'warning' : 'success',
+        })
       } else {
-        await createPickupAddressMutation.mutateAsync(payload)
-        toast.open({ message: 'Pickup address saved successfully', severity: 'success' })
+        const response = await createPickupAddressMutation.mutateAsync(payload)
+        const warnings = Array.isArray(response?.warnings) ? response.warnings : []
+        toast.open({
+          message:
+            warnings.length > 0 ? warnings[0] : 'Pickup address saved successfully',
+          severity: warnings.length > 0 ? 'warning' : 'success',
+        })
       }
 
       setDrawer(false)
@@ -81,8 +96,13 @@ const AddPickupAddressForm = ({
           message ||
             'A warehouse with this nickname already exists in our system. Please choose a different warehouse nickname.',
         )
+      } else if (typeof message === 'string' && message.trim()) {
+        setServerError(message)
       } else {
-        setServerError(message || 'Failed to save pickup address. Please try again.')
+        const providerDescription = axiosErr.response?.data?.providerResponse?.description
+        setServerError(
+          providerDescription || 'Failed to save pickup address. Please try again.',
+        )
       }
     }
   }

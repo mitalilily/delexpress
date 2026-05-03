@@ -594,6 +594,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
                   loading={createShipmentMutation?.isPending}
                   variant="outlined"
                   onClick={prevStep}
+                  disabled={createShipmentMutation?.isPending}
                   fullWidth={false}
                   sx={{
                     minWidth: { xs: '100%', sm: 120 },
@@ -610,6 +611,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
                   type="button" // ✅ no accidental submit
                   variant="contained"
                   onClick={nextStep}
+                  disabled={createShipmentMutation?.isPending}
                   sx={{
                     minWidth: { xs: '100%', sm: 130 },
                     fontWeight: 700,
@@ -625,6 +627,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
                   color="primary"
                   onClick={handleSubmit(onSubmit)} // ✅ react-hook-form submit
                   loading={createShipmentMutation?.isPending}
+                  disabled={createShipmentMutation?.isPending}
                   sx={{
                     minWidth: { xs: '100%', sm: 210 },
                     fontWeight: 800,

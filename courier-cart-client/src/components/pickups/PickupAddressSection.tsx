@@ -575,7 +575,25 @@ const PickupAddressSection = ({
                   <Controller
                     name={`${prefix}.${name}` as Path<PickupFormValues>}
                     control={control}
-                    rules={isReq ? required(label) : undefined}
+                    rules={{
+                      ...(isReq ? required(label) : {}),
+                      ...(name === 'addressLine1'
+                        ? {
+                            minLength: {
+                              value: 10,
+                              message: 'Address Line 1 must be at least 10 characters',
+                            },
+                          }
+                        : {}),
+                      ...(name === 'pincode'
+                        ? {
+                            pattern: {
+                              value: /^[0-9]{6}$/,
+                              message: 'Pincode must be exactly 6 digits',
+                            },
+                          }
+                        : {}),
+                    }}
                     render={({ field, fieldState }) => (
                       <CustomInput
                         placeholder={`Enter ${label}`}

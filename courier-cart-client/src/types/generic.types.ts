@@ -46,6 +46,10 @@ export interface HydratedPickup {
   pickupId: string
   isPrimary: boolean
   isPickupEnabled: boolean
+  delhiverySynced?: boolean
+  delhiverySyncError?: string | null
+  ekartSynced?: boolean
+  ekartSyncError?: string | null
   pickup: IAddress
   rto?: IAddress | null
   createdAt: string

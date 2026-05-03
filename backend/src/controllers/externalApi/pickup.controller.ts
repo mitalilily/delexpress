@@ -104,11 +104,16 @@ export const createPickupAddressController = async (req: any, res: Response) => 
 
     res.status(201).json({
       success: true,
-      message: 'Pickup address registered successfully',
+      message:
+        Array.isArray((created as any)?.warnings) && (created as any).warnings.length
+          ? 'Pickup address registered with courier sync warnings'
+          : 'Pickup address registered successfully',
       data: {
         id: created.id,
         is_primary: created.isPrimary,
         is_pickup_enabled: created.isPickupEnabled,
+        provider_sync: (created as any)?.providerSync ?? null,
+        warnings: (created as any)?.warnings ?? [],
         pickup_address: pickupAddr
           ? {
               name: pickupAddr.contactName,

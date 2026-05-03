@@ -39,4 +39,8 @@ export const pickupAddresses = pgTable('pickup_addresses', {
   isPrimary: boolean('isPrimary').default(false).notNull(),
   isPickupEnabled: boolean('isPickupEnabled').default(true),
   isRTOSame: boolean('isRTOSame').default(true),
+  delhiverySynced: boolean('delhiverySynced').default(false).notNull(),
+  delhiverySyncError: text('delhiverySyncError'),
+  ekartSynced: boolean('ekartSynced').default(false).notNull(),
+  ekartSyncError: text('ekartSyncError'),
 })

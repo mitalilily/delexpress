@@ -136,6 +136,7 @@ const B2BOrdersList = ({
               key="manifest"
               size="small"
               variant="contained"
+              loading={isThisManifesting}
               disabled={isThisManifesting}
               onClick={(e) => {
                 e.stopPropagation()

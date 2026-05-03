@@ -79,9 +79,8 @@ export interface CreateShipmentParams {
 
 export const createShipment = async (data: CreateShipmentParams) => {
   try {
-    // Set longer timeout (3.5 minutes) for B2C order creation as external courier API calls can take time
     const res = await axiosInstance.post('/orders/b2c/create', data, {
-      timeout: 210000, // 3.5 minutes (210 seconds)
+      timeout: 0,
     })
     return res.data
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -167,7 +166,9 @@ export type CreateB2BShipmentParams = {
 
 export const createB2BShipment = async (data: CreateB2BShipmentParams) => {
   try {
-    const res = await axiosInstance.post('/orders/b2b/create', data)
+    const res = await axiosInstance.post('/orders/b2b/create', data, {
+      timeout: 0,
+    })
     return res.data
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
@@ -221,7 +222,7 @@ export interface GenerateManifestResponse {
 
 export const generateManifestService = async (params: GenerateManifestParams) => {
   const res = await axiosInstance.post<GenerateManifestResponse>('/orders/b2c/manifest', params, {
-    timeout: 600000,
+    timeout: 0,
   })
   return res.data
 }
@@ -234,9 +235,9 @@ export interface RetryManifestResponse extends GenerateManifestResponse {
 }
 
 export const retryFailedManifestService = async (orderId: string) => {
-  const res = await axiosInstance.post<RetryManifestResponse>(
-    `/orders/b2c/${orderId}/retry-manifest`,
-  )
+  const res = await axiosInstance.post<RetryManifestResponse>(`/orders/b2c/${orderId}/retry-manifest`, undefined, {
+    timeout: 0,
+  })
   return res.data
 }
 

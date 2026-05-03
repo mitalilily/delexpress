@@ -693,6 +693,7 @@ const B2COrdersList = () => {
               key="manifest"
               size="small"
               variant="contained"
+              loading={isThisManifesting}
               disabled={bulkManifesting || isThisManifesting}
               onClick={() => handleGenerateManifest(row)}
               sx={{ px: 1.25, minWidth: 0 }}
@@ -714,6 +715,7 @@ const B2COrdersList = () => {
               size="small"
               variant="contained"
               color="warning"
+              loading={retryingManifest}
               disabled={retryingManifest}
               onClick={() => handleRetryManifest(row)}
               sx={{ px: 1.25, minWidth: 0 }}
@@ -892,6 +894,7 @@ const B2COrdersList = () => {
               <Button
                 variant="contained"
                 onClick={handleBulkManifest}
+                loading={bulkManifesting}
                 disabled={bulkManifesting || Boolean(manifestValidationMessage)}
                 sx={{ textTransform: 'none', minWidth: 170 }}
               >

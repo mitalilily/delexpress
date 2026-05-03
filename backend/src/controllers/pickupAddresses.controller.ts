@@ -14,7 +14,15 @@ export async function createPickupAddressHandler(req: any, res: Response): Promi
     if (!userId) return res.status(401).json({ message: 'Unauthorized' })
 
     const newAddress = await createPickupAddressService(req.body, userId)
-    return res.status(201).json({ message: 'Pickup address created', data: newAddress })
+    return res.status(201).json({
+      message:
+        Array.isArray((newAddress as any)?.warnings) && (newAddress as any).warnings.length
+          ? 'Pickup address saved with courier sync warnings'
+          : 'Pickup address created',
+      data: newAddress,
+      warnings: (newAddress as any)?.warnings ?? [],
+      providerSync: (newAddress as any)?.providerSync ?? null,
+    })
   } catch (err) {
     console.error('Create Pickup Address Error:', err)
 
@@ -70,12 +78,14 @@ export async function createPickupAddressHandler(req: any, res: Response): Promi
     }
 
     if (anyErr?.code === 'EKART_WAREHOUSE_REGISTRATION_FAILED') {
-      return res.status(502).json({
+      return res.status(400).json({
         code: anyErr.code,
         field: anyErr.field,
         message:
-          anyErr.message ??
-          'Ekart warehouse registration failed. No pickup location was saved.',
+          anyErr?.providerResponse?.description ||
+          anyErr.message ||
+          'Ekart warehouse registration failed.',
+        providerResponse: anyErr?.providerResponse ?? null,
       })
     }
 
@@ -106,8 +116,12 @@ export async function updatePickupAddressHandler(req: any, res: Response): Promi
     }
 
     return res.status(200).json({
-      message: 'Pickup address updated successfully',
+      message:
+        Array.isArray((updatedAddress as any)?.warnings) && (updatedAddress as any).warnings.length
+          ? 'Pickup address updated with courier sync warnings'
+          : 'Pickup address updated successfully',
       data: updatedAddress,
+      warnings: (updatedAddress as any)?.warnings ?? [],
     })
   } catch (err) {
     console.error('Update Pickup Address Error:', err)
