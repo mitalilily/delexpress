@@ -271,6 +271,17 @@ export const OrderExpandedRow = ({ row, type = 'b2c' }: OrderExpandedRowProps) =
         </Stack>
       </Stack>
 
+      {/* Package Weight & Dimensions */}
+      {(row.package_weight || row.package_length || row.package_breadth || row.package_height) && (
+        <Stack direction="row" spacing={1} alignItems="center">
+          <MdInventory2 size={20} />
+          <Typography>
+            <strong>Package:</strong> {row.package_weight ? `${row.package_weight} kg` : '-'}
+            {row.package_length && ` • ${row.package_length}L x ${row.package_breadth || '-'}B x ${row.package_height || '-'}H cm`}
+          </Typography>
+        </Stack>
+      )}
+
       {/* Pickup */}
       <Stack direction="row" spacing={1} alignItems="center">
         <MdLocalShipping size={20} />
@@ -280,6 +291,21 @@ export const OrderExpandedRow = ({ row, type = 'b2c' }: OrderExpandedRowProps) =
           {row?.pickup_details?.pincode}
         </Typography>
       </Stack>
+
+      {/* RTO Address - Show if order has RTO status or RTO details */}
+      {(String(row?.order_status || '').toLowerCase().includes('rto') ||
+        row?.rto_details?.address ||
+        row?.rto_address) && (
+        <Stack direction="row" spacing={1} alignItems="center">
+          <MdLocationOn size={20} />
+          <Typography>
+            <strong>RTO Address:</strong> {row?.rto_details?.address || row?.rto_address || 'N/A'},
+            {' '}{row?.rto_details?.city || row?.rto_city || ''},
+            {' '}{row?.rto_details?.state || row?.rto_state || ''} -
+            {' '}{row?.rto_details?.pincode || row?.rto_pincode || 'N/A'}
+          </Typography>
+        </Stack>
+      )}
 
       {/* AWB & Courier */}
       <Stack direction="row" spacing={2}>
