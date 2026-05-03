@@ -284,7 +284,7 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
                     )}
                     {orderType === 'cod' && courierCod > 0 && (
                       <Stack direction="row" justifyContent="space-between">
-                        <Typography sx={{ color: TEXT_SECONDARY }}>Courier COD</Typography>
+                        <Typography sx={{ color: TEXT_SECONDARY }}>Courier COD Charges</Typography>
                         <Typography sx={{ fontWeight: 700, color: TEXT_PRIMARY }}>
                           {formatCurrency(courierCod)}
                         </Typography>
@@ -562,7 +562,7 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
                         >
                           {formatCurrency(
                             (forwardCharge || 0) +
-                            (local?.forward?.cod_charges || 0) +
+                            (orderType === 'cod' ? (local?.forward?.cod_charges || 0) : 0) +
                             (local?.forward?.other_charges || 0)
                           )}
                         </Typography>
@@ -571,7 +571,7 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
 
                     <Grid container spacing={1.1}>
                       {[
-                        ['COD', formatCurrency(local?.forward?.cod_charges)],
+                        ...(orderType === 'cod' ? [['COD', formatCurrency(local?.forward?.cod_charges)]] : []),
                         ['Other', formatCurrency(local?.forward?.other_charges)],
                         ['Chargeable', formatWeightKg(courier?.chargeable_weight)],
                         ['Volumetric', formatWeightKg(courier?.volumetric_weight)],
