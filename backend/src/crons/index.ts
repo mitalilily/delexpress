@@ -10,21 +10,47 @@ import {
 } from './weightReconciliationEmails'
 import { pollEkartTracking } from './ekartTracking'
 
+let isWalletReconciliationRunning = false
+let isPendingWebhookRunActive = false
+let isEkartTrackingRunActive = false
+
 if (isRazorpayConfigured) {
   cron.schedule('*/20 * * * *', async () => {
+    if (isWalletReconciliationRunning) {
+      console.log('[Cron] Wallet reconciliation skipped because a previous run is still active')
+      return
+    }
+    isWalletReconciliationRunning = true
     console.log('[Cron] Wallet reconciliation kicking off')
     try {
       await reconcileWalletTopups()
     } catch (err) {
-      console.error('[Cron] Wallet reconciliation failed:', err)
+      console.error('[Cron] Wallet reconciliation failed:', err instanceof Error ? err.message : err)
+    } finally {
+      isWalletReconciliationRunning = false
     }
   })
 } else {
   console.warn('[Cron] Wallet reconciliation skipped because Razorpay credentials are missing.')
 }
 
-cron.schedule('*/1 * * * *', () => {
-  processPendingWebhooks().catch((err) => console.error('Error in cron webhook processor', err))
+cron.schedule('*/2 * * * *', () => {
+  if (isPendingWebhookRunActive) {
+    console.log('[Cron] Pending webhook processor skipped because a previous run is still active')
+    return
+  }
+
+  isPendingWebhookRunActive = true
+  processPendingWebhooks()
+    .catch((err) =>
+      console.error(
+        'Error in cron webhook processor',
+        err instanceof Error ? err.message : err,
+      ),
+    )
+    .finally(() => {
+      isPendingWebhookRunActive = false
+    })
 })
 
 cron.schedule('0 2 * * *', () => generateAutoBillingInvoices())
@@ -48,11 +74,18 @@ cron.schedule('0 9 * * 1', async () => {
 })
 
 cron.schedule('*/15 * * * *', async () => {
+  if (isEkartTrackingRunActive) {
+    console.log('[Cron] Ekart tracking poll skipped because a previous run is still active')
+    return
+  }
+  isEkartTrackingRunActive = true
   console.log('[Cron] Ekart tracking poll')
   try {
     await pollEkartTracking()
   } catch (err) {
-    console.error('[Cron] Ekart tracking poll failed:', err)
+    console.error('[Cron] Ekart tracking poll failed:', err instanceof Error ? err.message : err)
+  } finally {
+    isEkartTrackingRunActive = false
   }
 })
 

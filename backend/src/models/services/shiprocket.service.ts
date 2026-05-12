@@ -3246,6 +3246,14 @@ export const createB2CShipmentService = async (
           shipping_mode: selectedDelhiveryShippingMode ?? null,
           packages: [],
         }
+
+        console.log('ℹ️ Delhivery forward order stored for later manifest generation', {
+          order_number: params.order_number,
+          integration_type: integrationType,
+          deferred_manifest: true,
+          awb_number: null,
+          shipping_mode: selectedDelhiveryShippingMode ?? null,
+        })
       }
 
       if (isReverseShipment) {
@@ -3680,7 +3688,11 @@ export const createB2CShipmentService = async (
       }
 
       // 3️⃣ CREATE LOCAL ORDER ENTRY (no seller insurance for B2C – platform liability only)
-      const orderStatus = 'booked'
+      const isDeferredDelhiveryForwardManifest =
+        integrationType === 'delhivery' &&
+        !isReverseShipment &&
+        shipmentData?.deferred_manifest === true
+      const orderStatus = isDeferredDelhiveryForwardManifest ? 'pending' : 'booked'
       const manifestErrorMessage = null
 
       const newOrder = await createB2COrder({
@@ -3717,14 +3729,12 @@ export const createB2CShipmentService = async (
 
       // 4️⃣ WALLET TRANSACTION
       // Delhivery forward orders use deferred manifest generation, so charge only after manifest succeeds.
-      const shouldDeferWalletDebit =
-        integrationType === 'delhivery' &&
-        !isReverseShipment &&
-        shipmentData?.deferred_manifest === true
+      const shouldDeferWalletDebit = isDeferredDelhiveryForwardManifest
       const finalWalletDebit = walletDebit ?? 0
       if (shouldDeferWalletDebit) {
         console.log('ℹ️ Deferring wallet debit until manifest success for Delhivery order', {
           order_number: params.order_number,
+          order_status: orderStatus,
           deferred_wallet_debit: finalWalletDebit,
         })
       } else if (finalWalletDebit <= 0) {
@@ -3879,7 +3889,7 @@ export const createB2CShipmentService = async (
       )
 
       // 🔔 Send webhook event for order creation (async, don't wait)
-      const webhookStatus = 'booked'
+      const webhookStatus = orderStatus
 
       sendWebhookEvent(userId, 'order.created', {
         order_id: newOrder.id,
@@ -3897,7 +3907,17 @@ export const createB2CShipmentService = async (
         // Don't fail the main flow if webhook fails
       })
 
-      return { order: newOrder, shipment: shipmentData }
+      return {
+        order: newOrder,
+        shipment: {
+          ...shipmentData,
+          order_status: orderStatus,
+          manifest_pending: isDeferredDelhiveryForwardManifest,
+          manifest_pending_reason: isDeferredDelhiveryForwardManifest
+            ? 'Delhivery manifest is pending. Generate manifest later to receive the AWB.'
+            : null,
+        },
+      }
     })
 
     rollbackActions.length = 0
@@ -6400,11 +6420,16 @@ export const retryFailedManifestService = async (
   }
 
   if (
-    String(order.order_status || '')
-      .trim()
-      .toLowerCase() !== 'manifest_failed'
+    !['manifest_failed', 'pending'].includes(
+      String(order.order_status || '')
+        .trim()
+        .toLowerCase(),
+    )
   ) {
-    throw new HttpError(400, 'Only orders with manifest_failed status can be retried.')
+    throw new HttpError(
+      400,
+      'Only Delhivery orders waiting for manifest or marked manifest_failed can be retried.',
+    )
   }
 
   if (order.awb_number) {

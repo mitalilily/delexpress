@@ -40,16 +40,41 @@ interface PaymentsResponse {
 }
 /* ─────────────────────────────────────────────────────────────── */
 
+let disabledUntil = 0
+let lastAuthFailureLogAt = 0
+
 export async function reconcileWalletTopups(): Promise<void> {
+  if (disabledUntil > Date.now()) {
+    return
+  }
+
   const threeHoursAgo = Math.floor(Date.now() / 1000) - 3 * 60 * 60
 
-  /* 1️⃣  GET /v1/orders?status=paid */
-  const { data: ordersRes } = await razorpayApi.get<OrdersResponse>('/orders', {
-    params: {
-      from: threeHoursAgo,
-      count: 100,
-    },
-  })
+  let ordersRes: OrdersResponse
+  try {
+    /* 1️⃣  GET /v1/orders?status=paid */
+    const response = await razorpayApi.get<OrdersResponse>('/orders', {
+      params: {
+        from: threeHoursAgo,
+        count: 100,
+      },
+      timeout: 8000,
+    })
+    ordersRes = response.data
+  } catch (error: any) {
+    const statusCode = Number(error?.response?.status ?? 0)
+    if (statusCode === 401) {
+      disabledUntil = Date.now() + 60 * 60 * 1000
+      if (Date.now() - lastAuthFailureLogAt > 15 * 60 * 1000) {
+        lastAuthFailureLogAt = Date.now()
+        console.warn(
+          '[Cron] Wallet reconciliation disabled for 60 minutes because Razorpay returned 401 Unauthorized.',
+        )
+      }
+      return
+    }
+    throw error
+  }
 
   const orders = ordersRes.items
   console.log(`[Cron] Scanning ${orders.length} paid orders …`)
@@ -74,6 +99,9 @@ export async function reconcileWalletTopups(): Promise<void> {
     /* 4️⃣  GET /v1/orders/{orderId}/payments */
     const { data: paymentsRes } = await razorpayApi.get<PaymentsResponse>(
       `/orders/${order.id}/payments`,
+      {
+        timeout: 8000,
+      },
     )
     const payment = paymentsRes.items.find((p) => p.status === 'captured')
     if (!payment) continue

@@ -392,6 +392,48 @@ export class DelhiveryService {
         (pkg) =>
           pkg?.waybill && pkg?.serviceable !== false && normalizedStatus(pkg?.status) !== 'fail',
       )
+      const duplicateOrderPackage = packageFailuresWithRemarks.find((pkg) => {
+        const reasonBlob = [
+          pkg?.status,
+          pkg?.Status,
+          pkg?.status_message,
+          pkg?.statusMessage,
+          pkg?.message,
+          pkg?.reason,
+          pkg?.rmk,
+          ...(Array.isArray(pkg?.remarks) ? pkg.remarks : []),
+          responseData?.message,
+          responseData?.status_message,
+          responseData?.rmk,
+        ]
+          .filter(Boolean)
+          .join(' | ')
+          .toLowerCase()
+
+        return Boolean(pkg?.waybill) && reasonBlob.includes('duplicate order id')
+      })
+
+      if (!successPackage && duplicateOrderPackage) {
+        const normalizedDuplicatePackage = {
+          ...duplicateOrderPackage,
+          status: 'Success',
+          serviceable: true,
+          remarks: duplicateOrderPackage.remarks,
+        }
+
+        console.warn('⚠️ Delhivery reported duplicate order id but returned an existing waybill; reusing provider package', {
+          order: orderNumber,
+          waybill: duplicateOrderPackage.waybill,
+          remarks: duplicateOrderPackage.remarks,
+        })
+
+        return {
+          ...responseData,
+          success: true,
+          packages: [normalizedDuplicatePackage],
+          duplicate_order_reused: true,
+        }
+      }
 
       if (
         overallStatus === 'fail' ||
