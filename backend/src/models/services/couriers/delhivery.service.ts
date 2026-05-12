@@ -29,19 +29,38 @@ export class DelhiveryService {
   }
 
   private async postFormEncoded(path: string, payload: unknown) {
-    await this.ensureCredentials()
-    const encodedData = qs.stringify({
-      format: 'json',
-      data: JSON.stringify(payload),
-    })
+    try {
+      await this.ensureCredentials()
+      const encodedData = qs.stringify({
+        format: 'json',
+        data: JSON.stringify(payload),
+      })
 
-    return axios.post(`${this.apiBase}${path}`, encodedData, {
-      headers: {
-        Authorization: `Token ${this.token}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    })
+      const res = await axios.post(`${this.apiBase}${path}`, encodedData, {
+        headers: {
+          Authorization: `Token ${this.token}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        timeout: 30000, // 30 seconds timeout
+      })
+
+      return res
+    } catch (err: any) {
+      const errorMsg = err.code === 'ECONNABORTED'
+        ? 'Delhivery API request timeout after 30 seconds'
+        : err.response?.data?.message || err.message || 'Delhivery API request failed'
+
+      console.error('❌ Delhivery postFormEncoded error:', {
+        message: errorMsg,
+        path,
+        status: err.response?.status,
+        code: err.code,
+        data: err.response?.data,
+      })
+
+      throw new HttpError(err.response?.status || 502, errorMsg)
+    }
   }
 
   // 🔹 1. Check Serviceability
@@ -49,7 +68,10 @@ export class DelhiveryService {
     try {
       await this.ensureCredentials()
       const url = `${this.apiBase}/c/api/pin-codes/json/?filter_codes=${pincode}`
-      const res = await axios.get(url, { headers: this.headers })
+      const res = await axios.get(url, {
+        headers: this.headers,
+        timeout: 20000, // 20 seconds timeout
+      })
 
       // Log the full response structure
       console.log('📦 Delhivery Serviceability API Response:', {
@@ -83,7 +105,10 @@ export class DelhiveryService {
     try {
       await this.ensureCredentials()
       const url = `${this.apiBase}/api/dc/expected_tat?origin_pin=${origin}&destination_pin=${destination}&mot=${mot}&pdt=${pdt}`
-      const res = await axios.get(url, { headers: this.headers })
+      const res = await axios.get(url, {
+        headers: this.headers,
+        timeout: 20000, // 20 seconds timeout
+      })
       const tat = res.data?.data?.tat
       return typeof tat === 'number' || typeof tat === 'string' ? Number(tat) : null
     } catch (err: any) {
@@ -105,7 +130,10 @@ export class DelhiveryService {
         ...(isBulk ? { count: normalizedCount } : {}),
       })
       const url = `${this.apiBase}${path}?${query}`
-      const res = await axios.get(url, { headers: this.headers })
+      const res = await axios.get(url, {
+        headers: this.headers,
+        timeout: 25000, // 25 seconds timeout
+      })
       return res.data?.waybill ?? res.data?.waybills ?? res.data
     } catch (err: any) {
       console.error('Delhivery waybill fetch error:', err.response?.data || err.message)
@@ -882,7 +910,10 @@ export class DelhiveryService {
         'Content-Type': 'application/json',
       }
 
-      const res = await axios.post(url, payload, { headers })
+      const res = await axios.post(url, payload, {
+        headers,
+        timeout: 30000, // 30 seconds timeout
+      })
       return res.data
     } catch (err: any) {
       const providerError = err.response?.data

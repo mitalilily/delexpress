@@ -2808,9 +2808,18 @@ export const createB2CShipmentService = async (
     const normalizedPickupTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 
     const scheduledDateTime = dayjs(`${parsedDate.format('YYYY-MM-DD')}T${normalizedPickupTime}`)
+    const now = dayjs()
+    const fiveHoursLater = now.add(5, 'hours')
 
-    if (scheduledDateTime.isBefore(dayjs())) {
+    if (scheduledDateTime.isBefore(now)) {
       throw new HttpError(400, 'pickup date and time cannot be in the past.')
+    }
+
+    if (scheduledDateTime.isBefore(fiveHoursLater)) {
+      throw new HttpError(
+        400,
+        'pickup date and time must be at least 5 hours in the future. Please schedule your pickup accordingly.',
+      )
     }
 
     return {

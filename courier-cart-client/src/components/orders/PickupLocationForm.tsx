@@ -269,7 +269,26 @@ const PickupLocationForm = () => {
             <Controller
               name="pickupDate"
               control={control}
-              rules={{ required: 'Pickup date is required' }}
+              rules={{
+                required: 'Pickup date is required',
+                validate: (value) => {
+                  if (!value || !pickupTime) return true
+
+                  const scheduledDateTime = new Date(`${value}T${pickupTime}`)
+                  const now = new Date()
+                  const fiveHoursLater = new Date(now.getTime() + 5 * 60 * 60 * 1000)
+
+                  if (scheduledDateTime < now) {
+                    return 'Pickup date and time cannot be in the past'
+                  }
+
+                  if (scheduledDateTime < fiveHoursLater) {
+                    return 'Pickup must be scheduled at least 5 hours in the future'
+                  }
+
+                  return true
+                },
+              }}
               render={({ field: dateField, fieldState: dateState }) => (
                 <TextField
                   {...dateField}
@@ -279,6 +298,9 @@ const PickupLocationForm = () => {
                   fullWidth
                   error={!!dateState.error}
                   helperText={dateState.error?.message}
+                  inputProps={{
+                    min: new Date().toISOString().split('T')[0],
+                  }}
                 />
               )}
             />
@@ -287,7 +309,26 @@ const PickupLocationForm = () => {
             <Controller
               name="pickupTime"
               control={control}
-              rules={{ required: 'Pickup time window is required' }}
+              rules={{
+                required: 'Pickup time window is required',
+                validate: (value) => {
+                  if (!value || !pickupDate) return true
+
+                  const scheduledDateTime = new Date(`${pickupDate}T${value}`)
+                  const now = new Date()
+                  const fiveHoursLater = new Date(now.getTime() + 5 * 60 * 60 * 1000)
+
+                  if (scheduledDateTime < now) {
+                    return 'Pickup date and time cannot be in the past'
+                  }
+
+                  if (scheduledDateTime < fiveHoursLater) {
+                    return 'Pickup must be scheduled at least 5 hours in the future'
+                  }
+
+                  return true
+                },
+              }}
               render={({ field: timeField, fieldState: timeState }) => (
                 <TextField
                   {...timeField}
@@ -296,7 +337,7 @@ const PickupLocationForm = () => {
                   InputLabelProps={{ shrink: true }}
                   fullWidth
                   error={!!timeState.error}
-                  helperText={timeState.error?.message ?? 'Use local warehouse timezone'}
+                  helperText={timeState.error?.message ?? 'Use local warehouse timezone (min. 5 hours from now)'}
                 />
               )}
             />
