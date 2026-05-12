@@ -11,7 +11,7 @@ import {
   useTheme,
 } from '@mui/material'
 import moment from 'moment'
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { generateManifestService } from '../../../api/order.service'
 import { useAllCouriersWithDetails } from '../../../hooks/Integrations/useCouriers'
 import {
@@ -24,6 +24,7 @@ import { usePickupAddresses } from '../../../hooks/Pickup/usePickupAddresses'
 import { usePresignedDownloadMutation } from '../../../hooks/Uploads/usePresignedDownloadUrls'
 import { useKycVerification } from '../../../hooks/User/useKycVerification'
 import type { B2COrder } from '../../../types/generic.types'
+import { normalizePickupTime } from '../../../utils/pickupSchedule'
 import { FilterBar, type FilterField } from '../../FilterBar'
 import { toast } from '../../UI/Toast'
 import StatusChip from '../../UI/chip/StatusChip'
@@ -32,6 +33,7 @@ import { SmartTabs } from '../../UI/tab/Tabs'
 import DataTable, { type Column } from '../../UI/table/DataTable'
 import TableSkeleton from '../../UI/table/TableSkeleton'
 import CustomSelect from '../../UI/inputs/CustomSelect'
+import ManifestPickupScheduleDialog from '../ManifestPickupScheduleDialog'
 import {
   BULK_MANIFEST_LIMIT,
   downloadFile,
@@ -68,6 +70,30 @@ type BulkFeedback = {
   severity: 'info' | 'success' | 'error' | 'warning'
   title: string
   message: string
+}
+
+type PickupSchedulePayload = {
+  pickup_date: string
+  pickup_time: string
+}
+
+const getDefaultPickupDateInput = () => new Date().toISOString().split('T')[0]
+
+const getDefaultPickupTimeInput = () => {
+  const nextHour = new Date(Date.now() + 60 * 60 * 1000)
+  return `${String(nextHour.getHours()).padStart(2, '0')}:${String(nextHour.getMinutes()).padStart(2, '0')}`
+}
+
+const parsePickupDetails = (value: unknown) => {
+  if (!value) return {}
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return {}
+    }
+  }
+  return value as Record<string, unknown>
 }
 
 /* ───────────── Status Color Mapping ───────────── */
@@ -128,6 +154,14 @@ const B2COrdersList = () => {
   const [bulkManifesting, setBulkManifesting] = useState(false)
   const [manifestingOrderId, setManifestingOrderId] = useState<string | number | null>(null)
   const [bulkFeedback, setBulkFeedback] = useState<BulkFeedback | null>(null)
+  const [pickupDialogOpen, setPickupDialogOpen] = useState(false)
+  const [pickupDialogTitle, setPickupDialogTitle] = useState('Confirm pickup schedule')
+  const [pickupDialogDescription, setPickupDialogDescription] = useState('')
+  const [pickupDialogDate, setPickupDialogDate] = useState(getDefaultPickupDateInput())
+  const [pickupDialogTime, setPickupDialogTime] = useState(getDefaultPickupTimeInput())
+  const pickupDialogResolverRef = useRef<((value: PickupSchedulePayload | null) => void) | null>(
+    null,
+  )
   const [filters, setFilters] = useState<OrderFilters>({
     status: '',
     sortBy: 'created_at',
@@ -168,6 +202,32 @@ const B2COrdersList = () => {
     setSelectionResetToken((current) => current + 1)
   }
 
+  const requestDelhiveryPickupSchedule = (order: B2COrder, label: string) =>
+    new Promise<PickupSchedulePayload | null>((resolve) => {
+      const details = parsePickupDetails(order.pickup_details)
+      const initialDate =
+        typeof details?.pickup_date === 'string' && details.pickup_date.trim()
+          ? details.pickup_date.slice(0, 10)
+          : getDefaultPickupDateInput()
+      const initialTimeRaw =
+        typeof details?.pickup_time === 'string' && details.pickup_time.trim()
+          ? details.pickup_time.trim()
+          : getDefaultPickupTimeInput()
+
+      pickupDialogResolverRef.current = resolve
+      setPickupDialogTitle('Confirm Pickup Before Manifest')
+      setPickupDialogDescription(label)
+      setPickupDialogDate(initialDate)
+      setPickupDialogTime(initialTimeRaw.slice(0, 5))
+      setPickupDialogOpen(true)
+    })
+
+  const closePickupDialog = (value: PickupSchedulePayload | null) => {
+    setPickupDialogOpen(false)
+    pickupDialogResolverRef.current?.(value)
+    pickupDialogResolverRef.current = null
+  }
+
   /* ───────────── Handlers ───────────── */
   const handleGenerateManifest = async (order: B2COrder) => {
     const manifestRef = getB2CManifestIdentifier(order)
@@ -188,7 +248,31 @@ const B2COrdersList = () => {
         title: 'Manifest in progress',
         message: `Processing ${order.order_number}.`,
       })
-      const response = await generateManifestService({ awbs: [manifestRef], type: 'b2c' })
+      const providerKey = getB2CManifestProvider(order)
+      const pickupSchedule =
+        providerKey === 'delhivery'
+          ? await requestDelhiveryPickupSchedule(
+              order,
+              `Set the pickup date and time for ${order.order_number} before manifesting.`,
+            )
+          : null
+
+      if (providerKey === 'delhivery' && !pickupSchedule) {
+        const cancelledMessage = `Manifest cancelled for ${order.order_number} before pickup confirmation.`
+        setBulkFeedback({
+          severity: 'warning',
+          title: 'Manifest cancelled',
+          message: cancelledMessage,
+        })
+        toast.open({ message: cancelledMessage, severity: 'info' })
+        return
+      }
+
+      const response = await generateManifestService({
+        awbs: [manifestRef],
+        type: 'b2c',
+        ...(pickupSchedule || {}),
+      })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['b2cOrdersByUser'] }),
         queryClient.invalidateQueries({ queryKey: ['orders'] }),
@@ -233,7 +317,27 @@ const B2COrdersList = () => {
 
   const handleRetryManifest = async (order: B2COrder) => {
     if (!order.id) return
-    await retryFailedManifest(String(order.id))
+    const providerKey = String(order.integration_type || '').toLowerCase()
+    const pickupSchedule =
+      providerKey === 'delhivery'
+        ? await requestDelhiveryPickupSchedule(
+            order,
+            `Update the pickup date and time for ${order.order_number} before retrying the manifest.`,
+          )
+        : null
+
+    if (providerKey === 'delhivery' && !pickupSchedule) {
+      toast.open({
+        message: `Retry cancelled for ${order.order_number} before pickup confirmation.`,
+        severity: 'info',
+      })
+      return
+    }
+
+    await retryFailedManifest({
+      orderId: String(order.id),
+      ...(pickupSchedule || {}),
+    })
   }
 
   const handleApplyFilters = (appliedFilters: OrderFilters) => {
@@ -980,6 +1084,24 @@ const B2COrdersList = () => {
           createReverse(payload)
           setReverseOrder(null)
         }}
+      />
+
+      <ManifestPickupScheduleDialog
+        open={pickupDialogOpen}
+        title={pickupDialogTitle}
+        description={pickupDialogDescription}
+        pickupDate={pickupDialogDate}
+        pickupTime={pickupDialogTime}
+        minDate={getDefaultPickupDateInput()}
+        onPickupDateChange={setPickupDialogDate}
+        onPickupTimeChange={setPickupDialogTime}
+        onCancel={() => closePickupDialog(null)}
+        onConfirm={() =>
+          closePickupDialog({
+            pickup_date: pickupDialogDate,
+            pickup_time: normalizePickupTime(pickupDialogTime),
+          })
+        }
       />
 
       <CustomDrawer

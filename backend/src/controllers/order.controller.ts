@@ -250,7 +250,7 @@ export const generateManifestController = async (req: any, res: Response) => {
       return res.status(401).json({ success: false, message: 'Unauthorized' })
     }
 
-    const { awbs, type = 'b2c' } = req.body
+    const { awbs, type = 'b2c', pickup_date, pickup_time } = req.body
 
     if (!awbs || !Array.isArray(awbs) || awbs.length === 0) {
       return res.status(400).json({ success: false, message: 'AWBs are required' })
@@ -263,6 +263,8 @@ export const generateManifestController = async (req: any, res: Response) => {
     const { manifest_id, manifest_url, manifest_key, warnings } = await generateManifestService({
       awbs,
       type,
+      pickup_date,
+      pickup_time,
       userId,
     })
 
@@ -298,7 +300,12 @@ export const retryFailedManifestController = async (req: any, res: Response) => 
       return res.status(400).json({ success: false, message: 'Order ID is required' })
     }
 
-    const result = await retryFailedManifestService(String(orderId), userId)
+    const { pickup_date, pickup_time } = req.body || {}
+    const result = await retryFailedManifestService(
+      String(orderId),
+      userId,
+      pickup_date && pickup_time ? { pickup_date, pickup_time } : undefined,
+    )
 
     return res.status(200).json({
       success: true,

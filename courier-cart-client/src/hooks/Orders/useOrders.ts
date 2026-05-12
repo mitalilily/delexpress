@@ -120,7 +120,15 @@ export const useRetryFailedManifest = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (orderId: string) => retryFailedManifestService(orderId),
+    mutationFn: ({
+      orderId,
+      pickup_date,
+      pickup_time,
+    }: {
+      orderId: string
+      pickup_date?: string
+      pickup_time?: string
+    }) => retryFailedManifestService(orderId, { pickup_date, pickup_time }),
     onSuccess: (data: RetryManifestResponse) => {
       toast.open({ message: 'Manifest retried successfully.', severity: 'success' })
       queryClient.invalidateQueries({ queryKey: ['b2cOrdersByUser'] })

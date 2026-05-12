@@ -210,12 +210,34 @@ const getManifestFailureRefundOutstanding = async (
   return getOrderRefundOutstanding(executor, walletId, orderId, orderNumber)
 }
 
+const mergePickupScheduleIntoDetails = (
+  pickupDetails: unknown,
+  pickupSchedule?: { pickup_date?: string | null; pickup_time?: string | null } | null,
+) => {
+  const base =
+    pickupDetails && typeof pickupDetails === 'object' && !Array.isArray(pickupDetails)
+      ? { ...(pickupDetails as Record<string, unknown>) }
+      : {}
+
+  if (pickupSchedule?.pickup_date) {
+    base.pickup_date = pickupSchedule.pickup_date
+  }
+
+  if (pickupSchedule?.pickup_time) {
+    base.pickup_time = pickupSchedule.pickup_time
+  }
+
+  return base
+}
+
 const refundManifestFailureChargeOnce = async ({
   orderId,
   manifestErrorMessage,
+  pickupSchedule,
 }: {
   orderId: string
   manifestErrorMessage: string
+  pickupSchedule?: { pickup_date?: string | null; pickup_time?: string | null } | null
 }) => {
   await db.transaction(async (tx) => {
     const [order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.id, orderId)).limit(1)
@@ -227,6 +249,7 @@ const refundManifestFailureChargeOnce = async ({
       .set({
         order_status: 'manifest_failed',
         manifest_error: truncateColumnValue(manifestErrorMessage),
+        pickup_details: mergePickupScheduleIntoDetails(order.pickup_details, pickupSchedule) as any,
         updated_at: new Date(),
       })
       .where(eq(b2c_orders.id, order.id))
@@ -4544,6 +4567,8 @@ export const generateManifestService = async (params: {
   awbs: string[]
   type: 'b2c' | 'b2b'
   userId?: string
+  pickup_date?: string
+  pickup_time?: string
 }): Promise<{
   manifest_id: string | null
   manifest_url: string | null
@@ -4562,6 +4587,13 @@ export const generateManifestService = async (params: {
       warnings?: string[]
     }> => {
       let manifestFailureOrderIds: string[] = []
+      const pickupScheduleOverride =
+        params.pickup_date && params.pickup_time
+          ? {
+              pickup_date: String(params.pickup_date).slice(0, 10),
+              pickup_time: String(params.pickup_time).trim(),
+            }
+          : null
 
       try {
         const normalizedRefs = Array.from(
@@ -5612,6 +5644,10 @@ export const generateManifestService = async (params: {
                 pincode: pickupDetails?.pincode || '',
                 phone: pickupDetails?.phone || '',
                 gst_number: pickupDetails?.gst_number || '',
+                pickup_date:
+                  pickupScheduleOverride?.pickup_date || pickupDetails?.pickup_date || undefined,
+                pickup_time:
+                  pickupScheduleOverride?.pickup_time || pickupDetails?.pickup_time || undefined,
               },
               consignee: {
                 name: order.buyer_name,
@@ -5664,6 +5700,10 @@ export const generateManifestService = async (params: {
                   null,
                 manifest: shipmentData?.upload_wbn ?? shipmentData?.manifest ?? null,
                 manifest_error: null,
+                pickup_details: mergePickupScheduleIntoDetails(
+                  order.pickup_details,
+                  pickupScheduleOverride,
+                ) as any,
                 order_status:
                   order.order_status === 'pending' || order.order_status === 'manifest_failed'
                     ? 'shipment_created'
@@ -5709,9 +5749,14 @@ export const generateManifestService = async (params: {
             (order) => String(order.order_status || '').toLowerCase() === 'manifest_failed',
           )
           const pickupDateRaw =
-            pickupDetails?.pickup_date || fetchedOrders[0]?.order_date || new Date().toISOString()
+            pickupScheduleOverride?.pickup_date ||
+            pickupDetails?.pickup_date ||
+            fetchedOrders[0]?.order_date ||
+            new Date().toISOString()
           const pickupDate = normalizePickupDateForRetry(pickupDateRaw, isManifestRetry)
-          const pickupTimeRaw = String(pickupDetails?.pickup_time || '11:00:00').trim()
+          const pickupTimeRaw = String(
+            pickupScheduleOverride?.pickup_time || pickupDetails?.pickup_time || '11:00:00',
+          ).trim()
           const pickupTime = /^\d{2}:\d{2}:\d{2}$/.test(pickupTimeRaw)
             ? pickupTimeRaw
             : /^\d{2}:\d{2}$/.test(pickupTimeRaw)
@@ -6396,6 +6441,7 @@ export const generateManifestService = async (params: {
               refundManifestFailureChargeOnce({
                 orderId,
                 manifestErrorMessage,
+                pickupSchedule: pickupScheduleOverride,
               }),
             ),
           )
@@ -6412,6 +6458,7 @@ export const generateManifestService = async (params: {
 export const retryFailedManifestService = async (
   orderId: string,
   userId: string,
+  pickupSchedule?: { pickup_date?: string; pickup_time?: string },
 ): Promise<{
   manifest_id: string | null
   manifest_url: string | null
@@ -6420,6 +6467,14 @@ export const retryFailedManifestService = async (
   retries_remaining: number
   order_status: string | null
 }> => {
+  const pickupScheduleOverride =
+    pickupSchedule?.pickup_date && pickupSchedule?.pickup_time
+      ? {
+          pickup_date: String(pickupSchedule.pickup_date).slice(0, 10),
+          pickup_time: String(pickupSchedule.pickup_time).trim(),
+        }
+      : undefined
+
   const [order] = await db
     .select({
       id: b2c_orders.id,
@@ -6483,6 +6538,21 @@ export const retryFailedManifestService = async (
     .set({
       manifest_retry_count: nextRetryCount,
       manifest_last_retry_at: new Date(),
+      ...(pickupScheduleOverride
+        ? {
+            pickup_details: sql`jsonb_set(
+              jsonb_set(
+                COALESCE(${b2c_orders.pickup_details}, '{}'::jsonb),
+                '{pickup_date}',
+                to_jsonb(${pickupScheduleOverride.pickup_date}::text),
+                true
+              ),
+              '{pickup_time}',
+              to_jsonb(${pickupScheduleOverride.pickup_time}::text),
+              true
+            )`
+          }
+        : {}),
       updated_at: new Date(),
     })
     .where(eq(b2c_orders.id, order.id))
@@ -6492,6 +6562,7 @@ export const retryFailedManifestService = async (
       awbs: [order.order_number],
       type: 'b2c',
       userId,
+      ...(pickupScheduleOverride || {}),
     })
 
     await db
@@ -6527,6 +6598,21 @@ export const retryFailedManifestService = async (
       .set({
         order_status: 'manifest_failed',
         manifest_error: truncateColumnValue(manifestErrorMessage),
+        ...(pickupScheduleOverride
+          ? {
+              pickup_details: sql`jsonb_set(
+                jsonb_set(
+                  COALESCE(${b2c_orders.pickup_details}, '{}'::jsonb),
+                  '{pickup_date}',
+                  to_jsonb(${pickupScheduleOverride.pickup_date}::text),
+                  true
+                ),
+                '{pickup_time}',
+                to_jsonb(${pickupScheduleOverride.pickup_time}::text),
+                true
+              )`
+            }
+          : {}),
         updated_at: new Date(),
       })
       .where(eq(b2c_orders.id, order.id))

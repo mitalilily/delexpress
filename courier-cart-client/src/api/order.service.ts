@@ -212,6 +212,8 @@ export const fetchB2BOrdersByUser = async (params: FetchB2COrdersParams = {}) =>
 export interface GenerateManifestParams {
   awbs: string[]
   type: 'b2c' | 'b2b'
+  pickup_date?: string
+  pickup_time?: string
 }
 
 export interface GenerateManifestResponse {
@@ -234,10 +236,17 @@ export interface RetryManifestResponse extends GenerateManifestResponse {
   order_status: string | null
 }
 
-export const retryFailedManifestService = async (orderId: string) => {
-  const res = await axiosInstance.post<RetryManifestResponse>(`/orders/b2c/${orderId}/retry-manifest`, undefined, {
-    timeout: 0,
-  })
+export const retryFailedManifestService = async (
+  orderId: string,
+  payload?: { pickup_date?: string; pickup_time?: string },
+) => {
+  const res = await axiosInstance.post<RetryManifestResponse>(
+    `/orders/b2c/${orderId}/retry-manifest`,
+    payload,
+    {
+      timeout: 0,
+    },
+  )
   return res.data
 }
 
