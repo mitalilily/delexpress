@@ -194,8 +194,7 @@ export const RateCardContainer = ({ forceBusinessType = null, embedded = false }
     }
   }, [forceBusinessType, forcedIndex, businessTypeIndex])
   const { zones } = useZones(businessTypes[businessTypeIndex])
-  const [filters, setFilters] = useState({})
-  const { data, isLoading } = useShippingRates(filters)
+  const [userFilters, setUserFilters] = useState({})
 
   const [selectedRate, setSelectedRate] = useState(null)
   const [isModalOpen, setModalOpen] = useState(false)
@@ -214,14 +213,19 @@ export const RateCardContainer = ({ forceBusinessType = null, embedded = false }
     }
   }, [plans, selectedPlanId])
 
-  // Update filters whenever business type or plan changes
   useEffect(() => {
-    const nextFilters = { businessType: selectedBusinessType }
+    setUserFilters({})
+  }, [selectedBusinessType, selectedPlanId])
+
+  const queryFilters = useMemo(() => {
+    const nextFilters = { ...userFilters, businessType: selectedBusinessType }
     if (selectedBusinessType === 'b2c' && selectedPlanId) {
       nextFilters.planId = selectedPlanId
     }
-    setFilters(nextFilters)
-  }, [selectedBusinessType, selectedPlanId])
+    return nextFilters
+  }, [userFilters, selectedBusinessType, selectedPlanId])
+
+  const { data, isLoading } = useShippingRates(queryFilters)
 
   const openEditModal = (row) => {
     setSelectedRate(row)
@@ -366,7 +370,7 @@ export const RateCardContainer = ({ forceBusinessType = null, embedded = false }
 
           {/* Filters and actions */}
           <Grid templateColumns="3fr 2fr" width="100%" gap={4} mb={4} alignItems="center">
-            <TableFilters filters={filterOptions} values={filters} onApply={setFilters} />
+            <TableFilters filters={filterOptions} values={userFilters} onApply={setUserFilters} />
             <Flex justify="flex-end" gap={2}>
               <Button
                 size="sm"
@@ -393,7 +397,7 @@ export const RateCardContainer = ({ forceBusinessType = null, embedded = false }
           <RateCardTable
             data={data || []}
             zones={zones}
-            planId={selectedPlanId || filters?.planId}
+            planId={selectedPlanId || queryFilters?.planId}
             businessType={selectedBusinessType}
             onEdit={openEditModal}
             loading={isLoading}
@@ -406,7 +410,7 @@ export const RateCardContainer = ({ forceBusinessType = null, embedded = false }
             data={selectedRate}
             existingRates={data}
             zones={zones}
-            planId={filters?.planId}
+            planId={queryFilters?.planId}
             couriers={courierList || []}
             businessType={selectedBusinessType}
           />
@@ -421,7 +425,9 @@ export const RateCardContainer = ({ forceBusinessType = null, embedded = false }
               <Button
                 size="sm"
                 colorScheme="blue"
-                onClick={() => downloadCSV(courierList || [], zones || [], data || [], filters)}
+                onClick={() =>
+                  downloadCSV(courierList || [], zones || [], data || [], queryFilters)
+                }
               >
                 Download CSV
               </Button>
@@ -436,8 +442,8 @@ export const RateCardContainer = ({ forceBusinessType = null, embedded = false }
                 importRates(
                   {
                     file: files[0],
-                    planId: selectedPlanId || filters?.planId,
-                    businessType: filters?.businessType || selectedBusinessType,
+                    planId: selectedPlanId || queryFilters?.planId,
+                    businessType: queryFilters?.businessType || selectedBusinessType,
                   },
                   {
                     onSuccess: () => {

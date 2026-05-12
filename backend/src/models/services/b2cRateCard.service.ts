@@ -70,6 +70,18 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+export function computeEffectiveCodCharge(params: {
+  orderAmount?: number | null
+  codCharges?: number | null
+  codPercent?: number | null
+}) {
+  const flatCharge = Math.max(0, toNumber(params.codCharges))
+  const codPercent = Math.max(0, toNumber(params.codPercent))
+  const orderAmount = Math.max(0, toNumber(params.orderAmount))
+  const percentCharge = orderAmount > 0 ? (orderAmount * codPercent) / 100 : 0
+  return Math.max(flatCharge, percentCharge)
+}
+
 function normaliseSlabInput(slab: RateCardSlabInput): ResolvedRateCardSlab {
   const weightFrom = Math.max(0, toNumber(slab.weight_from))
   const rawWeightTo = slab.weight_to === undefined || slab.weight_to === null ? null : toNumber(slab.weight_to)

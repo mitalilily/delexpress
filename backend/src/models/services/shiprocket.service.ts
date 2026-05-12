@@ -55,6 +55,7 @@ import { userProfiles } from '../schema/userProfile'
 import { b2bPincodes, b2bZoneToZoneRates, zones } from '../schema/zones'
 import { calculateB2BRate } from './b2bAdmin.service'
 import {
+  computeEffectiveCodCharge,
   computeB2CRateCardCharge,
   fetchResolvedB2CRateCards,
   findMatchingSlabIndex,
@@ -803,6 +804,7 @@ export const computeB2CFreightForOrder = async (params: {
   zoneIdOverride?: string | null
   destinationPincode: string
   originPincode: string
+  orderAmount?: number | null
   weightG: number
   lengthCm: number
   breadthCm: number
@@ -882,6 +884,14 @@ export const computeB2CFreightForOrder = async (params: {
 
   return {
     ...freightCalc,
+    cod_charges: Number(rateCard.cod_charges ?? 0),
+    cod_percent: Number(rateCard.cod_percent ?? 0),
+    effective_cod_charges: computeEffectiveCodCharge({
+      orderAmount: params.orderAmount,
+      codCharges: Number(rateCard.cod_charges ?? 0),
+      codPercent: Number(rateCard.cod_percent ?? 0),
+    }),
+    other_charges: Number(rateCard.other_charges ?? 0),
     slab_weight: freightCalc.slab_weight,
     base_price: freightCalc.base_price,
     zone_id: resolvedZoneRow.id,
@@ -1537,14 +1547,21 @@ export const fetchAvailableCouriersWithRates = async (
         height_cm: Number(params.height ?? 0),
         rateCard,
       })
+      const effectiveCodCharges = computeEffectiveCodCharge({
+        orderAmount: Number(params.order_amount ?? params.orderAmount ?? 0),
+        codCharges: rateCard.cod_charges,
+        codPercent: rateCard.cod_percent,
+      })
 
       if (!rateCard?.slabs?.length) {
         return computed.freight > 0
           ? [
               {
                 rate: computed.freight,
-                cod_charges: rateCard.cod_charges,
+                cod_charges: effectiveCodCharges,
+                base_cod_charges: rateCard.cod_charges,
                 cod_percent: rateCard.cod_percent,
+                effective_cod_charges: effectiveCodCharges,
                 other_charges: rateCard.other_charges,
                 mode: rateCard.mode,
                 min_weight: rateCard.min_weight,
@@ -1567,8 +1584,10 @@ export const fetchAvailableCouriersWithRates = async (
       if (matchedIndex >= 0) {
         return rateCard.slabs.slice(matchedIndex).map((slab: any) => ({
           rate: Number(slab.rate),
-          cod_charges: rateCard.cod_charges,
+          cod_charges: effectiveCodCharges,
+          base_cod_charges: rateCard.cod_charges,
           cod_percent: rateCard.cod_percent,
+          effective_cod_charges: effectiveCodCharges,
           other_charges: rateCard.other_charges,
           mode: rateCard.mode,
           min_weight: rateCard.min_weight,
@@ -1597,8 +1616,10 @@ export const fetchAvailableCouriersWithRates = async (
         return [
           {
             rate: Number(lastFiniteSlab.rate) + extraUnits * Number(lastFiniteSlab.extra_rate),
-            cod_charges: rateCard.cod_charges,
+            cod_charges: effectiveCodCharges,
+            base_cod_charges: rateCard.cod_charges,
             cod_percent: rateCard.cod_percent,
+            effective_cod_charges: effectiveCodCharges,
             other_charges: rateCard.other_charges,
             mode: rateCard.mode,
             min_weight: rateCard.min_weight,
@@ -2987,12 +3008,13 @@ export const createB2CShipmentService = async (
   const totalShippingCharges = shippingCharges + otherCharges
   let freightCharges = Number(params?.freight_charges ?? totalShippingCharges)
   const isCodOrder = params.payment_type === 'cod'
-  const codCharges = isCodOrder ? Number(params?.cod_charges ?? 0) : 0
+  let codCharges = isCodOrder ? Number(params?.cod_charges ?? 0) : 0
   const discount = Number(params?.discount ?? 0)
   const giftWrap = Number(params?.gift_wrap ?? 0)
   const transactionFee = Number(params?.transaction_fee ?? 0)
   const prepaidAmt = Number(params?.prepaid_amount ?? 0)
   const isReverseShipment = params.isReverse === true || params.payment_type === 'reverse'
+  const orderAmountValue = Number(params?.order_amount ?? 0)
 
   const courierIdForRate =
     selectedDelhiveryCourierId ?? (params.courier_id ? Number(params.courier_id) : null)
@@ -3002,6 +3024,10 @@ export const createB2CShipmentService = async (
     volumetric_weight: number | null
     chargeable_weight: number | null
     slabs: number | null
+    cod_charges?: number
+    cod_percent?: number
+    effective_cod_charges?: number
+    other_charges?: number
   } = {
     freight: freightCharges,
     volumetric_weight: null,
@@ -3020,6 +3046,7 @@ export const createB2CShipmentService = async (
         zoneIdOverride: params.zone_id ?? null,
         destinationPincode: bookingDestinationPincode,
         originPincode: bookingPickupPincode,
+        orderAmount: orderAmountValue,
         weightG: normalizeServiceabilityWeightToGrams(params.package_weight ?? params.weight ?? 0),
         lengthCm: Number(params.package_length ?? params.length ?? 0),
         breadthCm: Number(params.package_breadth ?? params.breadth ?? 0),
@@ -3029,6 +3056,9 @@ export const createB2CShipmentService = async (
       if (computedFreight?.freight !== undefined) {
         slabbedFreight = computedFreight
         freightCharges = Number(computedFreight.freight)
+        if (isCodOrder && computedFreight.effective_cod_charges !== undefined) {
+          codCharges = Number(computedFreight.effective_cod_charges)
+        }
       }
     } catch (freightErr: any) {
       console.error('❌ Failed to compute slab-based freight; aborting shipment creation', {

@@ -21,6 +21,7 @@ type ForwardRate = {
   rate?: number | null
   cod_charges?: number | null
   cod_percent?: number | null
+  effective_cod_charges?: number | null
   is_prepaid?: boolean
   is_cod?: boolean
 }
@@ -137,7 +138,12 @@ export default function CourierRateList({
               : forward?.rate
               ? Number(forward?.rate)
               : 0
-          const codCharges = forward?.cod_charges ? Number(forward?.cod_charges) : 0
+          const codCharges =
+            forward?.effective_cod_charges !== undefined && forward?.effective_cod_charges !== null
+              ? Number(forward.effective_cod_charges)
+              : forward?.cod_charges
+                ? Number(forward.cod_charges)
+                : 0
           const isCOD = shipmentType === 'cod'
           const totalCharges = isCOD ? freight + codCharges : freight
 

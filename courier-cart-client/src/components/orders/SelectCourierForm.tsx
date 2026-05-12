@@ -445,6 +445,8 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
                 courier?.rate !== undefined && courier?.rate !== null
                   ? Number(courier.rate)
                   : local?.forward?.rate
+              const effectiveCodCharge =
+                local?.forward?.effective_cod_charges ?? local?.forward?.cod_charges ?? 0
 
               return (
                 <Paper
@@ -454,7 +456,7 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
                     setValue('courierPartnerId', courier?.id ?? '')
                     setValue('courierOptionKey', courierOptionKey)
                     setValue('selectedMaxSlabWeight', courier?.max_slab_weight ?? null)
-                    setValue('courierCod', local?.forward?.cod_charges ?? 0)
+                    setValue('courierCod', effectiveCodCharge)
                     setValue('forwardCharges', forwardCharge)
                     setValue('otherCharges', local?.forward?.other_charges ?? 0)
                     setValue(
@@ -562,7 +564,7 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
                         >
                           {formatCurrency(
                             (forwardCharge || 0) +
-                            (orderType === 'cod' ? (local?.forward?.cod_charges || 0) : 0) +
+                            (orderType === 'cod' ? Number(effectiveCodCharge) : 0) +
                             (local?.forward?.other_charges || 0)
                           )}
                         </Typography>
@@ -571,7 +573,7 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
 
                     <Grid container spacing={1.1}>
                       {[
-                        ...(orderType === 'cod' ? [['COD', formatCurrency(local?.forward?.cod_charges)]] : []),
+                        ...(orderType === 'cod' ? [['COD', formatCurrency(effectiveCodCharge)]] : []),
                         ['Other', formatCurrency(local?.forward?.other_charges)],
                         ['Chargeable', formatWeightKg(courier?.chargeable_weight)],
                         ['Volumetric', formatWeightKg(courier?.volumetric_weight)],
