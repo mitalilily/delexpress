@@ -55,8 +55,8 @@ import { userProfiles } from '../schema/userProfile'
 import { b2bPincodes, b2bZoneToZoneRates, zones } from '../schema/zones'
 import { calculateB2BRate } from './b2bAdmin.service'
 import {
-  computeEffectiveCodCharge,
   computeB2CRateCardCharge,
+  computeEffectiveCodCharge,
   fetchResolvedB2CRateCards,
   findMatchingSlabIndex,
   formatCourierSlabDisplayName,
@@ -3722,7 +3722,7 @@ export const createB2CShipmentService = async (
         integrationType === 'delhivery' &&
         !isReverseShipment &&
         shipmentData?.deferred_manifest === true
-      const orderStatus = isDeferredDelhiveryForwardManifest ? 'pending' : 'booked'
+      const orderStatus = 'booked'
       const manifestErrorMessage = null
 
       const newOrder = await createB2COrder({
