@@ -12,6 +12,69 @@ const normalizeLocationRow = (row: { pincode: string; city: string; state: strin
   country: row.country || 'India',
 })
 
+const toTitleCase = (value: unknown) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+
+const lookupFromIndiaPincodeDataset = async (pincode: string) => {
+  const { data } = await axios.get(
+    `https://aniket-thapa.github.io/india-pincode-api/pincodes/${pincode}.json`,
+    { timeout: 10000 },
+  )
+
+  const city = toTitleCase(data?.district || data?.offices?.[0]?.divisionName || '')
+  const state = toTitleCase(data?.state || '')
+
+  if (!city || !state) return null
+
+  return {
+    pincode,
+    city,
+    state,
+    country: 'India',
+    source: 'india_pincode_dataset',
+  }
+}
+
+const lookupFromZippopotam = async (pincode: string) => {
+  const { data } = await axios.get(`https://api.zippopotam.us/IN/${pincode}`, {
+    timeout: 10000,
+  })
+  const place = Array.isArray(data?.places) ? data.places[0] : null
+  const city = toTitleCase(place?.['place name'] || '')
+  const state = toTitleCase(place?.state || '')
+
+  if (!city || !state) return null
+
+  return {
+    pincode,
+    city,
+    state,
+    country: 'India',
+    source: 'zippopotam',
+  }
+}
+
+const lookupFromPostalPincode = async (pincode: string) => {
+  const { data } = await axios.get(`https://api.postalpincode.in/pincode/${pincode}`, {
+    timeout: 10000,
+  })
+  const postOffice = data?.[0]?.PostOffice?.[0]
+  const status = data?.[0]?.Status
+
+  if (status !== 'Success' || !postOffice) return null
+
+  return {
+    pincode,
+    city: toTitleCase(postOffice.District || postOffice.Name || ''),
+    state: toTitleCase(postOffice.State || ''),
+    country: toTitleCase(postOffice.Country || 'India') || 'India',
+    source: 'postal_api',
+  }
+}
+
 export const LocationService = {
   lookupPincode: async (pincodeInput: string) => {
     const pincode = normalizePincode(pincodeInput)
@@ -19,33 +82,31 @@ export const LocationService = {
       throw new Error('Pincode must be exactly 6 digits')
     }
 
-    const [savedLocation] = await db
-      .select()
-      .from(locations)
-      .where(eq(locations.pincode, pincode))
-      .limit(1)
+    try {
+      const [savedLocation] = await db
+        .select()
+        .from(locations)
+        .where(eq(locations.pincode, pincode))
+        .limit(1)
 
-    if (savedLocation) {
-      return { ...normalizeLocationRow(savedLocation), source: 'local' }
+      if (savedLocation) {
+        return { ...normalizeLocationRow(savedLocation), source: 'local' }
+      }
+    } catch (err: any) {
+      console.warn('Local pincode lookup failed, using external fallback:', err?.message || err)
     }
 
-    const { data } = await axios.get(`https://api.postalpincode.in/pincode/${pincode}`, {
-      timeout: 10000,
-    })
-    const postOffice = data?.[0]?.PostOffice?.[0]
-    const status = data?.[0]?.Status
-
-    if (status !== 'Success' || !postOffice) {
-      return null
+    const providers = [lookupFromIndiaPincodeDataset, lookupFromZippopotam, lookupFromPostalPincode]
+    for (const provider of providers) {
+      try {
+        const result = await provider(pincode)
+        if (result) return result
+      } catch (err: any) {
+        console.warn(`Pincode provider failed for ${pincode}:`, err?.message || err)
+      }
     }
 
-    return {
-      pincode,
-      city: String(postOffice.District || postOffice.Name || '').trim(),
-      state: String(postOffice.State || '').trim(),
-      country: String(postOffice.Country || 'India').trim() || 'India',
-      source: 'postal_api',
-    }
+    return null
   },
 
   create: async (data: { pincode: string; city: string; state: string; country?: string }) => {
