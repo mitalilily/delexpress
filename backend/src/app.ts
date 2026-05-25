@@ -256,8 +256,12 @@ app.post(
 )
 // Delhivery webhooks - separate endpoints for Scan Push and Document Push
 app.post('/api/webhook/delhivery', express.json(), delhiveryWebhookHandler)
+app.post('/api/webhook/delhiveryone', express.json(), delhiveryWebhookHandler)
+app.post('/api/webhook/delhivery-one', express.json(), delhiveryWebhookHandler)
 app.post('/api/webhook/delhivery/scan', express.json(), delhiveryScanPushHandler) // Scan Push (Status Updates)
+app.post('/api/webhook/delhiveryone/scan', express.json(), delhiveryScanPushHandler)
 app.post('/api/webhook/delhivery/document', express.json(), delhiveryDocumentPushHandler) // Document Push (POD, Sorter Image, QC Image)
+app.post('/api/webhook/delhiveryone/document', express.json(), delhiveryDocumentPushHandler)
 // Legacy unified endpoint (auto-detects type) - kept for backward compatibility
 app.post('/api/webhook/delhivery/order', express.json(), delhiveryWebhookHandler)
 

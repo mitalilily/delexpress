@@ -6864,8 +6864,19 @@ const mapDelhiveryTracking = (raw: any, order: OrderSummary): ProviderNormalized
   const statusObj = shipment?.Status ?? shipment?.status ?? {}
   const trackingUpdate = extractDelhiveryTrackingUpdate(raw)
 
+  if (trackingUpdate.scanEvents.length) {
+    trackingUpdate.scanEvents.forEach((scan) => {
+      pushHistoryEvent(history, {
+        statusCode: scan.statusCode || scan.statusText,
+        message: scan.statusText || scan.instructions || scan.statusCode,
+        location: scan.location || '',
+        time: scan.eventTime || undefined,
+      })
+    })
+  }
+
   const scans = shipment?.Scans
-  if (Array.isArray(scans)) {
+  if (!history.length && Array.isArray(scans)) {
     scans.forEach((scanEntry: any) => {
       const detail = scanEntry?.ScanDetail ?? scanEntry
       if (detail) {
@@ -6877,7 +6888,7 @@ const mapDelhiveryTracking = (raw: any, order: OrderSummary): ProviderNormalized
         })
       }
     })
-  } else if (scans?.ScanDetail) {
+  } else if (!history.length && scans?.ScanDetail) {
     const scanDetails = Array.isArray(scans.ScanDetail) ? scans.ScanDetail : [scans.ScanDetail]
     scanDetails.forEach((detail: any) => {
       pushHistoryEvent(history, {

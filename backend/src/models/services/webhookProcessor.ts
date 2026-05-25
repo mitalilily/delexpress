@@ -9,12 +9,16 @@ import { b2c_orders } from '../schema/b2cOrders'
 import { invoicePreferences } from '../schema/invoicePreferences'
 import { ndr_events } from '../schema/ndr'
 import { rto_events } from '../schema/rto'
+import { tracking_events } from '../schema/trackingEvents'
 import { userProfiles } from '../schema/userProfile'
 import { wallets, walletTransactions } from '../schema/wallet'
 import { createCodRemittance } from './codRemittance.service'
 import { extractWeightProofFromWebhook } from './courierProofFetcher.service'
 import { DelhiveryService } from './couriers/delhivery.service'
-import { extractDelhiveryTrackingUpdate } from './couriers/delhiveryTracking.utils'
+import {
+  extractDelhiveryTrackingUpdate,
+  mapDelhiveryStatusToInternal,
+} from './couriers/delhiveryTracking.utils'
 import {
   calculateChargedWeight,
   calculateVolumetricWeight,
@@ -76,6 +80,121 @@ const hasNdrSignal = (...parts: unknown[]) => {
   ]
 
   return ndrMarkers.some((marker) => text.includes(marker))
+}
+
+const trackingEventKey = (
+  statusCode?: string | null,
+  statusText?: string | null,
+  location?: string | null,
+  eventTime?: string | null,
+) =>
+  [statusCode, statusText, location, eventTime]
+    .map((part) => String(part || '').trim().toLowerCase())
+    .join('|')
+
+const getRawDelhiveryEventTime = (raw: any) =>
+  String(
+    raw?._delhivery_event_time ||
+      raw?.ScanDateTime ||
+      raw?.StatusDateTime ||
+      raw?.scanDateTime ||
+      raw?.statusDateTime ||
+      raw?.scan_datetime ||
+      raw?.status_datetime ||
+      '',
+  ).trim() || null
+
+const truncateNullableText = (value: unknown, maxLength: number) => {
+  const text = String(value || '').trim()
+  return text ? text.slice(0, maxLength) : null
+}
+
+const logDelhiveryTrackingHistory = async ({
+  order,
+  trackingUpdate,
+  payload,
+  waybill,
+  fallbackStatus,
+  fallbackInternalStatus,
+  fallbackLocation,
+}: {
+  order: typeof b2c_orders.$inferSelect
+  trackingUpdate: ReturnType<typeof extractDelhiveryTrackingUpdate>
+  payload: any
+  waybill: string | null
+  fallbackStatus: string
+  fallbackInternalStatus: string
+  fallbackLocation: string | null
+}) => {
+  const existingRows = await db
+    .select({
+      statusCode: tracking_events.status_code,
+      statusText: tracking_events.status_text,
+      location: tracking_events.location,
+      raw: tracking_events.raw,
+    })
+    .from(tracking_events)
+    .where(eq(tracking_events.order_id, order.id))
+
+  const existingKeys = new Set(
+    existingRows.map((row) =>
+      trackingEventKey(
+        row.statusCode,
+        row.statusText,
+        row.location,
+        getRawDelhiveryEventTime(row.raw),
+      ),
+    ),
+  )
+
+  const sourceEvents = trackingUpdate.scanEvents.length
+    ? [...trackingUpdate.scanEvents].reverse()
+    : [
+        {
+          statusCode: trackingUpdate.statusType || trackingUpdate.statusCode,
+          statusText: fallbackStatus || fallbackInternalStatus,
+          location: fallbackLocation || '',
+          eventTime: trackingUpdate.eventTime,
+          instructions: trackingUpdate.instructions,
+          raw: payload,
+        },
+      ]
+
+  for (const event of sourceEvents) {
+    const statusText = event.statusText || event.instructions || fallbackStatus || fallbackInternalStatus
+    const eventInternalStatus = mapDelhiveryStatusToInternal(
+      event.statusCode,
+      statusText,
+      event.instructions,
+      event.statusCode,
+    )
+    const statusCode =
+      eventInternalStatus && eventInternalStatus !== 'unknown'
+        ? eventInternalStatus
+        : fallbackInternalStatus
+    const location = event.location || fallbackLocation
+    const eventTime = event.eventTime || trackingUpdate.eventTime
+    const key = trackingEventKey(statusCode, statusText, location, eventTime)
+
+    if (existingKeys.has(key)) continue
+    existingKeys.add(key)
+
+    await logTrackingEvent({
+      orderId: order.id,
+      userId: order.user_id,
+      awbNumber: waybill || order.awb_number,
+      courier: 'Delhivery',
+      statusCode,
+      statusText,
+      location,
+      raw: {
+        ...(event.raw && typeof event.raw === 'object' && !Array.isArray(event.raw)
+          ? event.raw
+          : { value: event.raw }),
+        _delhivery_event_time: eventTime,
+      },
+    })
+  }
 }
 
 const normalizeComparableText = (value: unknown) => String(value || '').trim().toLowerCase()
@@ -758,12 +877,16 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
 
     if (b2bOrder) {
       const b2bStatus = trackingUpdate.internalStatus
+      if (!b2bStatus || b2bStatus === 'unknown') {
+        console.warn(`Delhivery B2B webhook ignored for AWB ${waybill}: unknown status`)
+        return { success: false, reason: 'unknown_status' }
+      }
       await tx
         .update(b2b_orders)
         .set({
           order_status: b2bStatus,
-          delivery_location: location || null,
-          delivery_message: instructions || status || null,
+          delivery_location: truncateNullableText(location, 100),
+          delivery_message: truncateNullableText(instructions || status, 100),
           updated_at: new Date(),
         })
         .where(eq(b2b_orders.id, b2bOrder.id))
@@ -871,6 +994,18 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
 
   console.log(`📦 Delhivery Webhook: ${waybill} → ${status} (${status_type}) → ${internalStatus}`)
 
+  if (!internalStatus || internalStatus === 'unknown') {
+    console.warn(
+      `Delhivery webhook ignored for AWB ${waybill}: unable to map status from ${JSON.stringify({
+        status,
+        status_type,
+        status_code: trackingUpdate.statusCode,
+        instructions,
+      })}`,
+    )
+    return { success: false, reason: 'unknown_status' }
+  }
+
   const currentStatus = (order.order_status || '').toLowerCase()
   const currentManifestError = String(order.manifest_error || '').trim()
   if (
@@ -943,9 +1078,13 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
     // 1️⃣ Update base order status
     const updateData: any = {
       order_status: internalStatus,
-      delivery_location: location || null,
-      delivery_message: instructions || status || null,
+      delivery_location: truncateNullableText(location, 100),
+      delivery_message: truncateNullableText(instructions || status, 100),
       updated_at: new Date(),
+    }
+
+    if (trackingUpdate.edd) {
+      updateData.edd = truncateNullableText(trackingUpdate.edd, 120)
     }
 
     if (!order.awb_number && waybill) {
@@ -1229,15 +1368,14 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
   })
 
   try {
-    await logTrackingEvent({
-      orderId: order.id,
-      userId: order.user_id,
-      awbNumber: waybill || order.awb_number,
-      courier: 'Delhivery',
-      statusCode: internalStatus,
-      statusText: status || internalStatus,
-      location,
-      raw: payload,
+    await logDelhiveryTrackingHistory({
+      order,
+      trackingUpdate,
+      payload,
+      waybill,
+      fallbackStatus: status,
+      fallbackInternalStatus: internalStatus,
+      fallbackLocation: location,
     })
   } catch (e) {
     console.error('Failed to log tracking event (Delhivery):', e)
