@@ -1,6 +1,6 @@
 import axios from 'axios'
 import * as crypto from 'crypto'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, or, sql } from 'drizzle-orm'
 import { db } from '../client'
 import { b2c_orders } from '../schema/b2cOrders'
 import { stores } from '../schema/stores'
@@ -27,6 +27,10 @@ const toNumber = (value: unknown, fallback = 0): number => {
   const n = Number(value)
   return Number.isFinite(n) ? n : fallback
 }
+
+const trimText = (value: unknown) => String(value ?? '').trim()
+
+const normalizeStatus = (value: unknown) => trimText(value).toLowerCase()
 
 const buildInternalOrderId = (storeId: string, shopifyOrderId: string) => {
   const safeStoreId = String(storeId || '').trim()
@@ -100,6 +104,24 @@ const mapShopifyStatus = (order: any): string => {
   return 'pending'
 }
 
+const shouldPreserveLocalCourierStatus = (existingOrder: any) => {
+  if (!existingOrder) return false
+  const provider = normalizeStatus(existingOrder.integration_type)
+  const hasCourierProvider = Boolean(provider && provider !== 'shopify')
+  return Boolean(trimText(existingOrder.awb_number)) || hasCourierProvider
+}
+
+const mergeShopifyStatusWithLocalStatus = (existingOrder: any, shopifyStatus: string) => {
+  const localStatus = normalizeStatus(existingOrder?.order_status)
+  const nextShopifyStatus = normalizeStatus(shopifyStatus)
+
+  if (!localStatus) return nextShopifyStatus || 'pending'
+  if (nextShopifyStatus === 'cancelled') return 'cancelled'
+  if (shouldPreserveLocalCourierStatus(existingOrder)) return localStatus
+  if (nextShopifyStatus === 'delivered') return 'delivered'
+  return nextShopifyStatus || localStatus
+}
+
 const normalizeFulfillTrigger = (value: unknown): FulfillTrigger => {
   const trigger = String(value || 'do_not_fulfill')
     .trim()
@@ -148,6 +170,60 @@ const shouldNotifyCustomerOnFulfill = (settings: any) => {
     .trim()
     .toLowerCase()
   return ['notify', 'notify_customer', 'yes', 'true', '1'].includes(value)
+}
+
+const getShopifyTrackingUrl = (awbNumber: string) => {
+  const trackingBase = String(
+    process.env.SHOPIFY_TRACKING_URL_BASE ||
+      process.env.TRACKING_URL_BASE ||
+      process.env.FRONTEND_URL ||
+      'https://app.expressopro.in',
+  )
+    .trim()
+    .replace(/\/+$/, '')
+
+  return `${trackingBase}/tracking?awb=${encodeURIComponent(awbNumber)}`
+}
+
+const getTrackingInfoForOrder = (order: any) => {
+  const trackingNumber = trimText(order?.awb_number)
+  if (!trackingNumber) return null
+
+  return {
+    number: trackingNumber,
+    company: trimText(order?.courier_partner || order?.integration_type || 'ExpressoPro').slice(
+      0,
+      255,
+    ),
+    url: getShopifyTrackingUrl(trackingNumber),
+  }
+}
+
+const canCreateFulfillmentForFulfillmentOrder = (fulfillmentOrder: any) => {
+  const foStatus = normalizeStatus(fulfillmentOrder?.status)
+  const supportedActions = Array.isArray(fulfillmentOrder?.supported_actions)
+    ? fulfillmentOrder.supported_actions.map((action: unknown) => normalizeStatus(action))
+    : []
+
+  if (supportedActions.length > 0) {
+    return supportedActions.includes('create_fulfillment')
+  }
+
+  return foStatus === 'open'
+}
+
+const shouldUpdateFulfillmentTracking = (fulfillment: any, trackingNumber: string) => {
+  const status = normalizeStatus(fulfillment?.status)
+  if (status === 'cancelled' || status === 'failure') return false
+
+  const existingNumbers = [
+    fulfillment?.tracking_number,
+    ...(Array.isArray(fulfillment?.tracking_numbers) ? fulfillment.tracking_numbers : []),
+  ]
+    .map((value) => trimText(value))
+    .filter(Boolean)
+
+  return !existingNumbers.includes(trackingNumber)
 }
 
 const mapProducts = (order: any) => {
@@ -220,15 +296,92 @@ const getStoreByDomain = async (domain: string, tx: any = db) => {
 
 const fetchShopifyOrders = async (store: ShopifyStore, limit = 50) => {
   const base = `https://${normalizeDomain(store.domain)}/admin/api/${SHOPIFY_API_VERSION}`
-  const res = await axios.get(`${base}/orders.json`, {
-    headers: {
-      'X-Shopify-Access-Token': String(store.adminApiAccessToken || '').trim(),
-      'Content-Type': 'application/json',
-    },
-    params: { status: 'any', limit },
-    timeout: 30000,
-  })
-  return Array.isArray(res?.data?.orders) ? res.data.orders : []
+  const headers = {
+    'X-Shopify-Access-Token': String(store.adminApiAccessToken || '').trim(),
+    'Content-Type': 'application/json',
+  }
+  const targetLimit = Math.max(1, Math.min(Number(limit) || 50, 250))
+  const orders: any[] = []
+  let pageInfo: string | null = null
+
+  do {
+    const remaining = targetLimit - orders.length
+    const pageLimit = Math.min(remaining, 250)
+    const res: any = await axios.get(`${base}/orders.json`, {
+      headers,
+      params: pageInfo ? { limit: pageLimit, page_info: pageInfo } : { status: 'any', limit: pageLimit },
+      timeout: 30000,
+    })
+
+    const pageOrders = Array.isArray(res?.data?.orders) ? res.data.orders : []
+    orders.push(...pageOrders)
+
+    const link: string = String(res?.headers?.link || '')
+    const nextMatch: RegExpMatchArray | null = link.match(
+      /<[^>]*[?&]page_info=([^&>]+)[^>]*>;\s*rel="next"/i,
+    )
+    pageInfo = nextMatch?.[1] ? decodeURIComponent(nextMatch[1]) : null
+  } while (pageInfo && orders.length < targetLimit)
+
+  return orders.slice(0, targetLimit)
+}
+
+const resolveShopifyOrderNumber = async ({
+  tx,
+  store,
+  userId,
+  preferredOrderNumber,
+  internalOrderId,
+  legacyOrderId,
+  shopifyOrderId,
+}: {
+  tx: any
+  store: ShopifyStore
+  userId: string
+  preferredOrderNumber: string
+  internalOrderId: string
+  legacyOrderId: string
+  shopifyOrderId: string
+}) => {
+  const base = trimText(preferredOrderNumber) || shopifyOrderId
+  const normalizedBase = base.toLowerCase()
+  const [existing] = await tx
+    .select({ id: b2c_orders.id, order_id: b2c_orders.order_id })
+    .from(b2c_orders)
+    .where(
+      and(eq(b2c_orders.user_id, userId), sql`lower(trim(${b2c_orders.order_number})) = ${normalizedBase}`),
+    )
+    .limit(1)
+
+  if (!existing || existing.order_id === internalOrderId || existing.order_id === legacyOrderId) {
+    return base.slice(0, 50)
+  }
+
+  const suffixParts = [
+    trimText(store.id).slice(-6),
+    trimText(shopifyOrderId).slice(-6),
+  ].filter(Boolean)
+
+  const suffix = suffixParts.join('-') || 'shopify'
+  const candidate = `${base.slice(0, Math.max(1, 49 - suffix.length))}-${suffix}`.slice(0, 50)
+  const normalizedCandidate = candidate.toLowerCase()
+  const [candidateExisting] = await tx
+    .select({ id: b2c_orders.id })
+    .from(b2c_orders)
+    .where(
+      and(
+        eq(b2c_orders.user_id, userId),
+        sql`lower(trim(${b2c_orders.order_number})) = ${normalizedCandidate}`,
+      ),
+    )
+    .limit(1)
+
+  if (!candidateExisting) return candidate
+
+  return `${base.slice(0, 37)}-${trimText(store.id).slice(-4)}-${trimText(shopifyOrderId).slice(-6)}`.slice(
+    0,
+    50,
+  )
 }
 
 const upsertFromShopifyOrder = async (
@@ -259,10 +412,29 @@ const upsertFromShopifyOrder = async (
   const declaredWeight = totalWeightGrams > 0 ? totalWeightGrams : 500
   const orderAmount = toNumber(order?.total_price, 0)
   const orderName = String(order?.name || order?.order_number || shopifyOrderId).trim()
+  const [existingOrder] = await tx
+    .select()
+    .from(b2c_orders)
+    .where(
+      or(eq(b2c_orders.order_id, internalOrderId), eq(b2c_orders.order_id, legacyInternalOrderId)),
+    )
+    .limit(1)
+
+  const resolvedOrderNumber = existingOrder?.order_number
+    ? String(existingOrder.order_number)
+    : await resolveShopifyOrderNumber({
+        tx,
+        store,
+        userId: store.userId,
+        preferredOrderNumber: orderName,
+        internalOrderId,
+        legacyOrderId: legacyInternalOrderId,
+        shopifyOrderId,
+      })
 
   const updatePayload: Partial<typeof b2c_orders.$inferInsert> = {
     user_id: store.userId,
-    order_number: orderName.slice(0, 50),
+    order_number: resolvedOrderNumber.slice(0, 50),
     order_date: String(order?.created_at || new Date().toISOString()).slice(0, 50),
     order_amount: orderAmount,
     order_id: internalOrderId,
@@ -306,26 +478,23 @@ const upsertFromShopifyOrder = async (
     updated_at: new Date(),
   }
 
-  const [existing] = await tx
-    .select({ id: b2c_orders.id })
-    .from(b2c_orders)
-    .where(eq(b2c_orders.order_id, internalOrderId))
-    .limit(1)
+  if (existingOrder?.id) {
+    const localStatus = mergeShopifyStatusWithLocalStatus(existingOrder, mappedStatus)
+    const nextPayload: Partial<typeof b2c_orders.$inferInsert> = {
+      ...updatePayload,
+      order_status: localStatus,
+      order_id: internalOrderId,
+    }
 
-  const [legacyExisting] = existing
-    ? [undefined]
-    : await tx
-        .select({ id: b2c_orders.id })
-        .from(b2c_orders)
-        .where(eq(b2c_orders.order_id, legacyInternalOrderId))
-        .limit(1)
+    if (shouldPreserveLocalCourierStatus(existingOrder)) {
+      nextPayload.courier_partner = existingOrder.courier_partner
+      nextPayload.integration_type = existingOrder.integration_type
+    }
 
-  if (existing?.id || legacyExisting?.id) {
-    const targetId = existing?.id || legacyExisting?.id
     await tx
       .update(b2c_orders)
-      .set({ ...updatePayload, order_id: internalOrderId })
-      .where(eq(b2c_orders.id, targetId as string))
+      .set(nextPayload)
+      .where(eq(b2c_orders.id, existingOrder.id as string))
     return 'updated' as const
   }
 
@@ -470,6 +639,13 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
 
   try {
     if (shouldAttemptFulfillment(orderStatus, settings?.fulfillTrigger)) {
+      try {
+      const trackingInfo = getTrackingInfoForOrder(order)
+      if (!trackingInfo) {
+        console.warn(
+          `Shopify fulfillment skipped for ${order?.order_number || order?.id}: AWB is not available yet`,
+        )
+      } else {
       const [shopifyOrderRes, fulfillmentOrdersRes] = await Promise.all([
         axios.get(`${base}/orders/${shopifyOrderId}.json`, {
           headers,
@@ -486,41 +662,67 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
       const isAlreadyFulfilled =
         String(shopifyOrder?.fulfillment_status || '').toLowerCase() === 'fulfilled'
 
+      let existingFulfillments: any[] = []
+      try {
+        const fulfillmentRes = await axios.get(`${base}/orders/${shopifyOrderId}/fulfillments.json`, {
+          headers,
+          timeout: 20000,
+        })
+        existingFulfillments = Array.isArray(fulfillmentRes?.data?.fulfillments)
+          ? fulfillmentRes.data.fulfillments
+          : []
+      } catch (fulfillmentErr: any) {
+        console.warn(
+          `Shopify existing fulfillment lookup failed for ${order?.order_number || order?.id}:`,
+          fulfillmentErr?.response?.data || fulfillmentErr?.message || fulfillmentErr,
+        )
+      }
+
+      const fulfillmentToUpdate = existingFulfillments.find((fulfillment) =>
+        shouldUpdateFulfillmentTracking(fulfillment, trackingInfo.number),
+      )
+
+      if (fulfillmentToUpdate?.id) {
+        await axios.post(
+          `${base}/fulfillments/${fulfillmentToUpdate.id}/update_tracking.json`,
+          {
+            fulfillment: {
+              notify_customer: shouldNotifyCustomerOnFulfill(settings),
+              tracking_info: trackingInfo,
+            },
+          },
+          { headers, timeout: 20000 },
+        )
+      }
+
       const allFulfillmentOrders = Array.isArray(fulfillmentOrdersRes?.data?.fulfillment_orders)
         ? fulfillmentOrdersRes.data.fulfillment_orders
         : []
 
-      const openFulfillmentOrders = allFulfillmentOrders.filter((fo: any) => {
-        const foStatus = String(fo?.status || '').toLowerCase()
-        const reqStatus = String(fo?.request_status || '').toLowerCase()
-        return (
-          foStatus === 'open' &&
-          (!reqStatus || reqStatus === 'unsubmitted' || reqStatus === 'submitted')
-        )
-      })
+      const openFulfillmentOrders = allFulfillmentOrders.filter(canCreateFulfillmentForFulfillmentOrder)
 
-      if (!isAlreadyFulfilled && openFulfillmentOrders.length) {
-        const trackingNumber = String(order?.awb_number || '').trim()
+      if (!fulfillmentToUpdate && !isAlreadyFulfilled && openFulfillmentOrders.length) {
         const fulfillmentPayload: any = {
           fulfillment: {
             line_items_by_fulfillment_order: openFulfillmentOrders.map((fo: any) => ({
               fulfillment_order_id: fo.id,
             })),
             notify_customer: shouldNotifyCustomerOnFulfill(settings),
+            tracking_info: trackingInfo,
           },
-        }
-
-        if (trackingNumber) {
-          fulfillmentPayload.fulfillment.tracking_info = {
-            number: trackingNumber,
-            company: String(order?.courier_partner || 'ExpressoPro').slice(0, 255),
-          }
         }
 
         await axios.post(`${base}/fulfillments.json`, fulfillmentPayload, {
           headers,
           timeout: 20000,
         })
+      }
+      }
+      } catch (fulfillmentErr: any) {
+        console.warn(
+          `Shopify fulfillment sync failed for ${order?.order_number || order?.id}:`,
+          fulfillmentErr?.response?.data || fulfillmentErr?.message || fulfillmentErr,
+        )
       }
     }
 

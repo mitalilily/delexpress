@@ -1,10 +1,10 @@
 // seedAdmin.ts
 import bcrypt from 'bcryptjs'
-import { eq } from 'drizzle-orm'
+import { eq, or, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../models/client'
+import { users } from '../models/schema/users'
 import { User } from '../models/services/userService'
-import { users } from '../schema/schema'
 
 interface SeedAdminProps {
   phone: string
@@ -19,24 +19,45 @@ export const seedAdmin = async ({
   email,
   role = 'admin',
 }: SeedAdminProps): Promise<User> => {
-  // check if user already exists
-  const existing = await db.select().from(users).where(eq(users.phone, phone))
-  if (existing.length > 0) return existing[0] as User
-
-  // hash password
+  const normalizedEmail = email?.trim().toLowerCase()
   const hashedPassword = await bcrypt.hash(password, 10)
+  const [existing] = await db
+    .select()
+    .from(users)
+    .where(
+      normalizedEmail
+        ? or(eq(users.phone, phone), sql`lower(trim(${users.email})) = ${normalizedEmail}`)
+        : eq(users.phone, phone),
+    )
 
-  // insert new user
+  if (existing) {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        email: normalizedEmail ?? existing.email,
+        phone,
+        passwordHash: hashedPassword,
+        role,
+        phoneVerified: true,
+        emailVerified: Boolean(normalizedEmail),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, existing.id))
+      .returning()
+
+    return updatedUser as User
+  }
+
   const [newUser] = await db
     .insert(users)
     .values({
       id: uuidv4(),
       phone,
-      email: email ?? null,
+      email: normalizedEmail ?? null,
       passwordHash: hashedPassword,
       role,
       phoneVerified: true,
-      emailVerified: !!email,
+      emailVerified: !!normalizedEmail,
       createdAt: new Date(),
       updatedAt: new Date(),
     })

@@ -68,6 +68,7 @@ import { EkartService } from './couriers/ekart.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
 import { calculateOrderWeights } from './courierWeightCalculation.service'
 import { generateLabelForOrder } from './generateCustomLabelService'
+import { syncShopifyStatusForLocalOrder } from './shopify.service'
 
 // Load correct .env based on NODE_ENV
 const env = process.env.NODE_ENV || 'development'
@@ -2338,11 +2339,34 @@ export async function createB2COrder({
   manifestError,
 }: InsertB2COrderParams) {
   const orderAmount = Number(params.order_amount ?? 0)
-  const normalizedOrderNumber = await ensureUniqueMerchantOrderNumber(
-    tx,
-    userId,
-    params.order_number,
+  const requestedOrderNumber = typeof params.order_number === 'string' ? params.order_number.trim() : ''
+  if (!requestedOrderNumber) {
+    throw new HttpError(400, 'Order ID is required.')
+  }
+
+  const requestedOrderNumberKey = requestedOrderNumber.toLowerCase()
+  const [existingSameOrderNumber] = await tx
+    .select()
+    .from(b2c_orders)
+    .where(
+      and(
+        eq(b2c_orders.user_id, userId),
+        sql`lower(trim(${b2c_orders.order_number})) = ${requestedOrderNumberKey}`,
+      ),
+    )
+    .limit(1)
+
+  const canAttachShipmentToShopifyOrder = Boolean(
+    existingSameOrderNumber &&
+    String(existingSameOrderNumber.order_id || '').startsWith('shopify_') &&
+    String(existingSameOrderNumber.integration_type || '').toLowerCase() === 'shopify' &&
+    !String(existingSameOrderNumber.awb_number || '').trim(),
   )
+
+  const normalizedOrderNumber = canAttachShipmentToShopifyOrder
+    ? requestedOrderNumber
+    : await ensureUniqueMerchantOrderNumber(tx, userId, params.order_number)
+
   const normalizeJsonValue = (value: unknown) => {
     if (!value) return null
 
@@ -2377,14 +2401,14 @@ export async function createB2COrder({
   const storedCodCharges = isCodOrder ? Number(params?.cod_charges ?? 0) : 0
 
   try {
-    const [newOrder] = await tx
-      .insert(b2c_orders)
-      .values({
+    const orderValues: any = {
         user_id: userId,
 
         // Order info
         order_number: normalizedOrderNumber,
-        order_id: shipmentData?.data?.order_id ?? null,
+        order_id: canAttachShipmentToShopifyOrder
+          ? existingSameOrderNumber.order_id
+          : shipmentData?.data?.order_id ?? null,
         order_date: params.order_date ?? new Date().toISOString().slice(0, 10), // 'YYYY-MM-DD'
         order_amount: orderAmount,
         cod_charges: storedCodCharges,
@@ -2455,10 +2479,26 @@ export async function createB2COrder({
         is_external_api: is_external_api ?? false,
 
         // Tags / meta
-        tags: params.tags ?? null,
+        tags: params.tags ?? (canAttachShipmentToShopifyOrder ? existingSameOrderNumber.tags : null),
         invoice_link: shipmentData?.invoice_link ?? null,
-        created_at: new Date(),
         updated_at: new Date(),
+      }
+
+    if (canAttachShipmentToShopifyOrder) {
+      const [updatedOrder] = await tx
+        .update(b2c_orders)
+        .set(orderValues)
+        .where(eq(b2c_orders.id, existingSameOrderNumber.id))
+        .returning({ id: b2c_orders.id })
+
+      return updatedOrder
+    }
+
+    const [newOrder] = await tx
+      .insert(b2c_orders)
+      .values({
+        ...orderValues,
+        created_at: new Date(),
       })
       .returning({ id: b2c_orders.id })
 
@@ -3984,6 +4024,23 @@ export const createB2CShipmentService = async (
     })
 
     rollbackActions.length = 0
+    try {
+      const createdOrderId = result?.order?.id
+      if (createdOrderId) {
+        const [freshOrder] = await db
+          .select()
+          .from(b2c_orders)
+          .where(eq(b2c_orders.id, createdOrderId))
+        if (freshOrder) {
+          await syncShopifyStatusForLocalOrder(freshOrder)
+        }
+      }
+    } catch (shopifySyncErr: any) {
+      console.warn(
+        'âš ï¸ Shopify status sync after shipment booking failed:',
+        shopifySyncErr?.response?.data || shopifySyncErr?.message || shopifySyncErr,
+      )
+    }
     return result
   } catch (error) {
     for (const action of rollbackActions.reverse()) {
@@ -4811,6 +4868,15 @@ export const generateManifestService = async (params: {
                 .update(b2c_orders)
                 .set(updateDataEkart)
                 .where(eq(b2c_orders.id, freshOrder.id))
+
+              await syncShopifyStatusForLocalOrder({ ...freshOrder, ...updateDataEkart }, tx).catch(
+                (shopifySyncErr: any) => {
+                  console.warn(
+                    'âš ï¸ Shopify status sync after Ekart manifest failed:',
+                    shopifySyncErr?.response?.data || shopifySyncErr?.message || shopifySyncErr,
+                  )
+                },
+              )
             })
 
             await Promise.all(orderUpdatePromises)
@@ -5141,6 +5207,15 @@ export const generateManifestService = async (params: {
               .update(b2c_orders)
               .set(updateDataXpress)
               .where(eq(b2c_orders.id, freshOrder.id))
+
+            await syncShopifyStatusForLocalOrder({ ...freshOrder, ...updateDataXpress }, tx).catch(
+              (shopifySyncErr: any) => {
+                console.warn(
+                  'âš ï¸ Shopify status sync after Xpressbees manifest failed:',
+                  shopifySyncErr?.response?.data || shopifySyncErr?.message || shopifySyncErr,
+                )
+              },
+            )
           })
 
           await Promise.all(orderUpdatePromises)
@@ -6121,6 +6196,17 @@ export const generateManifestService = async (params: {
             }
 
             await tx.update(table).set(updateDataDel).where(eq(table.id, order.id))
+
+            if (params.type === 'b2c') {
+              await syncShopifyStatusForLocalOrder({ ...freshOrder, ...updateDataDel }, tx).catch(
+                (shopifySyncErr: any) => {
+                  console.warn(
+                    'âš ï¸ Shopify status sync after Delhivery manifest failed:',
+                    shopifySyncErr?.response?.data || shopifySyncErr?.message || shopifySyncErr,
+                  )
+                },
+              )
+            }
           })
 
           // Wait for order updates to complete

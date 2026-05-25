@@ -1,20 +1,25 @@
 import bcrypt from 'bcryptjs'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { db, pool } from '../models/client'
 import { users } from '../models/schema/users'
 
-const ADMIN_EMAIL = 'admin@ExpressoPro.in'
+const ADMIN_EMAIL = 'admin@expressopro.in'
 const ADMIN_PASSWORD = 'Admin@12345!'
 
 async function ensureExpressoProAdmin() {
+  const normalizedEmail = ADMIN_EMAIL.trim().toLowerCase()
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10)
-  const [existing] = await db.select().from(users).where(eq(users.email, ADMIN_EMAIL))
+  const [existing] = await db
+    .select()
+    .from(users)
+    .where(sql`lower(trim(${users.email})) = ${normalizedEmail}`)
 
   if (existing) {
     await db
       .update(users)
       .set({
+        email: normalizedEmail,
         passwordHash,
         role: 'admin',
         emailVerified: true,
@@ -26,7 +31,7 @@ async function ensureExpressoProAdmin() {
   } else {
     await db.insert(users).values({
       id: uuidv4(),
-      email: ADMIN_EMAIL,
+      email: normalizedEmail,
       passwordHash,
       role: 'admin',
       emailVerified: true,
@@ -38,7 +43,7 @@ async function ensureExpressoProAdmin() {
     console.log(`Created admin user ${ADMIN_EMAIL}`)
   }
 
-  console.log(`Admin login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`)
+  console.log(`Admin login: ${normalizedEmail} / ${ADMIN_PASSWORD}`)
 }
 
 ensureExpressoProAdmin()

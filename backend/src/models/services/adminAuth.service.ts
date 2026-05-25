@@ -3,19 +3,24 @@ import { eq } from "drizzle-orm";
 import { signAccessToken, signRefreshToken } from "../../utils/jwt";
 import { db } from "../client";
 import { users } from "../schema/users";
-import { findUserByEmail, findUserById, saveRefreshToken } from "./userService";
+import { findUserByEmail, findUserById, normalizeEmail, saveRefreshToken } from "./userService";
 
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const loginAdmin = async (email: string, password: string) => {
-  const user = await findUserByEmail(email);
+  const normalizedEmail = normalizeEmail(email);
+  const user = await findUserByEmail(normalizedEmail);
 
   if (!user || user.role !== "admin") {
     throw new Error("Unauthorized");
   }
 
-  const isMatch = await bcrypt.compare(password, user.passwordHash!);
+  if (!user.passwordHash) {
+    throw new Error("Invalid credentials");
+  }
+
+  const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) {
     throw new Error("Invalid credentials");
   }

@@ -483,11 +483,14 @@ export const googleOAuthLogin = async (req: Request, res: Response): Promise<any
 
 export const adminLoginController = async (req: Request, res: Response) => {
   const { email, password } = req.body
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : ''
 
-  if (!email || !password) return res.status(400).json({ error: 'Email and password are required' })
+  if (!normalizedEmail || !password) {
+    return res.status(400).json({ error: 'Email and password are required' })
+  }
 
   try {
-    const result = await loginAdmin(email, password)
+    const result = await loginAdmin(normalizedEmail, password)
     return res.status(200).json({
       message: 'Admin login successful',
       ...result,

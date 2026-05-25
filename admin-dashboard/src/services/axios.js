@@ -1,6 +1,14 @@
 import axios from 'axios'
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://api.expressopro.in/api'
+const DEFAULT_API_BASE_URL = 'https://api.expressopro.in/api'
+
+const normalizeApiBaseUrl = (value) => {
+  const baseUrl = (value || DEFAULT_API_BASE_URL).trim().replace(/\/+$/, '')
+  if (!baseUrl) return DEFAULT_API_BASE_URL
+  return /\/api$/i.test(baseUrl) ? baseUrl : `${baseUrl}/api`
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(process.env.REACT_APP_API_BASE_URL)
 
 const api = axios.create({
   baseURL: API_BASE_URL,

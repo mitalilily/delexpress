@@ -66,6 +66,7 @@ jobs:
           cd /srv/expressopro/current/backend
           npm ci
           NODE_ENV=production npm run build
+          NODE_ENV=production npm run ensure:admin
 
           cd /srv/expressopro/current/admin-dashboard
           npm install --legacy-peer-deps

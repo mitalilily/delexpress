@@ -101,9 +101,14 @@ export const findUserById = async (id: string) => {
   }
 }
 
+export const normalizeEmail = (email: string) => email.trim().toLowerCase()
+
 export const findUserByEmail = async (email: string, tx: Tx = db) => {
+  const normalizedEmail = normalizeEmail(email)
+  if (!normalizedEmail) return null
+
   return await tx.query.users.findFirst({
-    where: (users, { eq }) => eq(users.email, email),
+    where: (users) => sql`lower(trim(${users.email})) = ${normalizedEmail}`,
   })
 }
 

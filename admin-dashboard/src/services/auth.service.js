@@ -1,7 +1,10 @@
 import api from "./axios";
 
 export const loginAdmin = async (email, password) => {
-  const response = await api.post("/auth/admin/login", { email, password });
+  const response = await api.post("/auth/admin/login", {
+    email: email.trim().toLowerCase(),
+    password,
+  });
   return response.data;
 };
 
