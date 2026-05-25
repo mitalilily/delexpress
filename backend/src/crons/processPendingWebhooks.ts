@@ -5,6 +5,7 @@ import {
   processDelhiveryWebhook,
   processXpressbeesWebhook,
 } from '../models/services/webhookProcessor'
+import { extractDelhiveryTrackingUpdate } from '../models/services/couriers/delhiveryTracking.utils'
 import { pending_webhooks } from '../schema/schema'
 
 const MAX_EVENTS_PER_RUN = Number(process.env.PENDING_WEBHOOK_MAX_PER_RUN || 100)
@@ -43,8 +44,11 @@ export async function processPendingWebhooks() {
       const provider =
         payload?.__provider || (String(event.status || '').startsWith('xpressbees:') ? 'xpressbees' : 'delhivery')
       const rawPayload = payload?.__provider === 'xpressbees' ? payload?.body || {} : payload
+      const delhiveryUpdate =
+        provider === 'delhivery' ? extractDelhiveryTrackingUpdate(rawPayload) : null
       const awb =
         event.awb_number ||
+        delhiveryUpdate?.waybill ||
         rawPayload?.Shipment?.AWB ||
         rawPayload?.AWB ||
         rawPayload?.waybill ||
@@ -68,8 +72,11 @@ export async function processPendingWebhooks() {
       const payload: any = event.payload || {}
       const provider = payload?.__provider || (String(event.status || '').startsWith('xpressbees:') ? 'xpressbees' : 'delhivery')
       const rawPayload = payload?.__provider === 'xpressbees' ? payload?.body || {} : payload
+      const delhiveryUpdate =
+        provider === 'delhivery' ? extractDelhiveryTrackingUpdate(rawPayload) : null
       const awb =
         event.awb_number ||
+        delhiveryUpdate?.waybill ||
         rawPayload?.Shipment?.AWB ||
         rawPayload?.AWB ||
         rawPayload?.waybill ||
@@ -107,6 +114,7 @@ export async function processPendingWebhooks() {
         const looksLikeDelhivery =
           provider === 'delhivery' &&
           (!!rawPayload?.Shipment ||
+            !!delhiveryUpdate?.waybill ||
             typeof rawPayload?.waybill === 'string' ||
             typeof rawPayload?.AWB === 'string' ||
             typeof awb === 'string')

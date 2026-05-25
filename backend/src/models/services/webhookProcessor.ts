@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import { and, eq, gt, isNotNull, sql } from 'drizzle-orm'
 import { sendWebhookEvent } from '../../services/webhookDelivery.service'
 import { db } from '../client'
+import { b2b_orders } from '../schema/b2bOrders'
 import { b2c_orders } from '../schema/b2cOrders'
 import { invoicePreferences } from '../schema/invoicePreferences'
 import { ndr_events } from '../schema/ndr'
@@ -13,6 +14,7 @@ import { wallets, walletTransactions } from '../schema/wallet'
 import { createCodRemittance } from './codRemittance.service'
 import { extractWeightProofFromWebhook } from './courierProofFetcher.service'
 import { DelhiveryService } from './couriers/delhivery.service'
+import { extractDelhiveryTrackingUpdate } from './couriers/delhiveryTracking.utils'
 import {
   calculateChargedWeight,
   calculateVolumetricWeight,
@@ -727,22 +729,14 @@ export async function processEkartWebhookV2(payload: any, tx = db) {
 }
 
 export async function processDelhiveryWebhook(payload: any, tx = db) {
-  const shipment = payload?.Shipment
-  const statusInfo = shipment?.Status || {}
-
-  const waybill = shipment?.AWB
-  const referenceNo =
-    shipment?.ReferenceNo ||
-    shipment?.ReferenceNumber ||
-    payload?.ReferenceNo ||
-    payload?.ReferenceNumber ||
-    payload?.order_number ||
-    payload?.orderNumber ||
-    null
-  const status = statusInfo?.Status
-  const status_type = statusInfo?.StatusType
-  const location = statusInfo?.StatusLocation
-  const instructions = statusInfo?.Instructions
+  const trackingUpdate = extractDelhiveryTrackingUpdate(payload)
+  const shipment = trackingUpdate.shipment
+  const waybill = trackingUpdate.waybill
+  const referenceNo = trackingUpdate.referenceNo
+  const status = trackingUpdate.rawStatus
+  const status_type = trackingUpdate.statusType
+  const location = trackingUpdate.location
+  const instructions = trackingUpdate.instructions
 
   if (!waybill) return { success: false, reason: 'missing_awb' }
 
@@ -754,6 +748,45 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
       .where(eq(b2c_orders.order_number, String(referenceNo)))
   }
   if (!order) {
+    let [b2bOrder] = await tx.select().from(b2b_orders).where(eq(b2b_orders.awb_number, waybill))
+    if (!b2bOrder && referenceNo) {
+      ;[b2bOrder] = await tx
+        .select()
+        .from(b2b_orders)
+        .where(eq(b2b_orders.order_number, String(referenceNo)))
+    }
+
+    if (b2bOrder) {
+      const b2bStatus = trackingUpdate.internalStatus
+      await tx
+        .update(b2b_orders)
+        .set({
+          order_status: b2bStatus,
+          delivery_location: location || null,
+          delivery_message: instructions || status || null,
+          updated_at: new Date(),
+        })
+        .where(eq(b2b_orders.id, b2bOrder.id))
+
+      await sendWebhookEvent(b2bOrder.user_id, 'tracking.updated', {
+        awb_number: waybill,
+        order_id: b2bOrder.id,
+        order_number: b2bOrder.order_number,
+        status: b2bStatus,
+        previous_status: b2bOrder.order_status || null,
+        raw_status: status,
+        status_type,
+        delivery_location: location,
+        delivery_message: instructions,
+        courier_partner: b2bOrder.courier_partner || 'Delhivery',
+        order_type: 'b2b',
+      })
+
+      console.log(
+        `Delhivery Webhook: B2B ${waybill} -> ${status} (${status_type}) -> ${b2bStatus}`,
+      )
+      return { success: true }
+    }
     console.warn(`⚠️ No local order found for AWB ${waybill}`)
     return { success: false, reason: 'order_not_found' }
   }
@@ -829,7 +862,7 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
     return 'in_transit' // Default fallback
   }
 
-  let internalStatus = mapStatus(status_type, status, instructions)
+  let internalStatus = trackingUpdate.internalStatus
 
   // Map any pending_pickup status to pickup_initiated
   if (internalStatus === 'pending_pickup') {
@@ -872,20 +905,55 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
     }
   }
 
+  if (
+    currentStatus === 'delivered' &&
+    !['delivered', 'rto', 'rto_in_transit', 'rto_delivered', 'cancelled'].includes(internalStatus)
+  ) {
+    console.log(
+      `Skipping Delhivery delivered-order status regression for ${order.order_number}: ${status} (${status_type}) would map to ${internalStatus}`,
+    )
+    return {
+      success: true,
+      ignored: true,
+      reason: 'delivered_order_status_regression',
+    }
+  }
+
+  if (
+    currentStatus === 'rto_delivered' &&
+    !['rto_delivered', 'cancelled'].includes(internalStatus)
+  ) {
+    console.log(
+      `Skipping Delhivery RTO-delivered status regression for ${order.order_number}: ${status} (${status_type}) would map to ${internalStatus}`,
+    )
+    return {
+      success: true,
+      ignored: true,
+      reason: 'rto_delivered_status_regression',
+    }
+  }
+
   const shouldRunManifestSideEffects =
-    internalStatus === 'booked' || internalStatus === 'pickup_initiated'
+    (internalStatus === 'booked' || internalStatus === 'pickup_initiated') &&
+    (!['booked', 'pickup_initiated'].includes(currentStatus) ||
+      !order.invoice_link ||
+      !order.manifest)
 
   await tx.transaction(async (innerTx) => {
     // 1️⃣ Update base order status
     const updateData: any = {
       order_status: internalStatus,
       delivery_location: location || null,
-      delivery_message: instructions || null,
+      delivery_message: instructions || status || null,
       updated_at: new Date(),
     }
 
     if (!order.awb_number && waybill) {
       updateData.awb_number = String(waybill)
+    }
+
+    if (trackingUpdate.courierCost !== null) {
+      updateData.courier_cost = trackingUpdate.courierCost
     }
 
     // 🔹 Capture courier cost if available from Delhivery webhook (for revenue calculation)
@@ -914,9 +982,9 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
     }
 
     // 🔹 Capture weight data from Delhivery webhook if available
-    const scannedWeight = shipment?.Scans?.[0]?.ScanDetail?.ScannedWeight
-    const chargedWeight = shipment?.ChargedWeight || scannedWeight
-    const volumetricWeight = shipment?.VolumetricWeight
+    const scannedWeight = trackingUpdate.scannedWeight
+    const chargedWeight = trackingUpdate.chargedWeight
+    const volumetricWeight = trackingUpdate.volumetricWeight
 
     if (chargedWeight || volumetricWeight) {
       if (chargedWeight) updateData.charged_weight = Number(chargedWeight)
@@ -1049,21 +1117,6 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
         // Labels will be generated during manifest generation, not during webhook processing
 
         // 📜 Log tracking event (Delhivery)
-        try {
-          await logTrackingEvent({
-            orderId: order.id,
-            userId: order.user_id,
-            awbNumber: order.awb_number,
-            courier: 'Delhivery',
-            statusCode: internalStatus,
-            statusText: status,
-            location,
-            raw: payload,
-          })
-        } catch (e) {
-          console.error('Failed to log tracking event (Delhivery):', e)
-        }
-
         // 🔸 Generate invoice using shared helper function
         let invoiceKey = freshOrder.invoice_link
         let invoiceNumberToStore = freshOrder.invoice_number
@@ -1175,6 +1228,34 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
     }
   })
 
+  try {
+    await logTrackingEvent({
+      orderId: order.id,
+      userId: order.user_id,
+      awbNumber: waybill || order.awb_number,
+      courier: 'Delhivery',
+      statusCode: internalStatus,
+      statusText: status || internalStatus,
+      location,
+      raw: payload,
+    })
+  } catch (e) {
+    console.error('Failed to log tracking event (Delhivery):', e)
+  }
+
+  await sendWebhookEvent(order.user_id, 'tracking.updated', {
+    awb_number: waybill || order.awb_number,
+    order_id: order.id,
+    order_number: order.order_number,
+    status: internalStatus,
+    previous_status: currentStatus || null,
+    raw_status: status,
+    status_type,
+    delivery_location: location,
+    delivery_message: instructions,
+    courier_partner: order.courier_partner || 'Delhivery',
+  })
+
   if (shouldRunManifestSideEffects) {
     try {
       const [freshOrder] = await db.select().from(b2c_orders).where(eq(b2c_orders.id, order.id))
@@ -1182,21 +1263,6 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
       if (!freshOrder) {
         console.warn(`⚠️ Order ${order.order_number} not found after webhook commit`)
         return { success: true }
-      }
-
-      try {
-        await logTrackingEvent({
-          orderId: order.id,
-          userId: order.user_id,
-          awbNumber: freshOrder.awb_number || order.awb_number,
-          courier: 'Delhivery',
-          statusCode: internalStatus,
-          statusText: status,
-          location,
-          raw: payload,
-        })
-      } catch (e) {
-        console.error('Failed to log tracking event (Delhivery):', e)
       }
 
       const hadManifestBeforeWebhook = Boolean(freshOrder.manifest)

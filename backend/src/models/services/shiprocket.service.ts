@@ -63,6 +63,7 @@ import {
   normalizeB2CShippingMode,
 } from './b2cRateCard.service'
 import { DelhiveryService } from './couriers/delhivery.service'
+import { extractDelhiveryTrackingUpdate } from './couriers/delhiveryTracking.utils'
 import { EkartService } from './couriers/ekart.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
 import { calculateOrderWeights } from './courierWeightCalculation.service'
@@ -6861,6 +6862,7 @@ const mapDelhiveryTracking = (raw: any, order: OrderSummary): ProviderNormalized
     : (raw?.ShipmentData ?? raw)
   const shipment = shipmentWrapper?.Shipment ?? shipmentWrapper ?? {}
   const statusObj = shipment?.Status ?? shipment?.status ?? {}
+  const trackingUpdate = extractDelhiveryTrackingUpdate(raw)
 
   const scans = shipment?.Scans
   if (Array.isArray(scans)) {
@@ -6897,14 +6899,20 @@ const mapDelhiveryTracking = (raw: any, order: OrderSummary): ProviderNormalized
   }
 
   const status = sanitizeString(
-    statusObj?.Status ?? history[0]?.message ?? order.order_status,
+    trackingUpdate.rawStatus || statusObj?.Status || history[0]?.message || order.order_status,
     order.order_status ?? 'In Transit',
   )
 
-  const eddString = sanitizeString(shipment?.ExpectedDeliveryDate ?? shipment?.EDD ?? '')
+  const eddString = sanitizeString(
+    trackingUpdate.edd || shipment?.ExpectedDeliveryDate || shipment?.EDD || '',
+  )
 
   const shipmentInfo = sanitizeString(
-    statusObj?.Instructions ?? shipment?.Instructions ?? shipment?.Remarks ?? '',
+    trackingUpdate.instructions ||
+      statusObj?.Instructions ||
+      shipment?.Instructions ||
+      shipment?.Remarks ||
+      '',
   )
 
   return {

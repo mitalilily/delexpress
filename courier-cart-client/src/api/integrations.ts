@@ -15,6 +15,9 @@ export interface Stores {
   currency: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata: Record<string, any> | null;
+  hasApiKey?: boolean;
+  hasAdminApiAccessToken?: boolean;
+  hasWebhookSecret?: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -6,6 +6,7 @@ import {
   integrateWithShopify,
   integrateWithWix,
   integrateWithWooCommerce,
+  normalizeShopifyDomain,
   upsertShopifySettingsMetafield,
 } from "../models/services/PlatformIntegration.service";
 import {
@@ -26,6 +27,44 @@ enum PLATFORMS {
   MAGENTO = 4,
   WIX,
 }
+
+const getStoreWebhookSecret = (store: any) => {
+  const metadata = store?.metadata || {};
+  return String(
+    metadata?.shopifyWebhookSecret ||
+      metadata?.webhookSecret ||
+      metadata?.apiSecret ||
+      metadata?.apiSecretKey ||
+      ""
+  ).trim();
+};
+
+const sanitizeStoreForResponse = (store: any) => {
+  const { apiKey, adminApiAccessToken, metadata: rawMetadata, ...publicStore } = store;
+  const metadata =
+    rawMetadata && typeof rawMetadata === "object" && !Array.isArray(rawMetadata)
+      ? { ...rawMetadata }
+      : rawMetadata;
+
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    [
+      "apiKey",
+      "adminApiAccessToken",
+      "shopifyWebhookSecret",
+      "webhookSecret",
+      "apiSecret",
+      "apiSecretKey",
+    ].forEach((key) => delete (metadata as Record<string, unknown>)[key]);
+  }
+
+  return {
+    ...publicStore,
+    metadata,
+    hasApiKey: Boolean(String(apiKey || "").trim()),
+    hasAdminApiAccessToken: Boolean(String(adminApiAccessToken || "").trim()),
+    hasWebhookSecret: Boolean(getStoreWebhookSecret(store)),
+  };
+};
 
 /**
  * Handles Shopify store integration using user-provided credentials
@@ -48,21 +87,48 @@ export const integrateShopifyStore = async (
   } = req.body;
   const userId = (req as any)?.user?.sub || bodyUserId;
 
-  if ((!storeUrl && !domain) || !apiKey || !adminApiAccessToken || !webhookSecret || !userId) {
+  if (!userId) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
   try {
+    const requestedStoreId = String(id || "").trim();
+    const [storeForUpdate] = requestedStoreId
+      ? await db.select().from(stores).where(eq(stores.id, requestedStoreId)).limit(1)
+      : [];
+
+    if (requestedStoreId && !storeForUpdate) {
+      return res.status(404).json({ error: "Shopify store not found" });
+    }
+
+    if (storeForUpdate && storeForUpdate.userId !== userId) {
+      return res.status(403).json({ error: "You cannot update this Shopify store" });
+    }
+
+    const effectiveStoreUrl = normalizeShopifyDomain(storeUrl ?? domain ?? storeForUpdate?.domain);
+    const effectiveApiKey = String(apiKey || storeForUpdate?.apiKey || "").trim();
+    const effectiveAdminApiAccessToken = String(
+      adminApiAccessToken || storeForUpdate?.adminApiAccessToken || ""
+    ).trim();
+    const effectiveWebhookSecret = String(webhookSecret || getStoreWebhookSecret(storeForUpdate)).trim();
+
+    if (!effectiveStoreUrl || !effectiveApiKey || !effectiveAdminApiAccessToken || !effectiveWebhookSecret) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
     const shopifyData = await integrateWithShopify(
-      storeUrl ?? domain,
-      apiKey,
-      adminApiAccessToken
+      effectiveStoreUrl,
+      effectiveApiKey,
+      effectiveAdminApiAccessToken
     );
     if (!shopifyData?.shop?.id) {
       return res.status(500).json({ error: "Shopify integration failed" });
     }
 
-    const storeId = shopifyData.shop.id;
+    const storeId = String(shopifyData.shop.id);
+    if (requestedStoreId && requestedStoreId !== storeId) {
+      return res.status(400).json({ error: "Shopify credentials do not match the selected store" });
+    }
 
     await db.transaction(async (tx) => {
       const existingStore = await tx
@@ -78,9 +144,10 @@ export const integrateShopifyStore = async (
       await upsertStore(
         {
           ...shopifyData.shop,
-          apiKey,
-          adminApiAccessToken,
-          shopifyWebhookSecret: webhookSecret,
+          id: storeId,
+          apiKey: effectiveApiKey,
+          adminApiAccessToken: effectiveAdminApiAccessToken,
+          shopifyWebhookSecret: effectiveWebhookSecret,
         },
         PLATFORMS.SHOPIFY,
         userId,
@@ -98,10 +165,10 @@ export const integrateShopifyStore = async (
 
       if (settings) {
         await upsertShopifySettingsMetafield({
-          storeUrl: domain ?? storeUrl,
-          accessToken: adminApiAccessToken,
+          storeUrl: shopifyData.shop.domain || effectiveStoreUrl,
+          accessToken: effectiveAdminApiAccessToken,
           settings,
-          id: (id ?? storeId)?.toString(),
+          id: storeId,
           tx,
         });
       }
@@ -111,8 +178,8 @@ export const integrateShopifyStore = async (
     let webhookWarning: string | null = null
     try {
       webhookStatus = await ensureShopifyOrderWebhooks({
-        storeUrl: domain ?? storeUrl,
-        accessToken: adminApiAccessToken,
+        storeUrl: shopifyData.shop.domain || effectiveStoreUrl,
+        accessToken: effectiveAdminApiAccessToken,
       })
     } catch (err: any) {
       console.warn('⚠️ Shopify webhook setup failed:', err?.response?.data || err?.message || err)
@@ -121,13 +188,20 @@ export const integrateShopifyStore = async (
 
     res.status(200).json({
       message: "Shopify integration successful!",
-      data: shopifyData,
+      data: {
+        shop: {
+          id: storeId,
+          name: shopifyData.shop.name,
+          domain: shopifyData.shop.domain,
+          myshopify_domain: shopifyData.shop.myshopify_domain,
+        },
+      },
       webhooks: webhookStatus,
       warning: webhookWarning,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Error integrating Shopify:", error);
-    res.status(500).json({ error: "Failed to integrate Shopify store" });
+    res.status(500).json({ error: error?.message || "Failed to integrate Shopify store" });
   }
 };
 
@@ -311,7 +385,7 @@ export const getUserStoreIntegrations = async (
 
     res.status(200).json({
       success: true,
-      data: stores,
+      data: stores.map(sanitizeStoreForResponse),
     });
   } catch (error) {
     console.error("Error fetching store integrations:", error);

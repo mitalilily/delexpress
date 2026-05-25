@@ -2,6 +2,27 @@ import { Request, Response } from 'express'
 import { LocationService } from '../../models/services/location.service'
 
 export const LocationController = {
+  lookupPincode: async (req: Request, res: Response) => {
+    try {
+      const pincode = String(req.query.pincode || req.params.pincode || '')
+      const location = await LocationService.lookupPincode(pincode)
+
+      if (!location) {
+        return res.status(404).json({
+          success: false,
+          message: 'Invalid pincode or no location found',
+        })
+      }
+
+      res.json({ success: true, data: location })
+    } catch (err: any) {
+      const message = err?.message || 'Failed to fetch pincode location'
+      const status = message.includes('6 digits') ? 400 : 500
+      console.error(err)
+      res.status(status).json({ success: false, message })
+    }
+  },
+
   create: async (req: Request, res: Response) => {
     try {
       const location = await LocationService.create(req.body)

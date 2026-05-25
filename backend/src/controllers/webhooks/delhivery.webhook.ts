@@ -5,6 +5,7 @@ import {
   processDelhiveryDocumentWebhook,
   processDelhiveryWebhook,
 } from '../../models/services/webhookProcessor'
+import { extractDelhiveryTrackingUpdate } from '../../models/services/couriers/delhiveryTracking.utils'
 import { pending_webhooks } from '../../schema/schema'
 
 /**
@@ -14,9 +15,9 @@ import { pending_webhooks } from '../../schema/schema'
 export const delhiveryScanPushHandler = async (req: Request, res: Response) => {
   const timestamp = new Date().toISOString()
   const payload = req.body
-  const shipment = payload?.Shipment
-  const awb = shipment?.AWB || payload?.waybill || payload?.AWB || null
-  const status = shipment?.Status?.Status || payload?.status || 'unknown'
+  const trackingUpdate = extractDelhiveryTrackingUpdate(payload)
+  const awb = trackingUpdate.waybill
+  const status = trackingUpdate.rawStatus || payload?.status || 'unknown'
 
   console.log('='.repeat(80))
   console.log(`📦 [${timestamp}] Delhivery Scan Push Webhook Received`)
@@ -99,7 +100,8 @@ export const delhiveryDocumentPushHandler = async (req: Request, res: Response) 
   const timestamp = new Date().toISOString()
   const payload = req.body
   const shipment = payload?.Shipment || payload
-  const awb = shipment?.AWB || payload?.AWB || payload?.waybill || null
+  const trackingUpdate = extractDelhiveryTrackingUpdate(payload)
+  const awb = trackingUpdate.waybill || shipment?.AWB || payload?.AWB || payload?.waybill || null
 
   // Detect document type
   const documentType =
@@ -156,9 +158,10 @@ export const delhiveryDocumentPushHandler = async (req: Request, res: Response) 
 export const delhiveryWebhookHandler = async (req: Request, res: Response) => {
   const timestamp = new Date().toISOString()
   const payload = req.body
-  const shipment = payload?.Shipment
-  const awb = shipment?.AWB || payload?.waybill || payload?.AWB || null
-  const status = shipment?.Status?.Status || payload?.status || 'unknown'
+  const trackingUpdate = extractDelhiveryTrackingUpdate(payload)
+  const shipment = trackingUpdate.shipment || payload?.Shipment
+  const awb = trackingUpdate.waybill
+  const status = trackingUpdate.rawStatus || payload?.status || 'unknown'
 
   // Detect webhook type: Scan Push (status update) vs Document Push (POD, Sorter Image, QC Image)
   const isDocumentPush =

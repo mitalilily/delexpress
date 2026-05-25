@@ -32,6 +32,7 @@ const UserConnectedChannels = () => {
   }>({ channelId: "", platform: null });
 
   const [details, setDetails] = useState<ShopifyForm>({
+    id: '',
     storeUrl: '',
     apiKey: '',
     adminApiAccessToken: '',
@@ -79,15 +80,11 @@ const UserConnectedChannels = () => {
             onClick={() => {
               setSelectedStore({ channelId: value, platform: row?.platformId });
               setDetails({
+                id: row.id,
                 storeUrl: row.domain || '',
-                apiKey: String((row.metadata as { apiKey?: string } | null)?.apiKey || ''),
-                adminApiAccessToken: String(
-                  (row.metadata as { adminApiAccessToken?: string } | null)?.adminApiAccessToken || '',
-                ),
-                webhookSecret:
-                  (row.metadata as { shopifyWebhookSecret?: string } | null)?.shopifyWebhookSecret ||
-                  (row.metadata as { webhookSecret?: string } | null)?.webhookSecret ||
-                  '',
+                apiKey: '',
+                adminApiAccessToken: '',
+                webhookSecret: '',
                 name: row.name || '',
                 domain: row.domain || '',
                 metadata: row.metadata,
@@ -139,11 +136,6 @@ const UserConnectedChannels = () => {
   const handleUpdateShopify = () => {
     const payload = {
       ...details,
-      webhookSecret:
-        details.webhookSecret ||
-        (details.metadata as { shopifyWebhookSecret?: string } | null)?.shopifyWebhookSecret ||
-        (details.metadata as { webhookSecret?: string } | null)?.webhookSecret ||
-        "",
       userId: userData?.userId,
     }
 

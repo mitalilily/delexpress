@@ -4,6 +4,8 @@ import { LocationController } from '../../controllers/admin/locations.controller
 const router = express.Router()
 
 router.post('/locations', LocationController.create)
+router.get('/locations/lookup', LocationController.lookupPincode)
+router.get('/locations/pincode/:pincode', LocationController.lookupPincode)
 router.get('/locations', LocationController.list)
 router.get('/locations/:id', LocationController.getById)
 router.put('/locations/:id', LocationController.update)

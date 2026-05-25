@@ -190,11 +190,11 @@ const ShopifyConnectionModal = ({
                 helperText={inputErrors?.storeUrl}
               />
               <CustomInput
-                required
+                required={!isEditing}
                 prefix={<BiKey />}
                 label="Shopify API Key"
                 type="password"
-                placeholder="Enter your API Key"
+                placeholder={isEditing ? 'Leave blank to keep existing API key' : 'Enter your API Key'}
                 value={shopifyDetails.apiKey}
                 onChange={(e) =>
                   setShopifyDetails((prev) => ({
@@ -206,11 +206,11 @@ const ShopifyConnectionModal = ({
                 helperText={inputErrors?.apiKey}
               />
               <CustomInput
-                required
+                required={!isEditing}
                 prefix={<BiKey />}
                 type="password"
                 label="Admin API Access Token"
-                placeholder="Enter Admin API Token"
+                placeholder={isEditing ? 'Leave blank to keep existing token' : 'Enter Admin API Token'}
                 value={shopifyDetails.adminApiAccessToken}
                 onChange={(e) =>
                   setShopifyDetails((prev) => ({
@@ -222,17 +222,12 @@ const ShopifyConnectionModal = ({
                 helperText={inputErrors?.adminApiAccessToken}
               />
               <CustomInput
-                required
+                required={!isEditing}
                 prefix={<BiKey />}
                 type="password"
                 label="Webhook Secret (API Secret Key)"
-                placeholder="Enter webhook signing secret"
-                value={
-                  shopifyDetails.webhookSecret ??
-                  shopifyDetails?.metadata?.shopifyWebhookSecret ??
-                  shopifyDetails?.metadata?.webhookSecret ??
-                  ''
-                }
+                placeholder={isEditing ? 'Leave blank to keep existing secret' : 'Enter webhook signing secret'}
+                value={shopifyDetails.webhookSecret ?? ''}
                 onChange={(e) =>
                   setShopifyDetails((prev) => ({
                     ...prev,

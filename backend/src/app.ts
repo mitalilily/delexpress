@@ -255,6 +255,7 @@ app.post(
   xpressbeesWebhookHandler,
 )
 // Delhivery webhooks - separate endpoints for Scan Push and Document Push
+app.post('/api/webhook/delhivery', express.json(), delhiveryWebhookHandler)
 app.post('/api/webhook/delhivery/scan', express.json(), delhiveryScanPushHandler) // Scan Push (Status Updates)
 app.post('/api/webhook/delhivery/document', express.json(), delhiveryDocumentPushHandler) // Document Push (POD, Sorter Image, QC Image)
 // Legacy unified endpoint (auto-detects type) - kept for backward compatibility

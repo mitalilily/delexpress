@@ -624,11 +624,30 @@ export class DelhiveryService {
 
   // 🔹 7. Track Shipment
   async trackShipment(awb: string) {
-    await this.ensureCredentials()
-    const res = await axios.get(`${this.apiBase}/api/v1/packages/json/?waybill=${awb}`, {
-      headers: this.headers,
-    })
-    return res.data
+    try {
+      await this.ensureCredentials()
+      const res = await axios.get(
+        `${this.apiBase}/api/v1/packages/json/?waybill=${encodeURIComponent(awb)}`,
+        {
+          headers: this.headers,
+          timeout: 20000,
+        },
+      )
+      return res.data
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Delhivery tracking request failed'
+      console.error('Delhivery tracking error:', {
+        awb,
+        status: err?.response?.status,
+        data: err?.response?.data,
+        message,
+      })
+      throw new HttpError(err?.response?.status || 502, message)
+    }
   }
 
   // 🔹 8. NDR Action (RE-ATTEMPT / PICKUP_RESCHEDULE)

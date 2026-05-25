@@ -4,7 +4,7 @@ import { Request, Response } from 'express'
 import { db } from '../client'
 import { stores } from '../schema/stores'
 
-const SHOPIFY_API_VERSION = '2024-04'
+const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-01'
 const SHOPIFY_WEBHOOK_TOPICS = ['orders/create', 'orders/updated', 'orders/cancelled'] as const
 
 interface UpsertShopifySettingsMetafieldParams {
@@ -27,33 +27,75 @@ export const integrateWithShopify = async (
   apiKey: string,
   adminApiAccessToken: string,
 ) => {
-  const shopifyApiUrl = `https://${storeUrl}/admin/api/2024-04/shop.json`
+  const normalizedDomain = assertValidShopifyDomain(storeUrl)
+  const token = String(adminApiAccessToken || '').trim()
+
+  if (!token) {
+    throw new Error('Shopify Admin API access token is required')
+  }
+
+  const shopifyApiUrl = `https://${normalizedDomain}/admin/api/${SHOPIFY_API_VERSION}/shop.json`
 
   try {
     const response = await axios.get(shopifyApiUrl, {
       headers: {
         'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': adminApiAccessToken,
+        'X-Shopify-Access-Token': token,
       },
-      auth: {
-        username: apiKey?.trim(),
-        password: adminApiAccessToken?.trim(), // In case authentication needs both API Key & Token
-      },
+      timeout: 30000,
     })
 
-    return response.data
-  } catch (error) {
-    console.error('Shopify API Error:', error)
-    // throw new Error(`Failed to connect: ${error.response?.statusText}`);
+    const shop = response.data?.shop
+    if (!shop?.id) {
+      throw new Error('Shopify did not return shop details')
+    }
+
+    const myshopifyDomain = normalizeShopifyDomain(shop.myshopify_domain || normalizedDomain)
+
+    return {
+      ...response.data,
+      shop: {
+        ...shop,
+        domain: myshopifyDomain,
+        myshopify_domain: myshopifyDomain,
+        primary_domain: shop.domain || null,
+      },
+    }
+  } catch (error: any) {
+    console.error('Shopify API Error:', formatShopifyAxiosError(error))
+    throw new Error(formatShopifyAxiosError(error))
   }
 }
 
-const normalizeShopifyDomain = (domain: string) =>
+export const normalizeShopifyDomain = (domain: string) =>
   String(domain || '')
     .trim()
     .toLowerCase()
     .replace(/^https?:\/\//, '')
     .replace(/\/+$/, '')
+
+const assertValidShopifyDomain = (domain: string) => {
+  const normalized = normalizeShopifyDomain(domain)
+  if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(normalized)) {
+    throw new Error('Enter a valid Shopify myshopify.com domain')
+  }
+  return normalized
+}
+
+const formatShopifyAxiosError = (error: any) => {
+  const status = error?.response?.status
+  const responseData = error?.response?.data
+  const responseError =
+    responseData?.errors || responseData?.error || responseData?.message || responseData
+  const message =
+    typeof responseError === 'string'
+      ? responseError
+      : responseError
+        ? JSON.stringify(responseError)
+        : error?.message || 'Unknown Shopify API error'
+
+  return status ? `Shopify returned ${status}: ${message}` : message
+}
 
 const resolveWebhookAddress = () => {
   const baseUrl = String(process.env.API_URL || '')
@@ -74,15 +116,19 @@ export const ensureShopifyOrderWebhooks = async ({
 }) => {
   const address = resolveWebhookAddress()
   const normalizedDomain = normalizeShopifyDomain(storeUrl)
+  const token = String(accessToken || '').trim()
+  if (!token) throw new Error('Shopify Admin API access token is required')
+
   const baseUrl = `https://${normalizedDomain}/admin/api/${SHOPIFY_API_VERSION}`
   const headers = {
-    'X-Shopify-Access-Token': accessToken.trim(),
+    'X-Shopify-Access-Token': token,
     'Content-Type': 'application/json',
   }
 
   const { data } = await axios.get(`${baseUrl}/webhooks.json`, {
     headers,
     params: { limit: 250 },
+    timeout: 30000,
   })
 
   const existing = Array.isArray(data?.webhooks) ? data.webhooks : []
@@ -110,7 +156,7 @@ export const ensureShopifyOrderWebhooks = async ({
           format: 'json',
         },
       },
-      { headers },
+      { headers, timeout: 30000 },
     )
     subscribed.push(topic)
   }
@@ -179,7 +225,7 @@ export async function upsertShopifySettingsMetafield({
   tx = db,
   id,
 }: UpsertShopifySettingsMetafieldParams) {
-  const baseUrl = `https://${storeUrl?.trim()}/admin/api/${SHOPIFY_API_VERSION}`
+  const baseUrl = `https://${normalizeShopifyDomain(storeUrl)}/admin/api/${SHOPIFY_API_VERSION}`
   const headers = {
     'X-Shopify-Access-Token': accessToken.trim(),
     'Content-Type': 'application/json',
@@ -188,7 +234,7 @@ export async function upsertShopifySettingsMetafield({
   try {
     const { data: existing } = await axios.get(
       `${baseUrl}/metafields.json?namespace=ExpressoPro&key=settings`,
-      { headers },
+      { headers, timeout: 30000 },
     )
 
     if (existing.metafields?.length > 0) {
@@ -202,7 +248,7 @@ export async function upsertShopifySettingsMetafield({
             type: 'json',
           },
         },
-        { headers },
+        { headers, timeout: 30000 },
       )
       console.log('✅ Updated Shopify settings metafield')
     } else {
@@ -217,7 +263,7 @@ export async function upsertShopifySettingsMetafield({
             owner_resource: 'shop',
           },
         },
-        { headers },
+        { headers, timeout: 30000 },
       )
       console.log('✅ Created new Shopify settings metafield')
     }

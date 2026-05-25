@@ -24,6 +24,7 @@ interface IShopifyIntegrationProps {
 }
 
 export interface ShopifyForm {
+  id?: string;
   storeUrl: string;
   apiKey: string;
   webhookSecret?: string;

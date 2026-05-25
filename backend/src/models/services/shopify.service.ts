@@ -6,7 +6,7 @@ import { b2c_orders } from '../schema/b2cOrders'
 import { stores } from '../schema/stores'
 
 const SHOPIFY_PLATFORM_ID = 1
-const SHOPIFY_API_VERSION = '2024-04'
+const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-01'
 
 type ShopifyStore = typeof stores.$inferSelect
 

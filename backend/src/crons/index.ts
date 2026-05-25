@@ -8,10 +8,12 @@ import {
   sendDailyWeightReconciliationEmails,
   sendWeeklyWeightReconciliationEmails,
 } from './weightReconciliationEmails'
+import { pollDelhiveryTracking } from './delhiveryTracking'
 import { pollEkartTracking } from './ekartTracking'
 
 let isWalletReconciliationRunning = false
 let isPendingWebhookRunActive = false
+let isDelhiveryTrackingRunActive = false
 let isEkartTrackingRunActive = false
 
 if (isRazorpayConfigured) {
@@ -70,6 +72,22 @@ cron.schedule('0 9 * * 1', async () => {
     await sendWeeklyWeightReconciliationEmails()
   } catch (err) {
     console.error('[Cron] Weekly weight reconciliation reports failed:', err)
+  }
+})
+
+cron.schedule('*/15 * * * *', async () => {
+  if (isDelhiveryTrackingRunActive) {
+    console.log('[Cron] Delhivery tracking poll skipped because a previous run is still active')
+    return
+  }
+  isDelhiveryTrackingRunActive = true
+  console.log('[Cron] Delhivery tracking poll')
+  try {
+    await pollDelhiveryTracking()
+  } catch (err) {
+    console.error('[Cron] Delhivery tracking poll failed:', err instanceof Error ? err.message : err)
+  } finally {
+    isDelhiveryTrackingRunActive = false
   }
 })
 

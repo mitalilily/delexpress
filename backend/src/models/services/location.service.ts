@@ -1,8 +1,53 @@
 import { and, count, eq, ilike } from 'drizzle-orm'
+import axios from 'axios'
 import { db } from '../client'
 import { locations } from '../schema/locations'
 
+const normalizePincode = (value: unknown) => String(value || '').replace(/\D/g, '').slice(0, 6)
+
+const normalizeLocationRow = (row: { pincode: string; city: string; state: string; country?: string | null }) => ({
+  pincode: row.pincode,
+  city: row.city,
+  state: row.state,
+  country: row.country || 'India',
+})
+
 export const LocationService = {
+  lookupPincode: async (pincodeInput: string) => {
+    const pincode = normalizePincode(pincodeInput)
+    if (pincode.length !== 6) {
+      throw new Error('Pincode must be exactly 6 digits')
+    }
+
+    const [savedLocation] = await db
+      .select()
+      .from(locations)
+      .where(eq(locations.pincode, pincode))
+      .limit(1)
+
+    if (savedLocation) {
+      return { ...normalizeLocationRow(savedLocation), source: 'local' }
+    }
+
+    const { data } = await axios.get(`https://api.postalpincode.in/pincode/${pincode}`, {
+      timeout: 10000,
+    })
+    const postOffice = data?.[0]?.PostOffice?.[0]
+    const status = data?.[0]?.Status
+
+    if (status !== 'Success' || !postOffice) {
+      return null
+    }
+
+    return {
+      pincode,
+      city: String(postOffice.District || postOffice.Name || '').trim(),
+      state: String(postOffice.State || '').trim(),
+      country: String(postOffice.Country || 'India').trim() || 'India',
+      source: 'postal_api',
+    }
+  },
+
   create: async (data: { pincode: string; city: string; state: string; country?: string }) => {
     // Check if a location with the same pincode and city already exists
     const existing = await db

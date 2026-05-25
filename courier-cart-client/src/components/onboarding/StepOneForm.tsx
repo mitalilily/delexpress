@@ -3,6 +3,7 @@ import { alpha } from '@mui/material/styles'
 import React, { useEffect, useState, type ChangeEvent, type Dispatch, type SetStateAction } from 'react'
 import { FiUser } from 'react-icons/fi'
 import { MdBusiness, MdEmail, MdLocationPin, MdPhone } from 'react-icons/md'
+import { lookupPincodeLocation } from '../../api/locations'
 import { useAuth } from '../../context/auth/AuthContext'
 import type { FormErrors } from '../../pages/onboarding/UserOnboarding'
 import type { UserInfoData } from '../../types/user.types'
@@ -38,65 +39,79 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
   )
 
   useEffect(() => {
-    async function fetchLocation() {
-      const pincode = formData?.basicInfo?.pincode?.trim()
+    const pincode = String(formData?.basicInfo?.pincode || '')
+      .replace(/\D/g, '')
+      .slice(0, 6)
 
-      if (!pincode || pincode.length !== 6) {
+    if (!pincode || pincode.length !== 6) {
+      setErrors((prev) => ({
+        ...prev,
+        basicInfo: { ...prev.basicInfo, pincode: '' },
+      }))
+      setLocation({ city: '', state: '' })
+      setFormData((prev) => ({
+        ...prev,
+        basicInfo: {
+          ...prev.basicInfo,
+          city: '',
+          state: '',
+        },
+      }))
+      return
+    }
+
+    const controller = new AbortController()
+
+    async function fetchLocation() {
+      setLoadingPincode(true)
+      try {
+        const loc = await lookupPincodeLocation(pincode, controller.signal)
+        if (controller.signal.aborted) return
+
+        const city = loc?.city || ''
+        const state = loc?.state || ''
+
         setErrors((prev) => ({
           ...prev,
           basicInfo: { ...prev.basicInfo, pincode: '' },
         }))
-        setLocation({ city: '', state: '' })
-        return
-      }
-
-      setLoadingPincode(true)
-      try {
-        const res = await fetch(`https://api.postalpincode.in/pincode/${pincode}`)
-        const data = await res.json()
-        const loc = data?.[0]?.PostOffice?.[0]
-        const status = data?.[0]?.Status
-
-        if (status !== 'Success' || !loc) {
-          setErrors((prev) => ({
-            ...prev,
-            basicInfo: { ...prev.basicInfo, pincode: 'Invalid pincode or no location found.' },
-          }))
-          setLocation({ city: '', state: '' })
-        } else {
-          setErrors((prev) => ({
-            ...prev,
-            basicInfo: { ...prev.basicInfo, pincode: '' },
-          }))
-          setLocation({ city: loc?.District, state: loc?.State })
-        }
-      } catch {
+        setLocation({ city, state })
+        setFormData((prev) => ({
+          ...prev,
+          basicInfo: {
+            ...prev.basicInfo,
+            city,
+            state,
+          },
+        }))
+      } catch (error: any) {
+        if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') return
         setErrors((prev) => ({
           ...prev,
           basicInfo: {
             ...prev.basicInfo,
-            pincode: 'Failed to validate pincode. Please try again.',
+            pincode: error?.response?.data?.message || 'Invalid pincode or no location found.',
           },
         }))
         setLocation({ city: '', state: '' })
+        setFormData((prev) => ({
+          ...prev,
+          basicInfo: {
+            ...prev.basicInfo,
+            city: '',
+            state: '',
+          },
+        }))
       } finally {
-        setLoadingPincode(false)
+        if (!controller.signal.aborted) {
+          setLoadingPincode(false)
+        }
       }
     }
 
     fetchLocation()
-  }, [formData?.basicInfo?.pincode, setErrors])
-
-  useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      basicInfo: {
-        ...prev.basicInfo,
-        ...(location?.state && { state: location.state }),
-        ...(location?.city && { city: location.city }),
-      },
-    }))
-  }, [location?.state, location?.city, setFormData])
+    return () => controller.abort()
+  }, [formData?.basicInfo?.pincode, setErrors, setFormData])
 
   const fieldCardSx = {
     p: { xs: 1.15, md: 1.35 },
@@ -204,7 +219,12 @@ export default function StepOneForm({ formData, onChange, errors, setFormData, s
           label="Pincode"
           name="pincode"
           value={formData?.basicInfo?.pincode}
-          onChange={(e) => onChange(e, 'basicInfo')}
+          onChange={(e) =>
+            onChange(
+              createSyntheticEvent('pincode', e.target.value.replace(/\D/g, '').slice(0, 6)),
+              'basicInfo',
+            )
+          }
           error={!!errors.basicInfo.pincode}
           helperText={errors.basicInfo.pincode}
           prefix={<MdLocationPin color={PLUM} />}
