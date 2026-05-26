@@ -218,6 +218,10 @@ export const fetchAvailableCouriers = async (req: Request, res: Response) => {
 
     const serviceabilityOptions = buildServiceabilityOptions(req.body)
 
+    const courierOptions = serviceabilityOptions.isCalculator
+      ? { userId, planFallbackName: 'Basic' }
+      : userId
+
     const couriers = await fetchAvailableCouriersWithRates(
       {
         origin: Number(origin),
@@ -231,7 +235,7 @@ export const fetchAvailableCouriers = async (req: Request, res: Response) => {
         height: Number(height),
         ...serviceabilityOptions,
       },
-      userId,
+      courierOptions,
     )
 
     return res.json({ success: true, data: couriers ?? [] })
@@ -382,11 +386,15 @@ export const fetchAvailableCouriersToUser = async (req: Request, res: Response) 
       ...serviceabilityOptions,
     }
 
+    const courierOptions = serviceabilityOptions.isCalculator
+      ? { userId, planFallbackName: 'Basic' }
+      : userId
+
     let couriers
     if (shipment_type === 'b2b') {
-      couriers = await fetchAvailableCouriersWithRatesB2B(serviceParams, userId)
+      couriers = await fetchAvailableCouriersWithRatesB2B(serviceParams, courierOptions)
     } else {
-      couriers = await fetchAvailableCouriersWithRates(serviceParams, userId)
+      couriers = await fetchAvailableCouriersWithRates(serviceParams, courierOptions)
     }
 
     return res.json({ success: true, data: couriers ?? [] })

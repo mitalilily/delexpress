@@ -77,6 +77,7 @@ export function RateCalculator() {
   const [shipmentType, setShipmentType] = useState<ShipmentType>('b2c')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [availableCouriers, setAvailableCouriers] = useState<any[]>([])
+  const [hasCalculated, setHasCalculated] = useState(false)
   const { data: paymentOptions } = usePaymentOptions()
 
   const methods = useForm({
@@ -125,6 +126,7 @@ export function RateCalculator() {
   // ✅ Submit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onSubmit = async (formData: any) => {
+    setHasCalculated(true)
     try {
       // convert to numbers
       const length = Number(formData.length) || 0
@@ -174,6 +176,7 @@ export function RateCalculator() {
 
   useEffect(() => {
     setAvailableCouriers([])
+    setHasCalculated(false)
   }, [shipmentType])
 
   // Set default payment type based on enabled options
@@ -434,17 +437,17 @@ export function RateCalculator() {
         </Typography>
       )}
 
-      {isError ? (
+      {!isPending && isError ? (
         <Typography sx={{ color: '#E74C3C', textAlign: 'center', py: 2 }}>
           Failed to fetch couriers: {error?.message ?? 'Unknown error'}
         </Typography>
-      ) : (
+      ) : !isPending && hasCalculated ? (
         <CourierRateCards
           shipmentType={watch('paymentType')}
           availableCouriers={availableCouriers}
           defaultLogo={defaultLogo}
         />
-      )}
+      ) : null}
 
       <Divider />
       <CardContent

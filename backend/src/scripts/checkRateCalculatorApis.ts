@@ -108,7 +108,8 @@ const run = async () => {
       assert.equal(res.statusCode, 200)
       assert.equal(res.body?.success, true)
       assert.equal(res.body?.data?.[0]?.name, 'Mock B2C')
-      assert.equal(b2cCall?.userId, 'user-1')
+      assert.equal(b2cCall?.userId?.userId ?? b2cCall?.userId, 'user-1')
+      assert.equal(b2cCall?.userId?.planFallbackName, 'Basic')
       assert.equal(b2cCall?.params?.isCalculator, true)
     }
 

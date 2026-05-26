@@ -1048,6 +1048,7 @@ export const fetchAvailableCouriersWithRates = async (
     const { userId, planIdOverride, planFallbackName } = options
 
     const isCalculator = params.isCalculator === true
+    const effectivePlanFallbackName = planFallbackName || (isCalculator ? 'Basic' : null)
 
     // 🔹 Cache key (per user + params)
     const normalizePincode = (value: unknown): number | undefined => {
@@ -1075,6 +1076,7 @@ export const fetchAvailableCouriersWithRates = async (
       })
       .from(couriers)
       .where(and(eq(couriers.isEnabled, true), sql`${couriers.businessType} @> '["b2c"]'::jsonb`))
+    const systemCourierById = new Map(systemCourierRows.map((row) => [Number(row.id), row]))
 
     const normalizeProviderKey = (value?: string | null) => {
       if (!value) return ''
@@ -1503,8 +1505,8 @@ export const fetchAvailableCouriersWithRates = async (
         activePlanId = returnedUser?.planId ?? null
       }
 
-      if (!activePlanId && planFallbackName) {
-        const normalizedFallback = planFallbackName.toLowerCase()
+      if (!activePlanId && effectivePlanFallbackName) {
+        const normalizedFallback = effectivePlanFallbackName.toLowerCase()
         const [fallbackPlan] = await db
           .select({ id: plans.id })
           .from(plans)
@@ -1663,6 +1665,61 @@ export const fetchAvailableCouriersWithRates = async (
       return []
     }
 
+    const buildRateCardOnlyCourierOptions = () => {
+      if (!isCalculator || !localRates.length) return []
+
+      const rateType = isReverseShipment ? 'rto' : 'forward'
+
+      return localRates.flatMap((rateCard: any) => {
+        if (rateCard.type !== rateType) return []
+
+        const courierRow = systemCourierById.get(Number(rateCard.courier_id))
+        if (!courierRow) return []
+
+        const providerKey =
+          normalizeProviderKey(rateCard.service_provider) ||
+          normalizeProviderKey(courierRow.serviceProvider)
+        if (!providerKey || !isCourierInSystem(providerKey, rateCard.courier_id)) return []
+
+        const applicableRateOptions = buildServiceabilityRateOptions(rateCard)
+        if (!applicableRateOptions.length) return []
+
+        return applicableRateOptions.map((applicableRate: any) => {
+          const displayName =
+            applicableRate.matched_by !== 'legacy'
+              ? formatCourierOptionName(courierRow.name, applicableRate.max_slab_weight)
+              : courierRow.name
+
+          return {
+            id: courierRow.id,
+            name: displayName,
+            displayName,
+            integration_type: providerKey,
+            serviceProvider: providerKey,
+            cod: normalizedPaymentType === 'cod',
+            prepaid: normalizedPaymentType !== 'cod',
+            edd: '3-5 Days',
+            approxZone,
+            createdAt: courierRow.createdAt,
+            localRates: { [rateType]: applicableRate },
+            courier_cost_estimate: null,
+            chargeable_weight: applicableRate.chargeable_weight ?? chargeableWeight,
+            volumetric_weight: applicableRate.volumetric_weight,
+            slabs: applicableRate.slab_count,
+            rate: applicableRate.rate,
+            max_slab_weight: applicableRate.max_slab_weight ?? null,
+            is_rate_card_estimate: true,
+            courier_option_key: makeCourierIdentityKey({
+              id: courierRow.id,
+              integration_type: providerKey,
+              serviceProvider: providerKey,
+              max_slab_weight: applicableRate.max_slab_weight ?? null,
+            }),
+          }
+        })
+      })
+    }
+
     let combined = combinedCouriers
       ?.flatMap((courier: any) => {
         const providerKey = String(courier.integration_type || courier.service_provider || '')
@@ -1785,6 +1842,17 @@ export const fetchAvailableCouriersWithRates = async (
     })
 
     // ✅ Final filter: Ensure all couriers have correct business_type
+    if (isCalculator && !combined.length) {
+      combined = buildRateCardOnlyCourierOptions()
+      if (combined.length) {
+        console.log('[RateCalculator] Using rate-card fallback options', {
+          origin: params.origin,
+          destination: params.destination,
+          count: combined.length,
+        })
+      }
+    }
+
     combined = await filterCouriersByBusinessType(combined, 'b2c')
 
     // 🔹 Sorting and tagging
