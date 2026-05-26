@@ -1,10 +1,10 @@
 import { decimal, pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
 import { users } from './users'
 
-// COD Remittance Status - Wallet Integrated
+// COD Remittance Status - Razorpay payout integrated
 export const codRemittanceStatusEnum = pgEnum('cod_remittance_status', [
-  'pending', // COD collected, awaiting wallet credit
-  'credited', // Amount credited to merchant wallet
+  'pending', // COD collected, awaiting Razorpay payout
+  'credited', // Amount paid out to merchant
 ])
 
 /**
@@ -38,9 +38,9 @@ export const codRemittances = pgTable('cod_remittances', {
   // Remittance tracking
   status: codRemittanceStatusEnum('status').default('pending').notNull(),
   collectedAt: timestamp('collected_at'),
-  creditedAt: timestamp('credited_at'), // When credited to wallet
+  creditedAt: timestamp('credited_at'), // When payout was initiated
 
-  // Wallet transaction reference
+  // Legacy wallet transaction reference; COD payouts no longer create panel wallet credits.
   walletTransactionId: uuid('wallet_transaction_id'),
   notes: text('notes'),
 

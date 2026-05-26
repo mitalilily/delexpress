@@ -62,7 +62,7 @@ export default function CodRemittancesList() {
       options: [
         { label: 'All', value: '' },
         { label: 'Processing', value: 'pending' },
-        { label: 'Credited to Wallet', value: 'credited' },
+        { label: 'Paid via Razorpay', value: 'credited' },
       ],
       placeholder: 'Select status',
     },
@@ -140,7 +140,12 @@ export default function CodRemittancesList() {
       label: 'Status',
       minWidth: 130,
       render: (val) => (
-        <Chip label={val} color={getStatusColor(val)} size="small" icon={getStatusIcon(val)} />
+        <Chip
+          label={val === 'credited' ? 'paid via Razorpay' : val}
+          color={getStatusColor(val)}
+          size="small"
+          icon={getStatusIcon(val)}
+        />
       ),
     },
     {
@@ -153,7 +158,7 @@ export default function CodRemittancesList() {
     },
     {
       id: 'creditedAt',
-      label: 'Credited to Wallet',
+      label: 'Razorpay Payout',
       minWidth: 150,
       render: (val) => (
         <Typography variant="body2">

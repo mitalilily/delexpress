@@ -78,7 +78,7 @@ const remittanceFilterOptions = [
     options: [
       { label: 'All', value: '' },
       { label: 'Pending', value: 'pending' },
-      { label: 'Credited', value: 'credited' },
+      { label: 'Paid via Razorpay', value: 'credited' },
     ],
   },
   {
@@ -618,7 +618,7 @@ export default function AdminCodRemittancePage() {
     'Remittable',
     'Status',
     'Collected',
-    'Credited',
+    'Payout Date',
     'Actions',
   ]
 
@@ -685,7 +685,7 @@ export default function AdminCodRemittancePage() {
         <Card>
           <Stat>
             <StatLabel fontSize="sm" color="gray.500" fontWeight="bold" mb="4px">
-              Today's Credited
+              Today's Payouts
             </StatLabel>
             <StatNumber fontSize="2xl" fontWeight="bold" color="green.500">
               ₹{stats?.data?.todayCredited?.amount?.toLocaleString('en-IN') || 0}
@@ -699,7 +699,7 @@ export default function AdminCodRemittancePage() {
         <Card>
           <Stat>
             <StatLabel fontSize="sm" color="gray.500" fontWeight="bold" mb="4px">
-              Total Credited
+              Total Payouts
             </StatLabel>
             <StatNumber fontSize="2xl" fontWeight="bold" color="blue.500">
               ₹{stats?.data?.totalCredited?.amount?.toLocaleString('en-IN') || 0}
@@ -819,7 +819,7 @@ export default function AdminCodRemittancePage() {
           ),
           status: (value) => (
             <StatusBadge
-              status={value === 'pending' ? 'PENDING' : 'CREDITED'}
+              status={value === 'pending' ? 'PENDING' : 'PAID VIA RAZORPAY'}
               type={value === 'pending' ? 'warning' : 'success'}
             />
           ),
@@ -1002,7 +1002,7 @@ export default function AdminCodRemittancePage() {
               </FormControl>
             </VStack>
             <Text fontSize="xs" color="red.500">
-              This action updates COD remittance only. It does not create any wallet transaction.
+              This action initiates a Razorpay payout and does not create any panel wallet transaction.
             </Text>
           </ModalBody>
           <ModalFooter>
@@ -1196,7 +1196,7 @@ export default function AdminCodRemittancePage() {
           <ModalFooter bg="gray.50" borderTopWidth={1}>
             <HStack spacing={3} width="100%" justify="space-between">
               <Text fontSize="xs" color="gray.600">
-                This bulk action updates COD remittance records only. Wallet remains unchanged.
+                This bulk action initiates Razorpay payouts. Panel wallet remains unchanged.
               </Text>
               <HStack>
                 <Button variant="ghost" onClick={onBulkSettlementClose}>
@@ -1347,7 +1347,7 @@ export default function AdminCodRemittancePage() {
 
                   <Box bg="gray.50" p={3} borderRadius="md" borderWidth={1} borderColor="gray.200">
                     <Text fontSize="xs" color="gray.600" fontWeight="600">
-                      Already Credited
+                      Already Settled
                     </Text>
                     <Text fontSize="2xl" fontWeight="bold" color="gray.600">
                       {csvPreviewData.summary.alreadyCredited}
@@ -1410,9 +1410,9 @@ export default function AdminCodRemittancePage() {
                   <Alert status="info" borderRadius="md">
                     <AlertIcon />
                     <Box>
-                      <AlertTitle fontSize="sm">No creditable rows found</AlertTitle>
+                      <AlertTitle fontSize="sm">No payable rows found</AlertTitle>
                       <AlertDescription fontSize="xs">
-                        All rows are currently either not found in your remittance records or already credited.
+                        All rows are currently either not found in your remittance records or already settled.
                         Check AWB/order mapping in the "Not Found" tab, then retry.
                       </AlertDescription>
                     </Box>
@@ -1425,7 +1425,7 @@ export default function AdminCodRemittancePage() {
                     <Tab>Matched ({csvPreviewData.results.matched.length}) ✅</Tab>
                     <Tab>Discrepancies ({csvPreviewData.results.discrepancies.length}) ⚠️</Tab>
                     <Tab>Not Found ({csvPreviewData.results.notFound.length}) ❌</Tab>
-                    <Tab>Already Credited ({csvPreviewData.results.alreadyCredited.length})</Tab>
+                    <Tab>Already Settled ({csvPreviewData.results.alreadyCredited.length})</Tab>
                     <Tab>Errors ({csvPreviewData.results.errors.length})</Tab>
                   </TabList>
 
@@ -1617,7 +1617,7 @@ export default function AdminCodRemittancePage() {
                       )}
                     </TabPanel>
 
-                    {/* Already Credited Tab */}
+                    {/* Already Settled Tab */}
                     <TabPanel p={0} pt={4}>
                       {csvPreviewData.results.alreadyCredited.length > 0 ? (
                         <Box overflowX="auto">
@@ -1626,7 +1626,7 @@ export default function AdminCodRemittancePage() {
                               <Tr>
                                 <Th>AWB</Th>
                                 <Th>Order #</Th>
-                                <Th>Credited At</Th>
+                                <Th>Settled At</Th>
                                 <Th>Amount</Th>
                               </Tr>
                             </Thead>
@@ -1648,7 +1648,7 @@ export default function AdminCodRemittancePage() {
                         </Box>
                       ) : (
                         <Text color="gray.500" fontSize="sm">
-                          No previously credited orders
+                          No previously settled orders
                         </Text>
                       )}
                     </TabPanel>
@@ -1712,7 +1712,7 @@ export default function AdminCodRemittancePage() {
                   isLoading={confirmSettlementMutation.isPending}
                   isDisabled={selectedForCredit.length === 0 || !utrNumber}
                 >
-                  Confirm Credit ({selectedForCredit.length})
+                  Confirm Payout ({selectedForCredit.length})
                 </Button>
               </HStack>
             </HStack>

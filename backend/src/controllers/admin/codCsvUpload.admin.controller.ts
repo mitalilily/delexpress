@@ -272,8 +272,8 @@ export const previewCourierSettlementCsv = async (req: any, res: Response): Prom
 }
 
 /**
- * Admin: Confirm and Credit Selected Remittances
- * Step 2: After review, bulk credit selected orders
+ * Admin: Confirm and pay selected remittances through Razorpay.
+ * Step 2: After review, initiate payouts for selected orders.
  */
 export const confirmCourierSettlement = async (req: any, res: Response): Promise<any> => {
   try {
@@ -335,13 +335,13 @@ export const confirmCourierSettlement = async (req: any, res: Response): Promise
             ? parsedCourierAmount
             : undefined
 
-        // Credit wallet
+        // Initiate Razorpay payout
         await creditCodRemittanceToWallet({
           remittanceId,
           settledDate: validSettledDate,
           utrNumber,
           settledAmount,
-          notes: `Credited from ${courierPartner || 'Courier'} CSV upload via admin panel`,
+          notes: `Razorpay payout from ${courierPartner || 'Courier'} CSV upload via admin panel`,
           creditedBy: req.user?.sub || 'admin',
         })
 
@@ -378,7 +378,7 @@ export const confirmCourierSettlement = async (req: any, res: Response): Promise
 
     return res.json({
       success: true,
-      message: `Successfully credited ${results.credited.length} out of ${results.total} remittances`,
+      message: `Successfully initiated payouts for ${results.credited.length} out of ${results.total} remittances`,
       data: {
         credited: results.credited.length,
         failed: results.failed.length,

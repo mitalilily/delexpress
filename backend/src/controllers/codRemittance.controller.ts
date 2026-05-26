@@ -139,7 +139,6 @@ export const exportSingleSettlement = async (req: any, res: Response): Promise<a
     const { db } = await import('../models/client')
     const { codRemittances } = await import('../models/schema/codRemittance')
     const { users } = await import('../models/schema/users')
-    const { wallets } = await import('../models/schema/wallet')
     const { eq } = await import('drizzle-orm')
 
     const [remittance] = await db
@@ -230,9 +229,9 @@ export const exportSingleSettlement = async (req: any, res: Response): Promise<a
       report.push([''])
     }
 
-    // Transaction Details
+    // Legacy transaction details
     if (remittance.walletTransactionId) {
-      report.push(['Wallet Transaction ID:', remittance.walletTransactionId])
+      report.push(['Legacy Wallet Transaction ID:', remittance.walletTransactionId])
     }
 
     // Footer
@@ -290,7 +289,7 @@ export const exportRemittances = async (req: any, res: Response): Promise<any> =
       'Net Remittable Amount',
       'Status',
       'Order Delivered Date',
-      'Settlement Credited Date',
+      'Settlement Payout Date',
       'Settlement Notes',
       'Created Date',
     ]

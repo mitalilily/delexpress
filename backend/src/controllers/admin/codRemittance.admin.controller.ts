@@ -233,8 +233,8 @@ export const getUserCodRemittances = async (req: any, res: Response): Promise<an
 }
 
 /**
- * Admin: Manually credit wallet when courier settles
- * Real-world flow: Courier sends money → Admin receives it → Credits merchant wallet
+ * Admin: Initiate Razorpay payout when courier settles.
+ * Real-world flow: Courier sends money -> Admin receives it -> Pays merchant through Razorpay.
  */
 export const manualCreditWallet = async (req: any, res: Response): Promise<any> => {
   try {
@@ -245,26 +245,26 @@ export const manualCreditWallet = async (req: any, res: Response): Promise<any> 
       return res.status(400).json({ success: false, message: 'Remittance ID required' })
     }
 
-    // Credit using the service function
+    // Pay using the settlement service.
     const updated = await creditCodRemittanceToWallet({
       remittanceId,
       settledDate: settledDate ? new Date(settledDate) : new Date(), // Default to now
       utrNumber: utrNumber || `MANUAL-${Date.now()}`, // Auto-generate if not provided
       settledAmount: settledAmount ? Number(settledAmount) : undefined,
-      notes: notes || 'Manual credit by admin',
+      notes: notes || 'Manual Razorpay payout by admin',
       creditedBy: req.user?.sub || 'admin',
     })
 
     return res.json({
       success: true,
-      message: 'COD remittance credited to wallet successfully',
+      message: 'COD remittance Razorpay payout initiated successfully',
       data: updated,
     })
   } catch (error: any) {
     console.error('[manualCreditWallet] Error:', error)
     return res.status(400).json({
       success: false,
-      message: error.message || 'Failed to credit wallet',
+      message: error.message || 'Failed to initiate COD remittance payout',
     })
   }
 }
@@ -351,7 +351,7 @@ export const exportAllCodRemittances = async (req: any, res: Response): Promise<
       'Remittable',
       'Status',
       'Collected At',
-      'Credited At',
+      'Payout At',
     ]
 
     const rows = remittances.map((r: any) => [
