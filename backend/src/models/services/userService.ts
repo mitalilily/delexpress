@@ -292,6 +292,34 @@ export const updateUserChannelIntegration = async (
     throw new Error('Invalid platformId: slug not found')
   }
 
+  const [profile] = await tx
+    .select({ userId: schema.userProfiles.userId })
+    .from(schema.userProfiles)
+    .where(eq(schema.userProfiles.userId, userId))
+    .limit(1)
+
+  if (!profile) {
+    const [user] = await tx.select().from(users).where(eq(users.id, userId)).limit(1)
+    if (!user) {
+      throw new Error('User not found while updating sales channels')
+    }
+
+    await tx
+      .insert(schema.userProfiles)
+      .values({
+        ...DEFAULT_PROFILE,
+        userId,
+        companyInfo: {
+          ...DEFAULT_PROFILE.companyInfo,
+          contactEmail: user.email ?? '',
+          contactNumber: user.phone ?? '',
+          POCEmailVerified: Boolean(user.emailVerified),
+          POCPhoneVerified: Boolean(user.phoneVerified),
+        },
+      })
+      .onConflictDoNothing({ target: schema.userProfiles.userId })
+  }
+
   /* 2️⃣  Add slug → true inside salesChannels JSONB */
   return tx
     .update(schema.userProfiles)

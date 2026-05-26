@@ -18,6 +18,7 @@ export interface Stores {
   hasApiKey?: boolean;
   hasAdminApiAccessToken?: boolean;
   hasWebhookSecret?: boolean;
+  settings?: ShopifyForm["settings"];
   createdAt: string;
   updatedAt: string;
 }

@@ -194,14 +194,12 @@ export const integrateShopifyStore = async (
         tx
       );
 
-      if (existingStore.length === 0) {
-        const updated = await updateUserChannelIntegration(
-          userId,
-          PLATFORMS.SHOPIFY,
-          tx
-        );
-        if (!updated) throw new Error("Failed to update sales channels");
-      }
+      const updated = await updateUserChannelIntegration(
+        userId,
+        PLATFORMS.SHOPIFY,
+        tx
+      );
+      if (!updated?.length) throw new Error("Failed to update sales channels");
 
       if (settings) {
         const settingsSync = await upsertShopifySettingsMetafield({

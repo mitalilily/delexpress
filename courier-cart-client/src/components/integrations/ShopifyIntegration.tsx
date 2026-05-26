@@ -48,7 +48,7 @@ export interface ShopifyForm {
   };
 }
 
-const normalizeShopifyStoreUrl = (value?: string) => {
+export const normalizeShopifyStoreUrl = (value?: string) => {
   const rawValue = String(value || "").trim().toLowerCase();
   if (!rawValue) return "";
 
@@ -71,7 +71,7 @@ const normalizeShopifyStoreUrl = (value?: string) => {
   }
 };
 
-const getShopifyErrorMessage = (error: unknown) => {
+export const getShopifyErrorMessage = (error: unknown) => {
   const err = error as {
     response?: { data?: { error?: string; message?: string } };
     message?: string;
@@ -174,7 +174,7 @@ export default function ShopifyIntegration({
             severity: data?.warning ? "warning" : "success",
           });
           setOpenModal(false);
-          if (!forOnboarding && !fromChannelList) {
+          if (!forOnboarding) {
             queryClient.invalidateQueries({ queryKey: ["stores"] });
           }
           if (fromChannelList && !forOnboarding) {

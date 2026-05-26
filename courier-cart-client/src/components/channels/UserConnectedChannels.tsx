@@ -10,14 +10,25 @@ import TableSkeleton from "../UI/table/TableSkeleton";
 import { TbEditCircle } from "react-icons/tb";
 import { useState } from "react";
 import ShopifyConnectionModal from "../integrations/ShopifyConnectionModal";
-import type { ShopifyForm } from "../integrations/ShopifyIntegration";
+import {
+  getShopifyErrorMessage,
+  normalizeShopifyStoreUrl,
+  type ShopifyForm,
+} from "../integrations/ShopifyIntegration";
 import { useIntegrateShopify } from "../../hooks/useIntegrations";
 import { useSyncShopifyOrders } from '../../hooks/useIntegrations'
 import { useAuth } from "../../context/auth/AuthContext";
 import { toast } from "../UI/Toast";
+import { useQueryClient } from "@tanstack/react-query";
+
+const defaultShopifySettings: ShopifyForm["settings"] = {
+  fulfillTrigger: "do_not_fulfill",
+  customerNotifyOnFulfill: "do_not_notify",
+};
 
 const UserConnectedChannels = () => {
   const { user: userData } = useAuth();
+  const queryClient = useQueryClient();
   const { mutate: deleteIntegration, isPending: deleting } =
     useDeleteIntegration();
 
@@ -42,6 +53,7 @@ const UserConnectedChannels = () => {
     metadata: null,
     userId: userData?.userId,
     status: 'active',
+    settings: defaultShopifySettings,
   });
 
   const columns: Column<Stores>[] = [
@@ -90,6 +102,7 @@ const UserConnectedChannels = () => {
                 metadata: row.metadata,
                 userId: userData?.userId,
                 status: 'active',
+                settings: row.settings ?? defaultShopifySettings,
               });
             }}
             sx={{ color: "#ffd25e", cursor: "pointer" }}
@@ -134,8 +147,11 @@ const UserConnectedChannels = () => {
   ];
 
   const handleUpdateShopify = () => {
+    const storeUrl = normalizeShopifyStoreUrl(details.storeUrl || details.domain);
     const payload = {
       ...details,
+      storeUrl,
+      domain: storeUrl,
       userId: userData?.userId,
     }
 
@@ -145,12 +161,14 @@ const UserConnectedChannels = () => {
           message: data?.warning ? `${data?.message}. ${data.warning}` : data?.message,
           severity: data?.warning ? "warning" : "success",
         });
+        queryClient.invalidateQueries({ queryKey: ["stores"] });
+        queryClient.invalidateQueries({ queryKey: ["userInfo"] });
         setSelectedStore({ channelId: "", platform: null });
       },
       onError: (error) => {
         console.error("Error integrating Shopify store:", error);
         toast.open({
-          message: "Error integrating Shopify store",
+          message: getShopifyErrorMessage(error),
           severity: "error",
         });
       },
