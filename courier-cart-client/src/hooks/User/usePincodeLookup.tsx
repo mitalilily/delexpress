@@ -54,10 +54,17 @@ export function usePincodeLookup(
         setValue(cityField, city, { shouldValidate: true })
         setValue(stateField, state, { shouldValidate: true })
       } catch (error: any) {
-        if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') return
+        if (
+          error?.name === 'CanceledError' ||
+          error?.name === 'AbortError' ||
+          error?.code === 'ERR_CANCELED'
+        ) {
+          return
+        }
         setError(pincodeField, {
           type: 'manual',
-          message: error?.response?.data?.message || `Failed to fetch ${type} location`,
+          message:
+            error?.response?.data?.message || error?.message || `Failed to fetch ${type} location`,
         })
         setValue(cityField, '')
         setValue(stateField, '')
