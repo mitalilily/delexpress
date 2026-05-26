@@ -67,17 +67,33 @@ export const integrateWithShopify = async (
   }
 }
 
-export const normalizeShopifyDomain = (domain: string) =>
-  String(domain || '')
-    .trim()
-    .toLowerCase()
-    .replace(/^https?:\/\//, '')
-    .replace(/\/+$/, '')
+export const normalizeShopifyDomain = (domain?: string | null) => {
+  const rawDomain = String(domain || '').trim().toLowerCase()
+  if (!rawDomain) return ''
+
+  const valueWithProtocol = /^[a-z][a-z\d+\-.]*:\/\//i.test(rawDomain)
+    ? rawDomain
+    : `https://${rawDomain}`
+
+  try {
+    const parsed = new URL(valueWithProtocol)
+    if (parsed.hostname === 'admin.shopify.com') {
+      const pathParts = parsed.pathname.split('/').filter(Boolean)
+      const storePathIndex = pathParts.findIndex((part) => part === 'store')
+      const storeHandle = storePathIndex >= 0 ? pathParts[storePathIndex + 1] : ''
+      if (storeHandle) return `${storeHandle}.myshopify.com`
+    }
+
+    return parsed.hostname.replace(/\/+$/, '')
+  } catch {
+    return rawDomain.replace(/^https?:\/\//, '').split(/[/?#]/)[0].replace(/\/+$/, '')
+  }
+}
 
 const assertValidShopifyDomain = (domain: string) => {
   const normalized = normalizeShopifyDomain(domain)
   if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(normalized)) {
-    throw new Error('Enter a valid Shopify myshopify.com domain')
+    throw new Error('Enter a valid Shopify myshopify.com domain or admin.shopify.com/store URL')
   }
   return normalized
 }
@@ -224,12 +240,14 @@ export async function upsertShopifySettingsMetafield({
   settings,
   tx = db,
   id,
-}: UpsertShopifySettingsMetafieldParams) {
+}: UpsertShopifySettingsMetafieldParams): Promise<{ synced: boolean; warning?: string }> {
   const baseUrl = `https://${normalizeShopifyDomain(storeUrl)}/admin/api/${SHOPIFY_API_VERSION}`
   const headers = {
     'X-Shopify-Access-Token': accessToken.trim(),
     'Content-Type': 'application/json',
   }
+
+  await tx.update(stores).set({ settings, updatedAt: new Date() }).where(eq(stores.id, id))
 
   try {
     const { data: existing } = await axios.get(
@@ -268,11 +286,14 @@ export async function upsertShopifySettingsMetafield({
       console.log('✅ Created new Shopify settings metafield')
     }
 
-    // Also update in DB
-    await tx.update(stores).set({ settings, updatedAt: new Date() }).where(eq(stores.id, id))
+    return { synced: true }
   } catch (err: any) {
     console.error('❌ Failed to sync Shopify metafield:', err.response?.data || err.message)
-    throw new Error('Shopify metafield sync failed')
+    return {
+      synced: false,
+      warning:
+        'Store connected, but Shopify settings could not be synced to Shopify metafields. Add metafield permissions to the Shopify app to enable remote settings sync.',
+    }
   }
 }
 

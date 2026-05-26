@@ -47,6 +47,44 @@ export interface ShopifyForm {
     markCodPaidOnDelivery?: boolean;
   };
 }
+
+const normalizeShopifyStoreUrl = (value?: string) => {
+  const rawValue = String(value || "").trim().toLowerCase();
+  if (!rawValue) return "";
+
+  const valueWithProtocol = /^[a-z][a-z\d+\-.]*:\/\//i.test(rawValue)
+    ? rawValue
+    : `https://${rawValue}`;
+
+  try {
+    const parsed = new URL(valueWithProtocol);
+    if (parsed.hostname === "admin.shopify.com") {
+      const pathParts = parsed.pathname.split("/").filter(Boolean);
+      const storePathIndex = pathParts.findIndex((part) => part === "store");
+      const storeHandle = storePathIndex >= 0 ? pathParts[storePathIndex + 1] : "";
+      return storeHandle ? `${storeHandle}.myshopify.com` : "";
+    }
+
+    return parsed.hostname;
+  } catch {
+    return rawValue.replace(/^https?:\/\//, "").split(/[/?#]/)[0].replace(/\/+$/, "");
+  }
+};
+
+const getShopifyErrorMessage = (error: unknown) => {
+  const err = error as {
+    response?: { data?: { error?: string; message?: string } };
+    message?: string;
+  };
+
+  return (
+    err?.response?.data?.error ||
+    err?.response?.data?.message ||
+    err?.message ||
+    "Error integrating Shopify store"
+  );
+};
+
 export default function ShopifyIntegration({
   fullWidth,
   forOnboarding = false,
@@ -88,6 +126,7 @@ export default function ShopifyIntegration({
     useIntegrateShopify();
 
   const validateFields = () => {
+    const normalizedStoreUrl = normalizeShopifyStoreUrl(shopifyDetails.storeUrl);
     const errors: typeof inputErrors = {
       adminApiAccessToken: "",
       apiKey: "",
@@ -97,11 +136,9 @@ export default function ShopifyIntegration({
 
     if (!shopifyDetails.storeUrl.trim()) {
       errors.storeUrl = "Store URL is required";
-    } else if (
-      !/^[a-zA-Z0-9-]+\.myshopify\.com$/.test(shopifyDetails.storeUrl.trim())
-    ) {
+    } else if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(normalizedStoreUrl)) {
       errors.storeUrl =
-        "Enter a valid Shopify URL (e.g., mystore.myshopify.com)";
+        "Enter a valid Shopify URL, such as mystore.myshopify.com";
     }
 
     if (!shopifyDetails.apiKey.trim()) {
@@ -126,8 +163,10 @@ export default function ShopifyIntegration({
   const handleConnect = () => {
     if (!validateFields()) return;
 
+    const storeUrl = normalizeShopifyStoreUrl(shopifyDetails.storeUrl);
+
     integrateShopify(
-      { ...shopifyDetails, userId: userData?.userId },
+      { ...shopifyDetails, storeUrl, domain: storeUrl, userId: userData?.userId },
       {
         onSuccess: (data) => {
           toast.open({
@@ -145,7 +184,7 @@ export default function ShopifyIntegration({
         onError: (error) => {
           console.error("Error integrating Shopify store:", error);
           toast.open({
-            message: "Error integrating Shopify store",
+            message: getShopifyErrorMessage(error),
             severity: "error",
           });
         },

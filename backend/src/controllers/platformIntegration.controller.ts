@@ -66,6 +66,23 @@ const sanitizeStoreForResponse = (store: any) => {
   };
 };
 
+const firstNonBlank = (...values: any[]) => {
+  const match = values.find((value) => String(value ?? "").trim());
+  return String(match ?? "").trim();
+};
+
+const shopifyIntegrationErrorStatus = (message: string) => {
+  if (/already connected to another merchant/i.test(message)) return 409;
+  if (
+    /Shopify returned 4\d\d|valid Shopify|credentials do not match|required|missing/i.test(
+      message
+    )
+  ) {
+    return 400;
+  }
+  return 500;
+};
+
 /**
  * Handles Shopify store integration using user-provided credentials
  */
@@ -80,15 +97,18 @@ export const integrateShopifyStore = async (
     apiKey,
     adminApiAccessToken,
     webhookSecret,
+    shopifyWebhookSecret,
+    apiSecret,
+    apiSecretKey,
     userId: bodyUserId,
     status,
     id,
     settings,
-  } = req.body;
+  } = req.body || {};
   const userId = (req as any)?.user?.sub || bodyUserId;
 
   if (!userId) {
-    return res.status(400).json({ error: "Missing required fields" });
+    return res.status(400).json({ error: "Missing required Shopify fields: user account" });
   }
 
   try {
@@ -105,15 +125,33 @@ export const integrateShopifyStore = async (
       return res.status(403).json({ error: "You cannot update this Shopify store" });
     }
 
-    const effectiveStoreUrl = normalizeShopifyDomain(storeUrl ?? domain ?? storeForUpdate?.domain);
-    const effectiveApiKey = String(apiKey || storeForUpdate?.apiKey || "").trim();
-    const effectiveAdminApiAccessToken = String(
-      adminApiAccessToken || storeForUpdate?.adminApiAccessToken || ""
-    ).trim();
-    const effectiveWebhookSecret = String(webhookSecret || getStoreWebhookSecret(storeForUpdate)).trim();
+    const effectiveStoreUrl = normalizeShopifyDomain(
+      firstNonBlank(storeUrl, domain, storeForUpdate?.domain)
+    );
+    const effectiveApiKey = firstNonBlank(apiKey, storeForUpdate?.apiKey);
+    const effectiveAdminApiAccessToken = firstNonBlank(
+      adminApiAccessToken,
+      storeForUpdate?.adminApiAccessToken
+    );
+    const effectiveWebhookSecret = firstNonBlank(
+      webhookSecret,
+      shopifyWebhookSecret,
+      apiSecret,
+      apiSecretKey,
+      getStoreWebhookSecret(storeForUpdate)
+    );
 
-    if (!effectiveStoreUrl || !effectiveApiKey || !effectiveAdminApiAccessToken || !effectiveWebhookSecret) {
-      return res.status(400).json({ error: "Missing required fields" });
+    const missingFields: string[] = [];
+    if (!effectiveStoreUrl) missingFields.push("Shopify store URL");
+    if (!effectiveApiKey) missingFields.push("Shopify API key");
+    if (!effectiveAdminApiAccessToken) missingFields.push("Admin API access token");
+    if (!effectiveWebhookSecret) missingFields.push("Webhook secret / API secret key");
+
+    if (missingFields.length) {
+      return res.status(400).json({
+        error: `Missing required Shopify fields: ${missingFields.join(", ")}`,
+        missingFields,
+      });
     }
 
     const shopifyData = await integrateWithShopify(
@@ -129,6 +167,8 @@ export const integrateShopifyStore = async (
     if (requestedStoreId && requestedStoreId !== storeId) {
       return res.status(400).json({ error: "Shopify credentials do not match the selected store" });
     }
+
+    let settingsWarning: string | null = null;
 
     await db.transaction(async (tx) => {
       const existingStore = await tx
@@ -164,13 +204,14 @@ export const integrateShopifyStore = async (
       }
 
       if (settings) {
-        await upsertShopifySettingsMetafield({
+        const settingsSync = await upsertShopifySettingsMetafield({
           storeUrl: shopifyData.shop.domain || effectiveStoreUrl,
           accessToken: effectiveAdminApiAccessToken,
           settings,
           id: storeId,
           tx,
         });
+        settingsWarning = settingsSync.warning || null;
       }
     });
 
@@ -197,11 +238,12 @@ export const integrateShopifyStore = async (
         },
       },
       webhooks: webhookStatus,
-      warning: webhookWarning,
+      warning: [settingsWarning, webhookWarning].filter(Boolean).join(" ") || null,
     });
   } catch (error: any) {
     console.error("❌ Error integrating Shopify:", error);
-    res.status(500).json({ error: error?.message || "Failed to integrate Shopify store" });
+    const message = error?.message || "Failed to integrate Shopify store";
+    res.status(shopifyIntegrationErrorStatus(message)).json({ error: message });
   }
 };
 

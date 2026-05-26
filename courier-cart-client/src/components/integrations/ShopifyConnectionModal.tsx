@@ -179,7 +179,7 @@ const ShopifyConnectionModal = ({
                 prefix={<BiLink />}
                 label="Shopify Store URL"
                 placeholder="mystore.myshopify.com"
-                value={shopifyDetails.storeUrl ?? shopifyDetails?.domain}
+                value={shopifyDetails.storeUrl || shopifyDetails?.domain || ''}
                 onChange={(e) =>
                   setShopifyDetails((prev) => ({
                     ...prev,
@@ -188,6 +188,7 @@ const ShopifyConnectionModal = ({
                 }
                 error={!!inputErrors?.storeUrl}
                 helperText={inputErrors?.storeUrl}
+                helpText="You can paste mystore.myshopify.com or a Shopify admin store URL"
               />
               <CustomInput
                 required={!isEditing}
