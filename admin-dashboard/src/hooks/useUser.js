@@ -113,7 +113,8 @@ export const useUserKyc = (userId) => {
     queryKey: ['userKyc', userId],
     queryFn: () => getKyc(userId),
     enabled: !!userId,
-    staleTime: 1000 * 60 * 60,
+    staleTime: 0,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
   })
 }

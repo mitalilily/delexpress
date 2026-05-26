@@ -7,6 +7,7 @@ import {
   createTeamMemberForUser,
   deleteTeamMember,
   deleteUserController,
+  getUserDetails,
   getKycDetailsByUserId,
   getTeamMembersForUser,
   getUserBankAccounts,
@@ -27,6 +28,7 @@ const router = Router()
 // Update ticket (status, due date)
 router.get('/users-management', requireAuth, isAdminMiddleware, listUsers)
 router.get('/search-sellers', requireAuth, isAdminMiddleware, searchSellers)
+router.get('/:id/details', requireAuth, isAdminMiddleware, getUserDetails)
 router.patch('/:id/approve', requireAuth, isAdminMiddleware, approveUser)
 router.post('/:id/reset-password', requireAuth, isAdminMiddleware, resetUserPasswordController)
 router.delete('/:id', requireAuth, isAdminMiddleware, deleteUserController)

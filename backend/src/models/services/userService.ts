@@ -93,10 +93,30 @@ export const findUserById = async (id: string) => {
 
   if (!result[0]) return null
 
-  // Merge `users`, `userProfile`, and current plan
+  const user = result[0].user
+  const profile = result[0].profile
+  const companyInfo = profile?.companyInfo ?? {
+    ...EMPTY_COMPANY,
+    contactEmail: user.email ?? '',
+    contactNumber: user.phone ?? '',
+    POCEmailVerified: Boolean(user.emailVerified),
+    POCPhoneVerified: Boolean(user.phoneVerified),
+  }
+
+  // Merge `users`, `userProfile`, and current plan while keeping the account id stable.
   return {
-    ...result[0].user,
-    ...result[0].profile,
+    ...user,
+    ...(profile ?? {}),
+    id: user.id,
+    userId: user.id,
+    profileId: profile?.id ?? null,
+    companyInfo,
+    email: user.email ?? companyInfo.contactEmail ?? '',
+    phone: user.phone ?? companyInfo.contactNumber ?? '',
+    submittedAt: profile?.submittedAt ?? user.createdAt,
+    updatedAt: profile?.updatedAt ?? user.updatedAt,
+    accountCreatedAt: user.createdAt,
+    accountUpdatedAt: user.updatedAt,
     currentPlanId: result[0].userPlan?.plan_id || null, // current assigned plan
   }
 }
@@ -736,15 +756,18 @@ export async function getAllUsersWithRoleUser({
   const data = await db
     .select({
       id: users.id,
-      email: users.email,
+      email: sql<string>`coalesce(${users.email}, ${schema.userProfiles.companyInfo} ->> 'contactEmail', '')`,
+      phone: sql<string>`coalesce(${users.phone}, ${schema.userProfiles.companyInfo} ->> 'contactNumber', '')`,
       role: users.role,
       createdAt: users.createdAt,
       companyName: sql<string>`coalesce(${schema.userProfiles.companyInfo} ->> 'businessName', ${schema.userProfiles.companyInfo} ->> 'brandName', '')`,
       businessType: schema.userProfiles.businessType,
       approved: schema.userProfiles.approved,
       onboardingStep: schema.userProfiles.onboardingStep,
-      contactPerson: sql<string>`${schema.userProfiles.companyInfo} ->> 'contactPerson'`,
-      contactNumber: sql<string>`${schema.userProfiles.companyInfo} ->> 'contactNumber'`,
+      contactPerson: sql<string>`coalesce(${schema.userProfiles.companyInfo} ->> 'contactPerson', ${schema.userProfiles.companyInfo} ->> 'businessName', ${schema.userProfiles.companyInfo} ->> 'brandName', ${users.email}, ${users.phone}, '')`,
+      contactNumber: sql<string>`coalesce(${schema.userProfiles.companyInfo} ->> 'contactNumber', ${users.phone}, '')`,
+      profilePicture: sql<string>`${schema.userProfiles.companyInfo} ->> 'profilePicture'`,
+      domesticKyc: schema.userProfiles.domesticKyc,
       kycStatus: kyc.status,
     })
     .from(users)

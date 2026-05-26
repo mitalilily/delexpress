@@ -16,6 +16,7 @@ import {
   PopoverFooter,
   PopoverHeader,
   PopoverTrigger,
+  SimpleGrid,
   Spinner,
   StackDivider,
   Text,
@@ -42,6 +43,21 @@ const StatusChip = ({ status }) => {
   else if (status === 'pending' || status === 'verification_in_progress') colorScheme = 'warning'
   else if (status === 'rejected') colorScheme = 'error'
   return <StatusBadge status={status} type={colorScheme} />
+}
+
+const firstNonEmpty = (...values) => values.find((value) => String(value || '').trim()) || ''
+
+const formatDateTime = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 // Card for each document
@@ -125,10 +141,25 @@ const DocCard = ({ label, presignedUrl, status, onApprove, onReject, kycStatus }
   )
 }
 
-const UserKycPage = ({ userId }) => {
-  console.log('user id', userId)
+const UserKycPage = ({ userId, user = {} }) => {
   const { data: kycData, isLoading, isError, refetch } = useUserKyc(userId)
-  const kyc = kycData?.kyc ?? {}
+  const kyc = kycData?.kyc ?? null
+  const hasKyc = !!kyc && Object.keys(kyc).length > 0
+  const companyInfo = user?.companyInfo || {}
+  const displayName = firstNonEmpty(
+    companyInfo.contactPerson,
+    companyInfo.businessName,
+    companyInfo.brandName,
+    user?.email,
+    user?.phone,
+    'Merchant',
+  )
+  const displayEmail = firstNonEmpty(user?.email, companyInfo.contactEmail, companyInfo.companyEmail)
+  const displayPhone = firstNonEmpty(
+    user?.phone,
+    companyInfo.contactNumber,
+    companyInfo.companyContactNumber,
+  )
   const [rejectingReason, setRejectingReason] = useState('')
   const [revokingReason, setRevokingReason] = useState('')
 
@@ -140,11 +171,11 @@ const UserKycPage = ({ userId }) => {
 
   // Document keys
   const docKeys = useMemo(() => {
-    if (!kyc) return []
+    if (!hasKyc) return []
     return Object.entries(kyc)
       .filter(([key, value]) => key.toLowerCase().includes('url') && value)
       .map(([_, value]) => value)
-  }, [kyc])
+  }, [hasKyc, kyc])
 
   const { data: presignedUrlsData, isLoading: urlsLoading } = usePresignedDownloadUrls({
     keys: docKeys,
@@ -172,6 +203,7 @@ const UserKycPage = ({ userId }) => {
 
   // All hooks must be called before any conditional returns
   const dividerBorderColor = useColorModeValue('gray.200', 'gray.600')
+  const summaryBgColor = useColorModeValue('gray.50', 'gray.700')
 
   if (isLoading || urlsLoading)
     return (
@@ -187,18 +219,32 @@ const UserKycPage = ({ userId }) => {
       </Center>
     )
 
-  if (!kyc)
+  if (!hasKyc)
     return (
       <Center minH="400px">
-        <Text>No KYC data available.</Text>
+        <VStack spacing={3}>
+          <Text fontWeight="700">{displayName}</Text>
+          {(displayEmail || displayPhone) && (
+            <Text color="gray.500">
+              {[displayEmail, displayPhone].filter(Boolean).join(' | ')}
+            </Text>
+          )}
+          <Text>No KYC data available.</Text>
+        </VStack>
       </Center>
     )
 
   const textFields = [
+    { label: 'Merchant', value: displayName },
+    { label: 'Email', value: displayEmail },
+    { label: 'Phone', value: displayPhone },
+    { label: 'Business Structure', value: kyc.structure },
+    { label: 'Company Type', value: kyc.companyType },
     { label: 'GSTIN', value: kyc.gstin },
-    { label: 'Company Type', value: kyc.structure },
+    { label: 'CIN', value: kyc.cin },
     { label: 'KYC Status', value: kyc.status },
-    { label: 'Last Updated', value: new Date(kyc.updatedAt).toLocaleString() },
+    { label: 'Submitted At', value: formatDateTime(kyc.createdAt) },
+    { label: 'Last Updated', value: formatDateTime(kyc.updatedAt) },
   ].filter((f) => f.value)
 
   const docFields = [
@@ -223,6 +269,27 @@ const UserKycPage = ({ userId }) => {
       <Heading size="lg" mb={6} textAlign="center">
         User KYC Details
       </Heading>
+
+      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} mb={6}>
+        <Box p={4} borderRadius="lg" bg={summaryBgColor}>
+          <Text fontSize="xs" color="gray.500" fontWeight="700" textTransform="uppercase">
+            Merchant
+          </Text>
+          <Text fontWeight="700">{displayName}</Text>
+        </Box>
+        <Box p={4} borderRadius="lg" bg={summaryBgColor}>
+          <Text fontSize="xs" color="gray.500" fontWeight="700" textTransform="uppercase">
+            Email
+          </Text>
+          <Text fontWeight="600">{displayEmail || 'Not available'}</Text>
+        </Box>
+        <Box p={4} borderRadius="lg" bg={summaryBgColor}>
+          <Text fontSize="xs" color="gray.500" fontWeight="700" textTransform="uppercase">
+            Phone
+          </Text>
+          <Text fontWeight="600">{displayPhone || 'Not available'}</Text>
+        </Box>
+      </SimpleGrid>
 
       {/* Approve / Reject KYC */}
       {['verification_in_progress', 'rejected'].includes(kyc.status) && (
@@ -324,6 +391,11 @@ const UserKycPage = ({ userId }) => {
           />
         ))}
       </Grid>
+      {!docFields.length && (
+        <Text mt={4} color="gray.500" textAlign="center">
+          No KYC documents uploaded yet.
+        </Text>
+      )}
     </Card>
   )
 }

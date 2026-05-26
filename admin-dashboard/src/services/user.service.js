@@ -36,7 +36,7 @@ export async function deleteUser(userId) {
 }
 
 export const getUserInfo = async (id) => {
-  const { data } = await api.get(`/user/user-info/${id}`)
+  const { data } = await api.get(`/admin/users/${id}/details`)
   return data
 }
 

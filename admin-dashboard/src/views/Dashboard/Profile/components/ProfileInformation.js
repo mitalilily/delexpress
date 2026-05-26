@@ -27,6 +27,8 @@ const StatusIcon = ({ status }) =>
     <Icon as={FaTimesCircle} color="red.400" ml="5px" />
   )
 
+const firstNonEmpty = (...values) => values.find((value) => String(value || '').trim()) || ''
+
 const InfoGrid = ({ items }) => {
   const textColor = useColorModeValue('gray.700', 'white')
   const labelColor = useColorModeValue('gray.600', 'gray.300')
@@ -116,10 +118,21 @@ const ProfileInformation = ({ user }) => {
     })
   }
 
+  const companyInfo = user?.companyInfo || {}
+  const email = firstNonEmpty(user?.email, companyInfo.contactEmail, companyInfo.companyEmail)
+  const phone = firstNonEmpty(user?.phone, companyInfo.contactNumber, companyInfo.companyContactNumber)
+  const contactPerson = firstNonEmpty(
+    companyInfo.contactPerson,
+    companyInfo.businessName,
+    companyInfo.brandName,
+    email,
+  )
+
   const accountSummaryItems = [
-    { label: 'Email', value: user?.email },
+    { label: 'Contact Person', value: contactPerson },
+    { label: 'Email', value: email },
     { label: 'Email Verified', value: user?.emailVerified, isStatus: true },
-    { label: 'Phone', value: user?.phone },
+    { label: 'Phone', value: phone },
     { label: 'Phone Verified', value: user?.phoneVerified, isStatus: true },
     { label: 'Role', value: user?.role },
     {

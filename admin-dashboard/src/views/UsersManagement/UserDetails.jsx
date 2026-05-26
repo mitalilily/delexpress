@@ -152,6 +152,26 @@ const formatDateTime = (value) => {
   })
 }
 
+const firstNonEmpty = (...values) => values.find((value) => String(value || '').trim()) || ''
+
+const getDisplayName = (user = {}) => {
+  const companyInfo = user?.companyInfo || {}
+  return firstNonEmpty(
+    companyInfo.contactPerson,
+    companyInfo.businessName,
+    companyInfo.brandName,
+    user.email,
+    user.phone,
+    'Merchant',
+  )
+}
+
+const getDisplayEmail = (user = {}) =>
+  firstNonEmpty(user.email, user?.companyInfo?.contactEmail, user?.companyInfo?.companyEmail)
+
+const getDisplayPhone = (user = {}) =>
+  firstNonEmpty(user.phone, user?.companyInfo?.contactNumber, user?.companyInfo?.companyContactNumber)
+
 const OrdersTab = ({ userId }) => {
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(10)
@@ -671,7 +691,8 @@ export default function UserDetails() {
 
   const { data: profileData } = useUserInfo(id)
 
-  const companyInfo = profileData?.data?.companyInfo || {}
+  const user = profileData?.data || {}
+  const companyInfo = user?.companyInfo || {}
   const profilePictureKey = companyInfo.profilePicture
   const companyLogoKey = companyInfo.companyLogoUrl
 
@@ -745,9 +766,9 @@ export default function UserDetails() {
         backgroundHeader={companyLogoUrl || ProfileBgImage}
         backgroundProfile={bgProfile}
         avatarImage={avatarUrl}
-        name={companyInfo.contactPerson || ''}
-        email={profileData?.data?.email || ''}
-        phone={profileData?.data?.phone || ''}
+        name={getDisplayName(user)}
+        email={getDisplayEmail(user)}
+        phone={getDisplayPhone(user)}
         tabs={tabRoutes}
         activeTab={activeTab}
         userId={userId}
@@ -759,12 +780,12 @@ export default function UserDetails() {
         <Route
           exact
           path={`/admin/users-management/:id/overview`}
-          children={renderWithWrapper(ProfileInformation, { user: profileData?.data })}
+          children={renderWithWrapper(ProfileInformation, { user })}
         />
         <Route
           exact
           path={`/admin/users-management/:id/company-details`}
-          children={renderWithWrapper(CompanyTab, { user: profileData?.data, companyLogoUrl })}
+          children={renderWithWrapper(CompanyTab, { user, companyLogoUrl })}
         />
         <Route
           exact
@@ -779,7 +800,7 @@ export default function UserDetails() {
         <Route
           exact
           path={`/admin/users-management/:id/kyc`}
-          children={renderWithWrapper(UserKycPage, { userId })}
+          children={renderWithWrapper(UserKycPage, { userId, user })}
         />
         <Route
           exact

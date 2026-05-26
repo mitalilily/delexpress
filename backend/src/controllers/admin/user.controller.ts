@@ -57,6 +57,29 @@ export async function listUsers(req: any, res: Response) {
   }
 }
 
+export async function getUserDetails(req: any, res: Response) {
+  try {
+    const userId = req.params.id
+    const user = await findUserById(userId)
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: user,
+      message: 'User data fetched successfully',
+    })
+  } catch (error: any) {
+    console.error('Error fetching user details:', error)
+    return res.status(500).json({
+      success: false,
+      message: error?.message || 'Server error fetching user details',
+    })
+  }
+}
+
 export async function getTeamMembersForUser(req: any, res: Response) {
   try {
     const adminId = req.params.id
