@@ -231,6 +231,7 @@ export function RateCalculator() {
             <Grid size={4}>
               <CustomInput
                 label="Pickup Pincode"
+                type="tel"
                 {...register('pickupPincode', {
                   required: 'Pickup pincode is required',
                   pattern: {
@@ -241,6 +242,7 @@ export function RateCalculator() {
                 error={!!errors.pickupPincode}
                 helperText={errors.pickupPincode?.message as string}
                 fullWidth
+                maxLength={6}
               />
             </Grid>
             <Grid size={4}>
@@ -266,6 +268,7 @@ export function RateCalculator() {
             <Grid size={4}>
               <CustomInput
                 label="Delivery Pincode"
+                type="tel"
                 {...register('deliveryPincode', {
                   required: 'Delivery pincode is required',
                   pattern: {
@@ -276,6 +279,7 @@ export function RateCalculator() {
                 error={!!errors.deliveryPincode}
                 helperText={errors.deliveryPincode?.message as string}
                 fullWidth
+                maxLength={6}
               />
             </Grid>
             <Grid size={4}>

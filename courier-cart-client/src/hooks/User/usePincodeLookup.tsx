@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { UseFormClearErrors, UseFormSetError, UseFormSetValue } from 'react-hook-form'
+import { lookupPincodeLocation } from '../../api/locations'
 
 export function usePincodeLookup(
   pincode: string,
@@ -14,47 +15,62 @@ export function usePincodeLookup(
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    const normalizedPincode = String(pincode || '')
+      .replace(/\D/g, '')
+      .slice(0, 6)
+    const pincodeField = `${type}Pincode`
+    const cityField = `${type}City`
+    const stateField = `${type}State`
+
+    const controller = new AbortController()
+
     async function fetchLocation() {
-      if (!pincode || pincode.length !== 6) {
-        clearErrors(`${type}Pincode`)
-        setValue(`${type}City`, '')
-        setValue(`${type}State`, '')
+      if (!normalizedPincode || normalizedPincode.length !== 6) {
+        clearErrors(pincodeField)
+        setValue(cityField, '')
+        setValue(stateField, '')
         return
       }
 
       setLoading(true)
       try {
-        const res = await fetch(`https://api.postalpincode.in/pincode/${pincode}`)
-        const data = await res.json()
-        const loc = data?.[0]?.PostOffice?.[0]
-        const status = data?.[0]?.Status
+        const loc = await lookupPincodeLocation(normalizedPincode, controller.signal)
+        if (controller.signal.aborted) return
 
-        if (status !== 'Success' || !loc) {
-          setError(`${type}Pincode`, {
+        const city = loc?.city || ''
+        const state = loc?.state || ''
+
+        if (!city || !state) {
+          setError(pincodeField, {
             type: 'manual',
             message: `Invalid ${type} pincode`,
           })
-          setValue(`${type}City`, '')
-          setValue(`${type}State`, '')
-        } else {
-          clearErrors(`${type}Pincode`)
-          setValue(`${type}City`, loc?.District || '')
-          setValue(`${type}State`, loc?.State || '')
+          setValue(cityField, '')
+          setValue(stateField, '')
+          return
         }
-      } catch {
-        setError(`${type}Pincode`, {
+
+        clearErrors(pincodeField)
+        setValue(cityField, city, { shouldValidate: true })
+        setValue(stateField, state, { shouldValidate: true })
+      } catch (error: any) {
+        if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') return
+        setError(pincodeField, {
           type: 'manual',
-          message: `Failed to fetch ${type} location`,
+          message: error?.response?.data?.message || `Failed to fetch ${type} location`,
         })
-        setValue(`${type}City`, '')
-        setValue(`${type}State`, '')
+        setValue(cityField, '')
+        setValue(stateField, '')
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
       }
     }
 
     fetchLocation()
-  }, [pincode])
+    return () => controller.abort()
+  }, [clearErrors, pincode, setError, setValue, type])
 
   return loading
 }
