@@ -91,6 +91,24 @@ const navItems: NavItem[] = [
     path: '/dashboard',
     roles: ['customer', 'admin'],
   },
+  {
+    text: 'Store Ops',
+    icon: <MdOutlineAddBusiness size={STANDARD_ICON_SIZE} />,
+    path: '/channels',
+    roles: ['customer', 'admin'],
+    children: [
+      {
+        text: 'Connect Channels',
+        path: '/channels/channel_list',
+        icon: <BiListPlus size={STANDARD_ICON_SIZE} />,
+      },
+      {
+        text: 'Connected Channels',
+        path: '/channels/connected',
+        icon: <MdOutlineAddBusiness size={STANDARD_ICON_SIZE} />,
+      },
+    ],
+  },
 
   // ========== CORE OPERATIONS ==========
   {
