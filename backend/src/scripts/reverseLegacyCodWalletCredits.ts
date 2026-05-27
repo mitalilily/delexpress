@@ -128,7 +128,7 @@ const reverseLegacyCredit = async (row: LegacyCodWalletCredit) => {
         notes = concat(
           coalesce(notes, ''),
           case when coalesce(notes, '') = '' then '' else E'\n' end,
-          ${`Legacy panel wallet credit ${row.wallet_transaction_id} reversed. Awaiting Razorpay payout.`}
+          ${`Legacy panel wallet credit ${row.wallet_transaction_id} reversed. Awaiting Razorpay payout.`}::text
         ),
         updated_at = now()
       where id = ${row.remittance_id}
