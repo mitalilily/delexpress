@@ -18,10 +18,12 @@ import { courierLogos } from '../utils/constants'
 /* Types */
 type ForwardRate = {
   mode?: string | null
-  rate?: number | null
-  cod_charges?: number | null
-  cod_percent?: number | null
-  effective_cod_charges?: number | null
+  rate?: number | string | null
+  ratePerKg?: number | string | null
+  cod_charges?: number | string | null
+  cod_percent?: number | string | null
+  effective_cod_charges?: number | string | null
+  other_charges?: number | string | null
   is_prepaid?: boolean
   is_cod?: boolean
 }
@@ -33,10 +35,11 @@ type LocalRates = {
 export type Courier = {
   id: string
   name?: string | null
-  chargeable_weight?: number | null
-  volumetric_weight?: number | null
+  chargeable_weight?: number | string | null
+  volumetric_weight?: number | string | null
   slabs?: number | null
-  rate?: number | null
+  rate?: number | string | null
+  ratePerKg?: number | string | null
   edd?: string | null
   localRates?: LocalRates | null
   special_zone?: boolean | null
@@ -56,6 +59,11 @@ const ACCENT = '#0D3B8E'
 const TEXT_PRIMARY = '#102A54'
 const TEXT_MUTED = '#496189'
 const BORDER = '#E2E8F0'
+
+const toFiniteNumber = (value: unknown, fallback = 0) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
 
 export default function CourierRateList({
   availableCouriers = [],
@@ -132,17 +140,28 @@ export default function CourierRateList({
           const forward: ForwardRate = courier?.localRates?.forward ?? {}
 
           // Calculate total charges using slabbed rate
+          const ratePerKg =
+            forward?.ratePerKg !== undefined && forward?.ratePerKg !== null
+              ? toFiniteNumber(forward.ratePerKg)
+              : courier?.ratePerKg !== undefined && courier?.ratePerKg !== null
+                ? toFiniteNumber(courier.ratePerKg)
+                : 0
+          const chargeableWeightKg = courier?.chargeable_weight
+            ? toFiniteNumber(courier.chargeable_weight) / 1000
+            : 0
           const freight =
             courier?.rate !== undefined && courier?.rate !== null
-              ? Number(courier.rate)
-              : forward?.rate
-              ? Number(forward?.rate)
-              : 0
+              ? toFiniteNumber(courier.rate)
+              : forward?.rate !== undefined && forward?.rate !== null
+                ? toFiniteNumber(forward.rate)
+                : ratePerKg > 0 && chargeableWeightKg > 0
+                  ? ratePerKg * chargeableWeightKg
+                  : ratePerKg
           const codCharges =
             forward?.effective_cod_charges !== undefined && forward?.effective_cod_charges !== null
-              ? Number(forward.effective_cod_charges)
+              ? toFiniteNumber(forward.effective_cod_charges)
               : forward?.cod_charges
-                ? Number(forward.cod_charges)
+                ? toFiniteNumber(forward.cod_charges)
                 : 0
           const isCOD = shipmentType === 'cod'
           const totalCharges = isCOD ? freight + codCharges : freight
@@ -252,7 +271,11 @@ export default function CourierRateList({
                         display: 'block',
                       }}
                     >
-                      {isCOD ? 'Including COD Charges' : 'Prepaid Rate'}
+                      {ratePerKg > 0
+                        ? `Rate card: Rs ${ratePerKg.toLocaleString('en-IN')}/kg`
+                        : isCOD
+                          ? 'Including COD Charges'
+                          : 'Prepaid Rate'}
                     </Typography>
                   </Box>
 
@@ -335,7 +358,7 @@ export default function CourierRateList({
                             }}
                           >
                             {courier?.chargeable_weight
-                              ? `${courier.chargeable_weight.toLocaleString('en-IN')} g`
+                              ? `${toFiniteNumber(courier.chargeable_weight).toLocaleString('en-IN')} g`
                               : '—'}
                           </Typography>
                         </Box>

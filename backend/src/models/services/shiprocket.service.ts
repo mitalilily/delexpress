@@ -580,6 +580,8 @@ interface NimbusServiceabilityParams {
   shipment_type?: 'b2b' | 'b2c'
   breadth?: number
   height?: number
+  number_of_boxes?: number
+  numberOfBoxes?: number
   isReverse?: boolean
   preferred_carriers?: number[]
   delivery_type?: number
@@ -1505,6 +1507,65 @@ export const fetchAvailableCouriersWithRates = async (
       const zoneRow = await fetchZoneIdByKey(zoneKey)
       approxZone = { id: zoneRow.id, code: zoneRow.code, name: zoneRow.name }
 
+      const rateCardIdentity = (rateCard: any) =>
+        [
+          String(rateCard.courier_id),
+          normalizeProviderKey(rateCard.service_provider),
+          normalizeB2CShippingMode(rateCard.mode),
+          String(rateCard.type || '').toLowerCase(),
+        ].join('__')
+
+      const mergeMissingRateCards = (primary: any[], fallback: any[]) => {
+        if (!fallback.length) return primary
+        const seen = new Set(primary.map(rateCardIdentity))
+        return [
+          ...primary,
+          ...fallback.filter((rateCard) => {
+            const key = rateCardIdentity(rateCard)
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+          }),
+        ]
+      }
+
+      const fetchPlanRateCardsWithFallback = async (planId: string) => {
+        const zoneRates = await fetchResolvedB2CRateCards({
+          planId,
+          zoneId: zoneRow.id,
+        })
+
+        const currentZoneLabel = `${zoneRow.code || ''} ${zoneRow.name || ''}`.toLowerCase()
+        if (currentZoneLabel.includes('roi') || currentZoneLabel.includes('rest of india')) {
+          return zoneRates
+        }
+
+        try {
+          const roiZone = await fetchZoneIdByKey('ROI')
+          if (!roiZone?.id || roiZone.id === zoneRow.id) return zoneRates
+
+          const roiRates = await fetchResolvedB2CRateCards({
+            planId,
+            zoneId: roiZone.id,
+          })
+
+          const mergedRates = mergeMissingRateCards(zoneRates, roiRates)
+          if (mergedRates.length > zoneRates.length) {
+            console.log('[RateCalculator] Added ROI fallback B2C rate cards', {
+              zone: approxZone,
+              added: mergedRates.length - zoneRates.length,
+            })
+          }
+          return mergedRates
+        } catch (fallbackErr: any) {
+          console.warn('[RateCalculator] ROI fallback rate lookup skipped', {
+            zone: approxZone,
+            message: fallbackErr?.message || fallbackErr,
+          })
+          return zoneRates
+        }
+      }
+
       let activePlanId: string | null | undefined = planIdOverride ?? null
 
       if (!activePlanId && userId) {
@@ -1527,10 +1588,20 @@ export const fetchAvailableCouriersWithRates = async (
       }
 
       if (activePlanId) {
-        localRates = await fetchResolvedB2CRateCards({
-          planId: activePlanId,
-          zoneId: zoneRow.id,
-        })
+        localRates = await fetchPlanRateCardsWithFallback(activePlanId)
+      }
+
+      if (!localRates.length && effectivePlanFallbackName) {
+        const normalizedFallback = effectivePlanFallbackName.toLowerCase()
+        const [fallbackPlan] = await db
+          .select({ id: plans.id })
+          .from(plans)
+          .where(sql`lower(${plans.name}) = ${normalizedFallback}`)
+          .limit(1)
+
+        if (fallbackPlan?.id && fallbackPlan.id !== activePlanId) {
+          localRates = await fetchPlanRateCardsWithFallback(fallbackPlan.id)
+        }
       }
     }
 
@@ -1853,14 +1924,49 @@ export const fetchAvailableCouriersWithRates = async (
     })
 
     // ✅ Final filter: Ensure all couriers have correct business_type
-    if (isCalculator && !combined.length) {
-      combined = buildRateCardOnlyCourierOptions()
-      if (combined.length) {
-        console.log('[RateCalculator] Using rate-card fallback options', {
-          origin: params.origin,
-          destination: params.destination,
-          count: combined.length,
+    if (isCalculator) {
+      const rateCardOptions = buildRateCardOnlyCourierOptions()
+      if (rateCardOptions.length) {
+        const existingKeys = new Set(
+          combined.map((courier: any) =>
+            courier.courier_option_key ||
+            makeCourierIdentityKey({
+              id: courier.id,
+              integration_type: courier.integration_type || courier.serviceProvider || null,
+              serviceProvider: courier.serviceProvider || null,
+              max_slab_weight: courier.max_slab_weight ?? null,
+            }),
+          ),
+        )
+        const supplementalOptions = rateCardOptions.filter((courier: any) => {
+          const key =
+            courier.courier_option_key ||
+            makeCourierIdentityKey({
+              id: courier.id,
+              integration_type: courier.integration_type || courier.serviceProvider || null,
+              serviceProvider: courier.serviceProvider || null,
+              max_slab_weight: courier.max_slab_weight ?? null,
+            })
+          if (existingKeys.has(key)) return false
+          existingKeys.add(key)
+          return true
         })
+
+        if (supplementalOptions.length) {
+          combined = [...combined, ...supplementalOptions]
+          console.log('[RateCalculator] Added rate-card supplemental options', {
+            origin: params.origin,
+            destination: params.destination,
+            count: supplementalOptions.length,
+          })
+        } else if (!combined.length) {
+          combined = rateCardOptions
+          console.log('[RateCalculator] Using rate-card fallback options', {
+            origin: params.origin,
+            destination: params.destination,
+            count: combined.length,
+          })
+        }
       }
     }
 
@@ -1994,6 +2100,14 @@ export const fetchAvailableCouriersWithRatesB2B = async (
       return undefined
     }
 
+    const normalizeB2BWeightToKg = (value: unknown): number => {
+      const numericValue = Number(value ?? 0)
+      if (!Number.isFinite(numericValue) || numericValue <= 0) return 0
+      return numericValue > 50 ? numericValue / 1000 : numericValue
+    }
+
+    const inputWeightKg = normalizeB2BWeightToKg(params.weight)
+
     // Step 1: Get origin zone from pickupId
     let originPincode: string | undefined = undefined
     let originZoneId: string | null = null
@@ -2109,40 +2223,56 @@ export const fetchAvailableCouriersWithRatesB2B = async (
 
     // Fetch zone-to-zone rates for all enabled couriers
     const effectiveDate = new Date()
-    const rateConditions: any[] = [
-      eq(b2bZoneToZoneRates.origin_zone_id, originZoneId),
-      eq(b2bZoneToZoneRates.destination_zone_id, destinationZoneId),
-      eq(b2bZoneToZoneRates.is_active, true),
-      or(
-        isNull(b2bZoneToZoneRates.effective_from),
-        lte(b2bZoneToZoneRates.effective_from, effectiveDate),
-      ),
-      or(
-        isNull(b2bZoneToZoneRates.effective_to),
-        gte(b2bZoneToZoneRates.effective_to, effectiveDate),
-      ),
-    ]
+    const fetchZoneToZoneRatesForPlan = async (planId: string | null | undefined) => {
+      const rateConditions: any[] = [
+        eq(b2bZoneToZoneRates.origin_zone_id, originZoneId),
+        eq(b2bZoneToZoneRates.destination_zone_id, destinationZoneId),
+        eq(b2bZoneToZoneRates.is_active, true),
+        or(
+          isNull(b2bZoneToZoneRates.effective_from),
+          lte(b2bZoneToZoneRates.effective_from, effectiveDate),
+        ),
+        or(
+          isNull(b2bZoneToZoneRates.effective_to),
+          gte(b2bZoneToZoneRates.effective_to, effectiveDate),
+        ),
+      ]
 
-    // Filter by plan if available
-    if (activePlanId) {
-      rateConditions.push(
-        or(eq(b2bZoneToZoneRates.plan_id, activePlanId), isNull(b2bZoneToZoneRates.plan_id)),
-      )
-    } else {
-      rateConditions.push(isNull(b2bZoneToZoneRates.plan_id))
+      if (planId) {
+        rateConditions.push(
+          or(eq(b2bZoneToZoneRates.plan_id, planId), isNull(b2bZoneToZoneRates.plan_id)),
+        )
+      } else {
+        rateConditions.push(isNull(b2bZoneToZoneRates.plan_id))
+      }
+
+      return db
+        .select({
+          id: b2bZoneToZoneRates.id,
+          courierId: b2bZoneToZoneRates.courier_id,
+          serviceProvider: b2bZoneToZoneRates.service_provider,
+          ratePerKg: b2bZoneToZoneRates.rate_per_kg,
+          volumetricFactor: b2bZoneToZoneRates.volumetric_factor,
+        })
+        .from(b2bZoneToZoneRates)
+        .where(and(...rateConditions))
+        .orderBy(desc(b2bZoneToZoneRates.effective_from))
     }
 
-    const zoneToZoneRates = await db
-      .select({
-        id: b2bZoneToZoneRates.id,
-        courierId: b2bZoneToZoneRates.courier_id,
-        serviceProvider: b2bZoneToZoneRates.service_provider,
-        ratePerKg: b2bZoneToZoneRates.rate_per_kg,
-        volumetricFactor: b2bZoneToZoneRates.volumetric_factor,
-      })
-      .from(b2bZoneToZoneRates)
-      .where(and(...rateConditions))
-      .orderBy(desc(b2bZoneToZoneRates.effective_from))
+    let zoneToZoneRates = await fetchZoneToZoneRatesForPlan(activePlanId)
+
+    if (!zoneToZoneRates.length && planFallbackName) {
+      const normalizedFallback = planFallbackName.toLowerCase()
+      const [fallbackPlan] = await db
+        .select({ id: plans.id })
+        .from(plans)
+        .where(sql`lower(${plans.name}) = ${normalizedFallback}`)
+        .limit(1)
+
+      if (fallbackPlan?.id && fallbackPlan.id !== activePlanId) {
+        zoneToZoneRates = await fetchZoneToZoneRatesForPlan(fallbackPlan.id)
+      }
+    }
 
     // Step 6: Build courier list with rates
     const courierMap = new Map<number, any>()
@@ -2182,10 +2312,15 @@ export const fetchAvailableCouriersWithRatesB2B = async (
 
       // Add rate to courier
       const courier = courierMap.get(rate.courierId)!
+      const ratePerKg = Number(rate.ratePerKg ?? 0)
+      const freight = inputWeightKg > 0 && ratePerKg > 0 ? ratePerKg * inputWeightKg : ratePerKg
       courier.localRates.forward = {
-        ratePerKg: rate.ratePerKg,
-        volumetricFactor: rate.volumetricFactor,
+        rate: freight,
+        ratePerKg,
+        volumetricFactor: Number(rate.volumetricFactor ?? 5000),
       }
+      courier.rate = freight
+      courier.chargeable_weight = inputWeightKg > 0 ? Math.round(inputWeightKg * 1000) : null
     }
 
     // Step 7: Convert map to array and filter couriers with rates

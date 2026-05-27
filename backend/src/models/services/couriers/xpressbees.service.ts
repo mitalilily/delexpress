@@ -45,6 +45,20 @@ export type XpressbeesShipmentResponse = {
 }
 
 export class XpressbeesService {
+  private normalizeEndpoint(value: string | undefined, fallback: string, fallbackBase?: string) {
+    const normalized = String(value || '').trim()
+    if (!normalized) return fallback
+    if (/^https?:\/\//i.test(normalized)) return normalized.replace(/\/+$/, '')
+
+    const base = String(fallbackBase || fallback).trim()
+    const baseUrl = /^https?:\/\//i.test(base)
+      ? base
+      : fallback
+    const parsedBase = new URL(baseUrl)
+    const baseOrigin = `${parsedBase.protocol}//${parsedBase.host}`
+    return `${baseOrigin}/${normalized.replace(/^\/+/, '')}`.replace(/\/+$/, '')
+  }
+
   private baseApi =
     process.env.XPRESSBEES_API_BASE ||
     'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward'
@@ -60,13 +74,23 @@ export class XpressbeesService {
   private businessFlow = process.env.XPRESSBEES_BUSINESS_FLOW || 'NDD'
   private businessService = process.env.XPRESSBEES_BUSINESS_SERVICE || 'NDD'
   private tokenEndpoint =
-    process.env.XPRESSBEES_TOKEN_ENDPOINT || 'https://userauthapis.xbees.in/api/auth/generateToken'
+    this.normalizeEndpoint(
+      process.env.XPRESSBEES_TOKEN_ENDPOINT,
+      'https://userauthapis.xbees.in/api/auth/generateToken',
+      process.env.XPRESSBEES_AUTH_BASE || process.env.XPRESSBEES_API_BASE || 'https://userauthapis.xbees.in',
+    )
   private serviceabilityEndpoint =
-    process.env.XPRESSBEES_SERVICEABILITY_ENDPOINT ||
-    'https://xbmasterapi.xbees.in/expose/get/serviceabilitypincode/details'
+    this.normalizeEndpoint(
+      process.env.XPRESSBEES_SERVICEABILITY_ENDPOINT,
+      'https://xbmasterapi.xbees.in/expose/get/serviceabilitypincode/details',
+      process.env.XPRESSBEES_SERVICEABILITY_BASE || 'https://xbmasterapi.xbees.in',
+    )
   private shipmentEndpoint =
-    process.env.XPRESSBEES_SHIPMENT_ENDPOINT ||
-    'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward'
+    this.normalizeEndpoint(
+      process.env.XPRESSBEES_SHIPMENT_ENDPOINT,
+      'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward',
+      process.env.XPRESSBEES_SHIPMENT_BASE || 'https://apishipmentmanifestation.xbees.in',
+    )
   private reverseShipmentEndpoint =
     process.env.XPRESSBEES_REVERSE_SHIPMENT_ENDPOINT || '/api/reverseshipments'
   private trackingSummaryEndpoint =
@@ -377,48 +401,24 @@ export class XpressbeesService {
       Accept: 'application/json',
       ...(this.secretKey ? { secretkey: this.secretKey, 'Secret-Key': this.secretKey } : {}),
       ...(this.xbKey ? { xbkey: this.xbKey, 'XB-Key': this.xbKey } : {}),
-      ...(this.businessUnit
-        ? {
-            BusinessUnit: this.businessUnit,
-            businessUnit: this.businessUnit,
-            businessunit: this.businessUnit,
-          }
-        : {}),
+      ...(this.businessUnit ? { BusinessUnit: this.businessUnit } : {}),
     }
   }
 
   private buildBusinessUnitFields() {
-    return this.businessUnit
-      ? {
-          BusinessUnit: this.businessUnit,
-          businessUnit: this.businessUnit,
-          businessunit: this.businessUnit,
-        }
-      : {}
+    return this.businessUnit ? { BusinessUnit: this.businessUnit } : {}
   }
 
   private buildBusinessFlowFields(flowOverride?: string | null) {
     const normalizedFlow = this.normalizeServiceType(flowOverride || this.businessFlow || 'NDD')
-    return normalizedFlow
-      ? {
-          BusinessFlow: normalizedFlow,
-          businessFlow: normalizedFlow,
-          businessflow: normalizedFlow,
-        }
-      : {}
+    return normalizedFlow ? { BusinessFlow: normalizedFlow } : {}
   }
 
   private buildBusinessServiceFields(serviceOverride?: string | null) {
     const normalizedService = this.normalizeServiceType(
       serviceOverride || this.businessService || this.businessFlow || 'NDD',
     )
-    return normalizedService
-      ? {
-          BusinessService: normalizedService,
-          businessService: normalizedService,
-          businessservice: normalizedService,
-        }
-      : {}
+    return normalizedService ? { BusinessService: normalizedService } : {}
   }
 
   private buildEndpoint(path: string): string {
@@ -730,6 +730,14 @@ export class XpressbeesService {
 
   private async persistGeneratedToken(token: string) {
     try {
+      if (token.length > 255) {
+        this.log('Generated API token not persisted', {
+          reason: 'token exceeds courier_credentials.api_key length',
+          tokenLength: token.length,
+        })
+        return
+      }
+
       await db
         .update(courier_credentials)
         .set({
@@ -741,7 +749,10 @@ export class XpressbeesService {
         tokenPreview: `${token.slice(0, 4)}...${token.slice(-4)}`,
       })
     } catch (err: any) {
-      this.log('Token persist skipped', err?.message || err)
+      this.log('Token persist skipped', {
+        message: err?.message || String(err),
+        code: err?.code || err?.cause?.code || null,
+      })
     }
   }
 
@@ -798,7 +809,7 @@ export class XpressbeesService {
           this.log('Auth attempt', {
             url: requestUrl,
             payloadKeys: Object.keys(body),
-            login: this.username,
+            hasLogin: Boolean(this.username),
           })
           const res = await axios.post(requestUrl, body, {
             timeout: 20000,
@@ -837,7 +848,7 @@ export class XpressbeesService {
             await this.persistGeneratedToken(token)
             this.log('Generated API token via login credentials', {
               endpoint,
-              login: this.username,
+              hasLogin: Boolean(this.username),
             })
             return token
           }
@@ -893,26 +904,64 @@ export class XpressbeesService {
       method: 'post',
       pathCandidates: [this.serviceabilityEndpoint],
       data: {
-        ...payload,
         ...this.buildBusinessUnitFields(),
         ...this.buildBusinessFlowFields(),
         ...this.buildBusinessServiceFields(),
       },
     })
-    const records = Array.isArray(raw?.data) ? raw.data : []
+    const records: XpressbeesServiceabilityRecord[] = Array.isArray(raw?.data) ? raw.data : []
     const status = raw?.status === true
     const validationMessages = this.extractValidationMessages(raw?.ReturnMessage)
+
+    const recordMatchesPincode = (record: XpressbeesServiceabilityRecord, pincode: string) => {
+      const normalized = String(pincode || '').trim()
+      if (!normalized) return false
+      const values = [
+        record?.pincode,
+        record?.pin_code,
+        record?.pinCode,
+        record?.Pincode,
+        record?.PinCode,
+        record?.destination_pincode,
+        record?.destinationPincode,
+        record?.serviceable_pincode,
+        record?.serviceablePincode,
+      ]
+      return values.some((value) => String(value || '').trim() === normalized)
+    }
+
+    const hasOrigin = records.some((record) => recordMatchesPincode(record, payload.origin))
+    const hasDestination = records.some((record) =>
+      recordMatchesPincode(record, payload.destination),
+    )
+    const hasPincodeScopedData = records.some((record) =>
+      [
+        record?.pincode,
+        record?.pin_code,
+        record?.pinCode,
+        record?.Pincode,
+        record?.PinCode,
+        record?.destination_pincode,
+        record?.destinationPincode,
+        record?.serviceable_pincode,
+        record?.serviceablePincode,
+      ].some((value) => String(value || '').trim()),
+    )
 
     this.log('Serviceability', {
       origin: payload.origin,
       destination: payload.destination,
       status,
       records: records.length,
+      hasOrigin,
+      hasDestination,
       validationMessages,
     })
 
+    const serviceable = status && records.length > 0 && (!hasPincodeScopedData || (hasOrigin && hasDestination))
+
     return {
-      serviceable: status && records.length > 0,
+      serviceable,
       records,
       codAvailable:
         payload.payment_type === 'prepaid'

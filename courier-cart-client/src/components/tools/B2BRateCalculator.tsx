@@ -3,15 +3,38 @@ import { useFormContext } from 'react-hook-form'
 import CustomInput from '../UI/inputs/CustomInput'
 
 export default function B2BRateCalculator() {
-  const { register } = useFormContext()
+  const {
+    register,
+    formState: { errors },
+  } = useFormContext()
 
   return (
     <Grid container spacing={2}>
       <Grid size={6}>
-        <CustomInput label="Total Weight (kg)" {...register('totalWeight')} fullWidth />
+        <CustomInput
+          label="Total Weight (kg)"
+          type="number"
+          {...register('totalWeight', {
+            required: 'Total weight is required',
+            min: { value: 0.1, message: 'Weight must be greater than 0' },
+          })}
+          error={!!errors.totalWeight}
+          helperText={errors.totalWeight?.message as string}
+          fullWidth
+        />
       </Grid>
       <Grid size={6}>
-        <CustomInput label="Number of Boxes" {...register('numberOfBoxes')} fullWidth />
+        <CustomInput
+          label="Number of Boxes"
+          type="number"
+          {...register('numberOfBoxes', {
+            required: 'Number of boxes is required',
+            min: { value: 1, message: 'At least 1 box is required' },
+          })}
+          error={!!errors.numberOfBoxes}
+          helperText={errors.numberOfBoxes?.message as string}
+          fullWidth
+        />
       </Grid>
     </Grid>
   )

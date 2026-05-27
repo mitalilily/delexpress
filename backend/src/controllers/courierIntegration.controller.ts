@@ -198,6 +198,8 @@ export const fetchAvailableCouriers = async (req: Request, res: Response) => {
       breadth,
       height,
       shipment_type,
+      number_of_boxes,
+      numberOfBoxes,
     } = req.body
     if (!origin || !destination) {
       return res.status(400).json({
@@ -233,6 +235,7 @@ export const fetchAvailableCouriers = async (req: Request, res: Response) => {
         length: Number(length),
         breadth: Number(breadth),
         height: Number(height),
+        number_of_boxes: Number(number_of_boxes ?? numberOfBoxes ?? 0) || undefined,
         ...serviceabilityOptions,
       },
       courierOptions,
@@ -247,7 +250,17 @@ export const fetchAvailableCouriers = async (req: Request, res: Response) => {
 
 export const fetchAvailableCouriersForGuestController = async (req: Request, res: Response) => {
   try {
-    const { origin, destination, payment_type, weight, length, breadth, height } = req.body
+    const {
+      origin,
+      destination,
+      payment_type,
+      weight,
+      length,
+      breadth,
+      height,
+      shipment_type,
+      isCalculator,
+    } = req.body
 
     // Validate required fields
     if (!origin || !destination) {
@@ -333,6 +346,8 @@ export const fetchAvailableCouriersForGuestController = async (req: Request, res
       length: lengthNum,
       breadth: breadthNum,
       height: heightNum,
+      shipment_type: shipment_type || 'b2c',
+      isCalculator: isCalculator === true,
     })
 
     return res.json({ success: true, data: couriers ?? [] })
@@ -353,6 +368,8 @@ export const fetchAvailableCouriersToUser = async (req: Request, res: Response) 
       breadth,
       height,
       shipment_type,
+      number_of_boxes,
+      numberOfBoxes,
     } = req.body
     if (!origin || !destination) {
       return res.status(400).json({
@@ -383,6 +400,7 @@ export const fetchAvailableCouriersToUser = async (req: Request, res: Response) 
       length: Number(length),
       breadth: Number(breadth),
       height: Number(height),
+      number_of_boxes: Number(number_of_boxes ?? numberOfBoxes ?? 0) || undefined,
       ...serviceabilityOptions,
     }
 

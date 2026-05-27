@@ -1,5 +1,6 @@
 import {
   alpha,
+  Box,
   CardContent,
   CircularProgress,
   Divider,
@@ -129,17 +130,22 @@ export function RateCalculator() {
     setHasCalculated(true)
     try {
       // convert to numbers
-      const length = Number(formData.length) || 0
-      const breadth = Number(formData.breadth) || 0
-      const height = Number(formData.height) || 0
-      const actualWeightKg = Number(formData.weight) || 0 // kg from UI
+      const isB2B = shipmentType === 'b2b'
+      const length = isB2B ? 0 : Number(formData.length) || 0
+      const breadth = isB2B ? 0 : Number(formData.breadth) || 0
+      const height = isB2B ? 0 : Number(formData.height) || 0
+      const actualWeightKg = isB2B
+        ? Number(formData.totalWeight) || 0
+        : Number(formData.weight) || 0
 
       // volumetric weight in grams
-      const volumetricWeightGrams = ((length * breadth * height) / 5000) * 1000
+      const volumetricWeightGrams = isB2B ? 0 : ((length * breadth * height) / 5000) * 1000
       // convert actual weight from kg → grams
       const actualWeightGrams = actualWeightKg * 1000
       // applicable weight in grams (freeze min 500g)
-      const applicableWeightGrams = Math.max(actualWeightGrams, volumetricWeightGrams, 500)
+      const applicableWeightGrams = isB2B
+        ? Math.max(actualWeightGrams, 1)
+        : Math.max(actualWeightGrams, volumetricWeightGrams, 500)
 
       const orderAmountValue = Number(formData.orderAmount || 0)
 
@@ -152,6 +158,7 @@ export function RateCalculator() {
         length,
         breadth,
         height,
+        numberOfBoxes: Number(formData.numberOfBoxes) || undefined,
         orderAmount: orderAmountValue > 0 ? orderAmountValue : undefined,
         shipmentType: shipmentType,
         payment_type: formData?.paymentType,
@@ -442,11 +449,13 @@ export function RateCalculator() {
           Failed to fetch couriers: {error?.message ?? 'Unknown error'}
         </Typography>
       ) : !isPending && hasCalculated ? (
-        <CourierRateCards
-          shipmentType={watch('paymentType')}
-          availableCouriers={availableCouriers}
-          defaultLogo={defaultLogo}
-        />
+        <Box ref={couriersRef}>
+          <CourierRateCards
+            shipmentType={watch('paymentType')}
+            availableCouriers={availableCouriers}
+            defaultLogo={defaultLogo}
+          />
+        </Box>
       ) : null}
 
       <Divider />

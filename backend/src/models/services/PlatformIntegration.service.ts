@@ -6,6 +6,7 @@ import { stores } from '../schema/stores'
 
 const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-01'
 const SHOPIFY_WEBHOOK_TOPICS = ['orders/create', 'orders/updated', 'orders/cancelled'] as const
+const EXPRESSOPRO_API_BASE_URL = 'https://api.expressopro.in'
 
 interface UpsertShopifySettingsMetafieldParams {
   storeUrl: string // mystore.myshopify.com
@@ -113,13 +114,25 @@ const formatShopifyAxiosError = (error: any) => {
   return status ? `Shopify returned ${status}: ${message}` : message
 }
 
-const resolveWebhookAddress = () => {
-  const baseUrl = String(process.env.API_URL || '')
-    .trim()
-    .replace(/\/+$/, '')
-  if (!baseUrl) {
-    throw new Error('API_URL is not configured for Shopify webhook registration')
+const resolveExpressoproApiBaseUrl = () => {
+  const rawBaseUrl = String(
+    process.env.SHOPIFY_WEBHOOK_BASE_URL || process.env.API_URL || EXPRESSOPRO_API_BASE_URL,
+  ).trim()
+  const valueWithProtocol = /^[a-z][a-z\d+\-.]*:\/\//i.test(rawBaseUrl)
+    ? rawBaseUrl
+    : `https://${rawBaseUrl}`
+
+  try {
+    const parsed = new URL(valueWithProtocol)
+    const path = parsed.pathname.replace(/\/+$/, '').replace(/\/api$/i, '')
+    return `${parsed.origin}${path}`.replace(/\/+$/, '')
+  } catch {
+    return EXPRESSOPRO_API_BASE_URL
   }
+}
+
+const resolveWebhookAddress = () => {
+  const baseUrl = resolveExpressoproApiBaseUrl()
   return `${baseUrl}/api/webhook/shopify/orders`
 }
 
