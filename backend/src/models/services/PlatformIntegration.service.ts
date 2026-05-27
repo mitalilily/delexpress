@@ -20,15 +20,32 @@ interface UpsertShopifySettingsMetafieldParams {
 
 export type ShopifyAuthMode = 'access_token' | 'basic'
 
-export const normalizeShopifyCredential = (value?: string | null) => {
-  let credential = String(value || '').trim()
-  credential = credential.replace(/^['"]|['"]$/g, '').trim()
-  credential = credential.replace(/^Bearer\s+/i, '').trim()
-  credential = credential.replace(/^X-Shopify-Access-Token\s*:\s*/i, '').trim()
-  credential = credential.replace(/^Admin API Access Token\s*:\s*/i, '').trim()
-  credential = credential.replace(/^Admin API Password\s*:\s*/i, '').trim()
-  credential = credential.replace(/^API Key\s*:\s*/i, '').trim()
-  return credential
+type ShopifyCredentialCandidate = {
+  label: string
+  authMode: ShopifyAuthMode
+  apiKey?: string
+  accessToken: string
+}
+
+export const normalizeShopifyCredential = (value?: string | null): string => {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+
+  const adminTokenMatch = raw.match(/\bshpat_[A-Za-z0-9_-]+\b/i)
+  if (adminTokenMatch?.[0]) return adminTokenMatch[0].trim()
+
+  const bearerMatch = raw.match(/\bBearer\s+([A-Za-z0-9._:-]+)/i)
+  if (bearerMatch?.[1]) return normalizeShopifyCredential(bearerMatch[1])
+
+  const labelledMatch = raw.match(
+    /\b(?:X-Shopify-Access-Token|Admin API Access Token|Admin API Password|API Key|Access Token|Password|Token)\s*[:=]\s*['"]?([^'",;\s]+)/i,
+  )
+  if (labelledMatch?.[1]) return normalizeShopifyCredential(labelledMatch[1])
+
+  return raw
+    .replace(/^['"`]+|['"`,;]+$/g, '')
+    .replace(/\s+/g, '')
+    .trim()
 }
 
 export const normalizeShopifyAuthMode = (
@@ -67,6 +84,112 @@ export const buildShopifyRequestConfig = ({
   }
 }
 
+const extractShopifyUrlCredentials = (storeUrl: string) => {
+  const rawStoreUrl = String(storeUrl || '').trim()
+  if (!rawStoreUrl) return null
+
+  const valueWithProtocol = /^[a-z][a-z\d+\-.]*:\/\//i.test(rawStoreUrl)
+    ? rawStoreUrl
+    : `https://${rawStoreUrl}`
+
+  try {
+    const parsed = new URL(valueWithProtocol)
+    const apiKey = normalizeShopifyCredential(decodeURIComponent(parsed.username || ''))
+    const accessToken = normalizeShopifyCredential(decodeURIComponent(parsed.password || ''))
+    return apiKey && accessToken ? { apiKey, accessToken } : null
+  } catch {
+    return null
+  }
+}
+
+const extractColonCredentials = (value?: string | null) => {
+  const raw = String(value || '').trim()
+  const match = raw.match(/^([^:\s]+):([^@\s]+)$/)
+  if (!match) return null
+
+  const apiKey = normalizeShopifyCredential(match[1])
+  const accessToken = normalizeShopifyCredential(match[2])
+  return apiKey && accessToken ? { apiKey, accessToken } : null
+}
+
+const getShopifyCredentialCandidates = ({
+  storeUrl,
+  apiKey,
+  adminApiAccessToken,
+}: {
+  storeUrl: string
+  apiKey?: string | null
+  adminApiAccessToken?: string | null
+}) => {
+  const token = normalizeShopifyCredential(adminApiAccessToken)
+  const key = normalizeShopifyCredential(apiKey)
+  const urlCredentials = extractShopifyUrlCredentials(storeUrl)
+  const tokenColonCredentials = extractColonCredentials(adminApiAccessToken)
+  const keyColonCredentials = extractColonCredentials(apiKey)
+  const candidates: ShopifyCredentialCandidate[] = []
+  const seen = new Set<string>()
+
+  const addCandidate = (candidate: ShopifyCredentialCandidate) => {
+    const normalizedToken = normalizeShopifyCredential(candidate.accessToken)
+    const normalizedApiKey = normalizeShopifyCredential(candidate.apiKey)
+    const authMode = normalizeShopifyAuthMode(candidate.authMode)
+
+    if (!normalizedToken) return
+    if (authMode === 'basic' && !normalizedApiKey) return
+
+    const dedupeKey = `${authMode}:${normalizedApiKey}:${normalizedToken}`
+    if (seen.has(dedupeKey)) return
+    seen.add(dedupeKey)
+    candidates.push({
+      label: candidate.label,
+      authMode,
+      apiKey: normalizedApiKey,
+      accessToken: normalizedToken,
+    })
+  }
+
+  addCandidate({ label: 'admin-access-token', authMode: 'access_token', accessToken: token })
+
+  if (/^shpat_/i.test(key)) {
+    addCandidate({ label: 'api-key-field-as-access-token', authMode: 'access_token', accessToken: key })
+  }
+
+  addCandidate({ label: 'api-key-basic-auth', authMode: 'basic', apiKey: key, accessToken: token })
+
+  if (urlCredentials) {
+    addCandidate({
+      label: 'store-url-basic-auth',
+      authMode: 'basic',
+      apiKey: urlCredentials.apiKey,
+      accessToken: urlCredentials.accessToken,
+    })
+  }
+
+  if (tokenColonCredentials) {
+    addCandidate({
+      label: 'token-field-basic-auth',
+      authMode: 'basic',
+      apiKey: tokenColonCredentials.apiKey,
+      accessToken: tokenColonCredentials.accessToken,
+    })
+  }
+
+  if (keyColonCredentials) {
+    addCandidate({
+      label: 'api-key-field-basic-auth',
+      authMode: 'basic',
+      apiKey: keyColonCredentials.apiKey,
+      accessToken: keyColonCredentials.accessToken,
+    })
+  }
+
+  if (key && token) {
+    addCandidate({ label: 'swapped-basic-auth', authMode: 'basic', apiKey: token, accessToken: key })
+  }
+
+  return candidates
+}
+
 /**
  * Connects Shopify store using provided credentials
  * @param storeUrl Shopify store URL
@@ -80,37 +203,41 @@ export const integrateWithShopify = async (
   adminApiAccessToken: string,
 ) => {
   const normalizedDomain = assertValidShopifyDomain(storeUrl)
-  const token = normalizeShopifyCredential(adminApiAccessToken)
-  const normalizedApiKey = normalizeShopifyCredential(apiKey)
+  const candidates = getShopifyCredentialCandidates({ storeUrl, apiKey, adminApiAccessToken })
 
-  if (!token) {
+  if (!candidates.length) {
     throw new Error('Shopify Admin API access token is required')
   }
 
   const shopifyApiUrl = `https://${normalizedDomain}/admin/api/${SHOPIFY_API_VERSION}/shop.json`
 
   try {
-    let shopifyAuthMode: ShopifyAuthMode = 'access_token'
+    let successfulCandidate: ShopifyCredentialCandidate | null = null
     let response: any
+    let lastError: any
 
-    try {
-      response = await axios.get(shopifyApiUrl, {
-        ...buildShopifyRequestConfig({ accessToken: token, authMode: 'access_token' }),
-        timeout: 30000,
-      })
-    } catch (error: any) {
-      if (error?.response?.status !== 401 || !normalizedApiKey) throw error
+    for (const candidate of candidates) {
+      try {
+        response = await axios.get(shopifyApiUrl, {
+          ...buildShopifyRequestConfig(candidate),
+          timeout: 30000,
+        })
+        successfulCandidate = candidate
+        break
+      } catch (error: any) {
+        lastError = error
+        const status = error?.response?.status
+        console.warn(
+          `Shopify auth attempt failed (${candidate.label}) for ${normalizedDomain}: ${
+            status || error?.message || 'unknown error'
+          }`,
+        )
+        if (status !== 401) throw error
+      }
+    }
 
-      console.warn('Shopify access-token auth failed; retrying with API key basic auth')
-      response = await axios.get(shopifyApiUrl, {
-        ...buildShopifyRequestConfig({
-          apiKey: normalizedApiKey,
-          accessToken: token,
-          authMode: 'basic',
-        }),
-        timeout: 30000,
-      })
-      shopifyAuthMode = 'basic'
+    if (!response || !successfulCandidate) {
+      throw lastError || new Error('Shopify authentication failed')
     }
 
     const shop = response.data?.shop
@@ -122,7 +249,9 @@ export const integrateWithShopify = async (
 
     return {
       ...response.data,
-      shopifyAuthMode,
+      shopifyAuthMode: successfulCandidate.authMode,
+      shopifyApiKey: successfulCandidate.apiKey || '',
+      shopifyAdminApiAccessToken: successfulCandidate.accessToken,
       shop: {
         ...shop,
         domain: myshopifyDomain,
@@ -131,8 +260,14 @@ export const integrateWithShopify = async (
       },
     }
   } catch (error: any) {
-    console.error('Shopify API Error:', formatShopifyAxiosError(error))
-    throw new Error(formatShopifyAxiosError(error))
+    const formattedError = formatShopifyAxiosError(error)
+    console.error('Shopify API Error:', formattedError)
+    if (error?.response?.status === 401) {
+      throw new Error(
+        `${formattedError}. Shopify rejected every supported credential format for ${normalizedDomain}. Use the Admin API access token from the installed custom app for this exact myshopify.com store. Modern tokens usually start with shpat_. Legacy private apps must include both API key and API password.`,
+      )
+    }
+    throw new Error(formattedError)
   }
 }
 

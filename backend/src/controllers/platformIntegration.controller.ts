@@ -95,7 +95,16 @@ export const integrateShopifyStore = async (
     storeUrl,
     domain,
     apiKey,
+    api_key,
+    clientId,
+    client_id,
     adminApiAccessToken,
+    adminAccessToken,
+    accessToken,
+    token,
+    password,
+    apiPassword,
+    adminApiPassword,
     webhookSecret,
     shopifyWebhookSecret,
     apiSecret,
@@ -128,9 +137,15 @@ export const integrateShopifyStore = async (
     const effectiveStoreUrl = normalizeShopifyDomain(
       firstNonBlank(storeUrl, domain, storeForUpdate?.domain)
     );
-    const effectiveApiKey = firstNonBlank(apiKey, storeForUpdate?.apiKey);
+    const effectiveApiKey = firstNonBlank(apiKey, api_key, clientId, client_id, storeForUpdate?.apiKey);
     const effectiveAdminApiAccessToken = firstNonBlank(
       adminApiAccessToken,
+      adminAccessToken,
+      accessToken,
+      token,
+      apiPassword,
+      adminApiPassword,
+      password,
       storeForUpdate?.adminApiAccessToken
     );
     const effectiveWebhookSecret = firstNonBlank(
@@ -143,7 +158,9 @@ export const integrateShopifyStore = async (
 
     const missingFields: string[] = [];
     if (!effectiveStoreUrl) missingFields.push("Shopify store URL");
-    if (!effectiveAdminApiAccessToken) missingFields.push("Admin API access token");
+    if (!firstNonBlank(effectiveAdminApiAccessToken, effectiveApiKey)) {
+      missingFields.push("Admin API access token");
+    }
 
     if (missingFields.length) {
       return res.status(400).json({
@@ -163,6 +180,11 @@ export const integrateShopifyStore = async (
 
     const storeId = String(shopifyData.shop.id);
     const shopifyAuthMode = shopifyData.shopifyAuthMode || "access_token";
+    const resolvedApiKey = firstNonBlank(shopifyData.shopifyApiKey, effectiveApiKey);
+    const resolvedAdminApiAccessToken = firstNonBlank(
+      shopifyData.shopifyAdminApiAccessToken,
+      effectiveAdminApiAccessToken
+    );
     if (requestedStoreId && requestedStoreId !== storeId) {
       return res.status(400).json({ error: "Shopify credentials do not match the selected store" });
     }
@@ -184,8 +206,8 @@ export const integrateShopifyStore = async (
         {
           ...shopifyData.shop,
           id: storeId,
-          apiKey: effectiveApiKey || "",
-          adminApiAccessToken: effectiveAdminApiAccessToken,
+          apiKey: resolvedApiKey || "",
+          adminApiAccessToken: resolvedAdminApiAccessToken,
           shopifyWebhookSecret: effectiveWebhookSecret || "",
           shopifyAuthMode,
         },
@@ -204,8 +226,8 @@ export const integrateShopifyStore = async (
       if (settings) {
         const settingsSync = await upsertShopifySettingsMetafield({
           storeUrl: shopifyData.shop.domain || effectiveStoreUrl,
-          accessToken: effectiveAdminApiAccessToken,
-          apiKey: effectiveApiKey,
+          accessToken: resolvedAdminApiAccessToken,
+          apiKey: resolvedApiKey,
           authMode: shopifyAuthMode,
           settings,
           id: storeId,
@@ -221,8 +243,8 @@ export const integrateShopifyStore = async (
       try {
         webhookStatus = await ensureShopifyOrderWebhooks({
           storeUrl: shopifyData.shop.domain || effectiveStoreUrl,
-          accessToken: effectiveAdminApiAccessToken,
-          apiKey: effectiveApiKey,
+          accessToken: resolvedAdminApiAccessToken,
+          apiKey: resolvedApiKey,
           authMode: shopifyAuthMode,
         })
       } catch (err: any) {
