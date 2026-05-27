@@ -143,9 +143,7 @@ export const integrateShopifyStore = async (
 
     const missingFields: string[] = [];
     if (!effectiveStoreUrl) missingFields.push("Shopify store URL");
-    if (!effectiveApiKey) missingFields.push("Shopify API key");
     if (!effectiveAdminApiAccessToken) missingFields.push("Admin API access token");
-    if (!effectiveWebhookSecret) missingFields.push("Webhook secret / API secret key");
 
     if (missingFields.length) {
       return res.status(400).json({
@@ -185,9 +183,9 @@ export const integrateShopifyStore = async (
         {
           ...shopifyData.shop,
           id: storeId,
-          apiKey: effectiveApiKey,
+          apiKey: effectiveApiKey || "",
           adminApiAccessToken: effectiveAdminApiAccessToken,
-          shopifyWebhookSecret: effectiveWebhookSecret,
+          shopifyWebhookSecret: effectiveWebhookSecret || "",
         },
         PLATFORMS.SHOPIFY,
         userId,
@@ -215,14 +213,19 @@ export const integrateShopifyStore = async (
 
     let webhookStatus: { address: string; subscribed: string[] } | null = null
     let webhookWarning: string | null = null
-    try {
-      webhookStatus = await ensureShopifyOrderWebhooks({
-        storeUrl: shopifyData.shop.domain || effectiveStoreUrl,
-        accessToken: effectiveAdminApiAccessToken,
-      })
-    } catch (err: any) {
-      console.warn('⚠️ Shopify webhook setup failed:', err?.response?.data || err?.message || err)
-      webhookWarning = 'Store connected, but Shopify webhooks could not be auto-configured'
+    if (effectiveWebhookSecret || process.env.SHOPIFY_WEBHOOK_SECRET) {
+      try {
+        webhookStatus = await ensureShopifyOrderWebhooks({
+          storeUrl: shopifyData.shop.domain || effectiveStoreUrl,
+          accessToken: effectiveAdminApiAccessToken,
+        })
+      } catch (err: any) {
+        console.warn('Shopify webhook setup failed:', err?.response?.data || err?.message || err)
+        webhookWarning = 'Store connected, but Shopify webhooks could not be auto-configured'
+      }
+    } else {
+      webhookWarning =
+        'Store connected. Add the Shopify API secret key later to enable webhook auto-sync.'
     }
 
     res.status(200).json({

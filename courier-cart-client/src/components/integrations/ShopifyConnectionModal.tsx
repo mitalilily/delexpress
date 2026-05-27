@@ -106,7 +106,7 @@ const ShopifyConnectionModal = ({
               How to get Shopify API credentials
             </Typography>
             <Typography variant="body2" color="text.secondary" mb={2}>
-              Follow these steps to get your Shopify Admin API access token and API key:
+              Follow these steps to get your Shopify Admin API access token:
             </Typography>
 
             <List dense>
@@ -133,7 +133,7 @@ const ShopifyConnectionModal = ({
                 { primary: '6. Install the app' },
                 {
                   primary: '7. Get your credentials',
-                  secondary: "You’ll find API key & Admin API token under 'API credentials'",
+                  secondary: "You’ll find the Admin API token under 'API credentials'",
                 },
               ].map((step, index) => (
                 <ListItem key={index}>
@@ -191,11 +191,11 @@ const ShopifyConnectionModal = ({
                 helpText="You can paste mystore.myshopify.com or a Shopify admin store URL"
               />
               <CustomInput
-                required={!isEditing}
+                required={false}
                 prefix={<BiKey />}
-                label="Shopify API Key"
+                label="Shopify API Key (optional)"
                 type="password"
-                placeholder={isEditing ? 'Leave blank to keep existing API key' : 'Enter your API Key'}
+                placeholder={isEditing ? 'Leave blank to keep existing API key' : 'Optional API key'}
                 value={shopifyDetails.apiKey}
                 onChange={(e) =>
                   setShopifyDetails((prev) => ({
@@ -223,11 +223,11 @@ const ShopifyConnectionModal = ({
                 helperText={inputErrors?.adminApiAccessToken}
               />
               <CustomInput
-                required={!isEditing}
+                required={false}
                 prefix={<BiKey />}
                 type="password"
-                label="Webhook Secret (API Secret Key)"
-                placeholder={isEditing ? 'Leave blank to keep existing secret' : 'Enter webhook signing secret'}
+                label="Webhook Secret / API Secret Key (optional)"
+                placeholder={isEditing ? 'Leave blank to keep existing secret' : 'Optional webhook signing secret'}
                 value={shopifyDetails.webhookSecret ?? ''}
                 onChange={(e) =>
                   setShopifyDetails((prev) => ({

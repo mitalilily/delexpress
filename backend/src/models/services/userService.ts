@@ -64,6 +64,40 @@ const DEFAULT_PROFILE: Omit<typeof schema.userProfiles.$inferInsert, 'userId' | 
   salesChannels: {},
   profileComplete: false,
 }
+
+const PLATFORM_DEFAULTS: Record<number, { name: string; slug: string }> = {
+  1: { name: 'Shopify', slug: 'shopify' },
+  2: { name: 'WooCommerce', slug: 'woocommerce' },
+  3: { name: 'Amazon', slug: 'amazon' },
+  4: { name: 'Magento', slug: 'magento' },
+  5: { name: 'Wix', slug: 'wix' },
+}
+
+const ensurePlatformRecord = async (platformId: number, tx: any = db) => {
+  const defaults = PLATFORM_DEFAULTS[platformId]
+
+  if (defaults) {
+    await tx
+      .insert(platforms)
+      .values({ id: platformId, ...defaults })
+      .onConflictDoUpdate({
+        target: platforms.id,
+        set: defaults,
+      })
+  }
+
+  const [platform] = await tx
+    .select({ slug: platforms.slug })
+    .from(platforms)
+    .where(eq(platforms.id, platformId))
+    .limit(1)
+
+  if (!platform?.slug) {
+    throw new Error('Invalid platformId: slug not found')
+  }
+
+  return platform
+}
 // ✅ Get user by phone
 
 export const findUserByPhone = async (phone: string) => {
@@ -283,14 +317,7 @@ export const updateUserChannelIntegration = async (
   tx: any = db,
 ) => {
   /* 1️⃣  Look up the platform slug */
-  const [platform] = await tx
-    .select({ slug: platforms.slug })
-    .from(platforms)
-    .where(eq(platforms.id, platformId))
-
-  if (!platform?.slug) {
-    throw new Error('Invalid platformId: slug not found')
-  }
+  const platform = await ensurePlatformRecord(platformId, tx)
 
   const [profile] = await tx
     .select({ userId: schema.userProfiles.userId })
@@ -346,6 +373,8 @@ export async function upsertStore(shopData: any, platformId: number, userId: str
     zip,
     ...rest,
   }
+
+  await ensurePlatformRecord(platformId, tx)
 
   const existing = await tx.select().from(stores).where(eq(stores.id, id)).limit(1)
 

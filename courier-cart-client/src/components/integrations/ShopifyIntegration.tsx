@@ -141,16 +141,8 @@ export default function ShopifyIntegration({
         "Enter a valid Shopify URL, such as mystore.myshopify.com";
     }
 
-    if (!shopifyDetails.apiKey.trim()) {
-      errors.apiKey = "API Key is required";
-    }
-
     if (!shopifyDetails.adminApiAccessToken.trim()) {
       errors.adminApiAccessToken = "Admin API Token is required";
-    }
-
-    if (!String(shopifyDetails.webhookSecret || "").trim()) {
-      errors.webhookSecret = "Webhook Secret is required";
     }
 
     // if (!shopifyDetails.hostName.trim()) {
