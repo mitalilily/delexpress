@@ -4,6 +4,7 @@ import { and, eq, or, sql } from 'drizzle-orm'
 import { db } from '../client'
 import { b2c_orders } from '../schema/b2cOrders'
 import { stores } from '../schema/stores'
+import { buildShopifyRequestConfig, normalizeShopifyAuthMode } from './PlatformIntegration.service'
 
 const SHOPIFY_PLATFORM_ID = 1
 const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-01'
@@ -294,12 +295,19 @@ const getStoreByDomain = async (domain: string, tx: any = db) => {
   return store as ShopifyStore | undefined
 }
 
+const getShopifyStoreAuthMode = (store: ShopifyStore) =>
+  normalizeShopifyAuthMode((store as any)?.metadata?.shopifyAuthMode || (store as any)?.metadata?.authMode)
+
+const buildShopifyStoreRequestConfig = (store: ShopifyStore) =>
+  buildShopifyRequestConfig({
+    apiKey: store.apiKey,
+    accessToken: String(store.adminApiAccessToken || ''),
+    authMode: getShopifyStoreAuthMode(store),
+  })
+
 const fetchShopifyOrders = async (store: ShopifyStore, limit = 50) => {
   const base = `https://${normalizeDomain(store.domain)}/admin/api/${SHOPIFY_API_VERSION}`
-  const headers = {
-    'X-Shopify-Access-Token': String(store.adminApiAccessToken || '').trim(),
-    'Content-Type': 'application/json',
-  }
+  const requestConfig = buildShopifyStoreRequestConfig(store)
   const targetLimit = Math.max(1, Math.min(Number(limit) || 50, 250))
   const orders: any[] = []
   let pageInfo: string | null = null
@@ -308,7 +316,7 @@ const fetchShopifyOrders = async (store: ShopifyStore, limit = 50) => {
     const remaining = targetLimit - orders.length
     const pageLimit = Math.min(remaining, 250)
     const res: any = await axios.get(`${base}/orders.json`, {
-      headers,
+      ...requestConfig,
       params: pageInfo ? { limit: pageLimit, page_info: pageInfo } : { status: 'any', limit: pageLimit },
       timeout: 30000,
     })
@@ -630,10 +638,7 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
   if (!store) return
   const settings = (store as any)?.settings || {}
   const base = `https://${normalizeDomain(store.domain)}/admin/api/${SHOPIFY_API_VERSION}`
-  const headers = {
-    'X-Shopify-Access-Token': String(store.adminApiAccessToken || '').trim(),
-    'Content-Type': 'application/json',
-  }
+  const requestConfig = buildShopifyStoreRequestConfig(store)
 
   const orderStatus = String(order?.order_status || '').toLowerCase()
 
@@ -648,12 +653,12 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
       } else {
       const [shopifyOrderRes, fulfillmentOrdersRes] = await Promise.all([
         axios.get(`${base}/orders/${shopifyOrderId}.json`, {
-          headers,
+          ...requestConfig,
           params: { fields: 'id,fulfillment_status' },
           timeout: 20000,
         }),
         axios.get(`${base}/orders/${shopifyOrderId}/fulfillment_orders.json`, {
-          headers,
+          ...requestConfig,
           timeout: 20000,
         }),
       ])
@@ -665,7 +670,7 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
       let existingFulfillments: any[] = []
       try {
         const fulfillmentRes = await axios.get(`${base}/orders/${shopifyOrderId}/fulfillments.json`, {
-          headers,
+          ...requestConfig,
           timeout: 20000,
         })
         existingFulfillments = Array.isArray(fulfillmentRes?.data?.fulfillments)
@@ -691,7 +696,7 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
               tracking_info: trackingInfo,
             },
           },
-          { headers, timeout: 20000 },
+          { ...requestConfig, timeout: 20000 },
         )
       }
 
@@ -713,7 +718,7 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
         }
 
         await axios.post(`${base}/fulfillments.json`, fulfillmentPayload, {
-          headers,
+          ...requestConfig,
           timeout: 20000,
         })
       }
@@ -742,7 +747,7 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
             tags: cleanTags.join(', '),
           },
         },
-        { headers, timeout: 20000 },
+        { ...requestConfig, timeout: 20000 },
       )
     }
 
@@ -750,7 +755,7 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
       await axios.post(
         `${base}/orders/${shopifyOrderId}/cancel.json`,
         { reason: 'other', email: false },
-        { headers, timeout: 20000 },
+        { ...requestConfig, timeout: 20000 },
       )
     }
 
@@ -771,7 +776,7 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
               currency: 'INR',
             },
           },
-          { headers, timeout: 20000 },
+          { ...requestConfig, timeout: 20000 },
         )
       }
     }

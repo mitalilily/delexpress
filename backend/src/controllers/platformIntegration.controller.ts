@@ -162,6 +162,7 @@ export const integrateShopifyStore = async (
     }
 
     const storeId = String(shopifyData.shop.id);
+    const shopifyAuthMode = shopifyData.shopifyAuthMode || "access_token";
     if (requestedStoreId && requestedStoreId !== storeId) {
       return res.status(400).json({ error: "Shopify credentials do not match the selected store" });
     }
@@ -186,6 +187,7 @@ export const integrateShopifyStore = async (
           apiKey: effectiveApiKey || "",
           adminApiAccessToken: effectiveAdminApiAccessToken,
           shopifyWebhookSecret: effectiveWebhookSecret || "",
+          shopifyAuthMode,
         },
         PLATFORMS.SHOPIFY,
         userId,
@@ -203,6 +205,8 @@ export const integrateShopifyStore = async (
         const settingsSync = await upsertShopifySettingsMetafield({
           storeUrl: shopifyData.shop.domain || effectiveStoreUrl,
           accessToken: effectiveAdminApiAccessToken,
+          apiKey: effectiveApiKey,
+          authMode: shopifyAuthMode,
           settings,
           id: storeId,
           tx,
@@ -218,6 +222,8 @@ export const integrateShopifyStore = async (
         webhookStatus = await ensureShopifyOrderWebhooks({
           storeUrl: shopifyData.shop.domain || effectiveStoreUrl,
           accessToken: effectiveAdminApiAccessToken,
+          apiKey: effectiveApiKey,
+          authMode: shopifyAuthMode,
         })
       } catch (err: any) {
         console.warn('Shopify webhook setup failed:', err?.response?.data || err?.message || err)

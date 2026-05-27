@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { AxiosRequestConfig } from 'axios'
 import { and, eq } from 'drizzle-orm'
 import { Request, Response } from 'express'
 import { db } from '../client'
@@ -11,9 +11,60 @@ const EXPRESSOPRO_API_BASE_URL = 'https://api.expressopro.in'
 interface UpsertShopifySettingsMetafieldParams {
   storeUrl: string // mystore.myshopify.com
   accessToken: string // Admin API token
+  apiKey?: string
+  authMode?: ShopifyAuthMode | string
   settings: Record<string, any> // Your custom settings
   id: string
   tx: any
+}
+
+export type ShopifyAuthMode = 'access_token' | 'basic'
+
+export const normalizeShopifyCredential = (value?: string | null) => {
+  let credential = String(value || '').trim()
+  credential = credential.replace(/^['"]|['"]$/g, '').trim()
+  credential = credential.replace(/^Bearer\s+/i, '').trim()
+  credential = credential.replace(/^X-Shopify-Access-Token\s*:\s*/i, '').trim()
+  credential = credential.replace(/^Admin API Access Token\s*:\s*/i, '').trim()
+  credential = credential.replace(/^Admin API Password\s*:\s*/i, '').trim()
+  credential = credential.replace(/^API Key\s*:\s*/i, '').trim()
+  return credential
+}
+
+export const normalizeShopifyAuthMode = (
+  authMode?: ShopifyAuthMode | string | null,
+): ShopifyAuthMode => (String(authMode || '').toLowerCase() === 'basic' ? 'basic' : 'access_token')
+
+export const buildShopifyRequestConfig = ({
+  apiKey,
+  accessToken,
+  authMode,
+}: {
+  apiKey?: string | null
+  accessToken: string
+  authMode?: ShopifyAuthMode | string | null
+}): AxiosRequestConfig => {
+  const normalizedToken = normalizeShopifyCredential(accessToken)
+  const normalizedApiKey = normalizeShopifyCredential(apiKey)
+  const mode = normalizeShopifyAuthMode(authMode)
+  const headers = { 'Content-Type': 'application/json' }
+
+  if (mode === 'basic' && normalizedApiKey && normalizedToken) {
+    return {
+      auth: {
+        username: normalizedApiKey,
+        password: normalizedToken,
+      },
+      headers,
+    }
+  }
+
+  return {
+    headers: {
+      ...headers,
+      'X-Shopify-Access-Token': normalizedToken,
+    },
+  }
 }
 
 /**
@@ -29,7 +80,8 @@ export const integrateWithShopify = async (
   adminApiAccessToken: string,
 ) => {
   const normalizedDomain = assertValidShopifyDomain(storeUrl)
-  const token = String(adminApiAccessToken || '').trim()
+  const token = normalizeShopifyCredential(adminApiAccessToken)
+  const normalizedApiKey = normalizeShopifyCredential(apiKey)
 
   if (!token) {
     throw new Error('Shopify Admin API access token is required')
@@ -38,13 +90,28 @@ export const integrateWithShopify = async (
   const shopifyApiUrl = `https://${normalizedDomain}/admin/api/${SHOPIFY_API_VERSION}/shop.json`
 
   try {
-    const response = await axios.get(shopifyApiUrl, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': token,
-      },
-      timeout: 30000,
-    })
+    let shopifyAuthMode: ShopifyAuthMode = 'access_token'
+    let response: any
+
+    try {
+      response = await axios.get(shopifyApiUrl, {
+        ...buildShopifyRequestConfig({ accessToken: token, authMode: 'access_token' }),
+        timeout: 30000,
+      })
+    } catch (error: any) {
+      if (error?.response?.status !== 401 || !normalizedApiKey) throw error
+
+      console.warn('Shopify access-token auth failed; retrying with API key basic auth')
+      response = await axios.get(shopifyApiUrl, {
+        ...buildShopifyRequestConfig({
+          apiKey: normalizedApiKey,
+          accessToken: token,
+          authMode: 'basic',
+        }),
+        timeout: 30000,
+      })
+      shopifyAuthMode = 'basic'
+    }
 
     const shop = response.data?.shop
     if (!shop?.id) {
@@ -55,6 +122,7 @@ export const integrateWithShopify = async (
 
     return {
       ...response.data,
+      shopifyAuthMode,
       shop: {
         ...shop,
         domain: myshopifyDomain,
@@ -139,23 +207,24 @@ const resolveWebhookAddress = () => {
 export const ensureShopifyOrderWebhooks = async ({
   storeUrl,
   accessToken,
+  apiKey,
+  authMode,
 }: {
   storeUrl: string
   accessToken: string
+  apiKey?: string
+  authMode?: ShopifyAuthMode | string
 }) => {
   const address = resolveWebhookAddress()
   const normalizedDomain = normalizeShopifyDomain(storeUrl)
-  const token = String(accessToken || '').trim()
+  const token = normalizeShopifyCredential(accessToken)
   if (!token) throw new Error('Shopify Admin API access token is required')
 
   const baseUrl = `https://${normalizedDomain}/admin/api/${SHOPIFY_API_VERSION}`
-  const headers = {
-    'X-Shopify-Access-Token': token,
-    'Content-Type': 'application/json',
-  }
+  const requestConfig = buildShopifyRequestConfig({ apiKey, accessToken: token, authMode })
 
   const { data } = await axios.get(`${baseUrl}/webhooks.json`, {
-    headers,
+    ...requestConfig,
     params: { limit: 250 },
     timeout: 30000,
   })
@@ -185,7 +254,7 @@ export const ensureShopifyOrderWebhooks = async ({
           format: 'json',
         },
       },
-      { headers, timeout: 30000 },
+      { ...requestConfig, timeout: 30000 },
     )
     subscribed.push(topic)
   }
@@ -250,22 +319,21 @@ export const integrateWithWix = async (storeUrl: string, accessToken: string): P
 export async function upsertShopifySettingsMetafield({
   storeUrl,
   accessToken,
+  apiKey,
+  authMode,
   settings,
   tx = db,
   id,
 }: UpsertShopifySettingsMetafieldParams): Promise<{ synced: boolean; warning?: string }> {
   const baseUrl = `https://${normalizeShopifyDomain(storeUrl)}/admin/api/${SHOPIFY_API_VERSION}`
-  const headers = {
-    'X-Shopify-Access-Token': accessToken.trim(),
-    'Content-Type': 'application/json',
-  }
+  const requestConfig = buildShopifyRequestConfig({ apiKey, accessToken, authMode })
 
   await tx.update(stores).set({ settings, updatedAt: new Date() }).where(eq(stores.id, id))
 
   try {
     const { data: existing } = await axios.get(
       `${baseUrl}/metafields.json?namespace=ExpressoPro&key=settings`,
-      { headers, timeout: 30000 },
+      { ...requestConfig, timeout: 30000 },
     )
 
     if (existing.metafields?.length > 0) {
@@ -279,7 +347,7 @@ export async function upsertShopifySettingsMetafield({
             type: 'json',
           },
         },
-        { headers, timeout: 30000 },
+        { ...requestConfig, timeout: 30000 },
       )
       console.log('✅ Updated Shopify settings metafield')
     } else {
@@ -294,7 +362,7 @@ export async function upsertShopifySettingsMetafield({
             owner_resource: 'shop',
           },
         },
-        { headers, timeout: 30000 },
+        { ...requestConfig, timeout: 30000 },
       )
       console.log('✅ Created new Shopify settings metafield')
     }
