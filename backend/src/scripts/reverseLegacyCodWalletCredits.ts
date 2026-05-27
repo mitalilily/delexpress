@@ -111,8 +111,8 @@ const reverseLegacyCredit = async (row: LegacyCodWalletCredit) => {
         ${row.order_id},
         ${`Legacy COD wallet settlement reversal - ${row.order_number}`},
         jsonb_build_object(
-          'remittanceId', ${row.remittance_id},
-          'legacyCodWalletTransactionId', ${row.wallet_transaction_id},
+          'remittanceId', ${row.remittance_id}::text,
+          'legacyCodWalletTransactionId', ${row.wallet_transaction_id}::text,
           'reason', 'COD remittance must be paid through Razorpay payout, not panel wallet'
         ),
         now()
