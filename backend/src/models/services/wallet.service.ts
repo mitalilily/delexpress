@@ -18,6 +18,26 @@ interface WalletTransactionParams {
   tx?: PgTransaction<any> // optional, for passing an existing transaction
 }
 
+const isCodRemittanceWalletCredit = ({
+  type,
+  reason,
+  meta,
+}: Pick<WalletTransactionParams, 'type' | 'reason' | 'meta'>) => {
+  if (type !== 'credit') return false
+
+  const reasonText = String(reason || '').toLowerCase()
+  const metadata = meta && typeof meta === 'object' ? meta : {}
+  const hasRemittanceReference = Boolean(
+    metadata.remittanceId || metadata.codRemittanceId || metadata.cod_remittance_id,
+  )
+
+  return (
+    /\bcod\s+(settlement|remittance)\b/i.test(reasonText) ||
+    /\b(cod\s+remittance|remittance\s+settlement)\b/i.test(reasonText) ||
+    hasRemittanceReference
+  )
+}
+
 /**
  * Inserts a wallet transaction and updates the wallet balance accordingly.
  */
@@ -34,6 +54,12 @@ export const createWalletTransaction = async ({
 }: WalletTransactionParams) => {
   // Use provided transaction or default to db
   const executor = tx ?? db
+
+  if (isCodRemittanceWalletCredit({ type, reason, meta })) {
+    throw new Error(
+      'COD remittance settlements must be paid through the payout service, not credited to the panel wallet.',
+    )
+  }
 
   const wallet = await executor.select().from(wallets).where(eq(wallets.id, walletId)).limit(1)
   const currentBalance = Number(wallet[0]?.balance ?? 0)

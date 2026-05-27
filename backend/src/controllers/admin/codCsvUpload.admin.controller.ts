@@ -3,7 +3,7 @@ import { Response } from 'express'
 import Papa from 'papaparse'
 import { db } from '../../models/client'
 import { codRemittances } from '../../models/schema/codRemittance'
-import { creditCodRemittanceToWallet } from '../../models/services/codRemittance.service'
+import { initiateCodRemittancePayout } from '../../models/services/codRemittance.service'
 
 /**
  * CSV Field Mappings for Different Couriers
@@ -336,7 +336,7 @@ export const confirmCourierSettlement = async (req: any, res: Response): Promise
             : undefined
 
         // Initiate Razorpay payout
-        await creditCodRemittanceToWallet({
+        await initiateCodRemittancePayout({
           remittanceId,
           settledDate: validSettledDate,
           utrNumber,

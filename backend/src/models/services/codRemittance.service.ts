@@ -133,6 +133,15 @@ const createCodRazorpayPayout = async ({
   }
 }
 
+type CodRemittancePayoutParams = {
+  remittanceId: string
+  settledDate?: Date
+  utrNumber?: string
+  settledAmount?: number
+  notes?: string
+  creditedBy?: string
+}
+
 /**
  * Create a COD remittance entry when an order is delivered with COD
  * DOES NOT automatically credit the panel wallet - waits for actual courier settlement
@@ -223,16 +232,8 @@ export async function createCodRemittance(params: {
 
 /**
  * Pay seller through Razorpay when courier actually settles the payment.
- * Kept as the existing export name because admin/CSV controllers already call it.
  */
-export async function creditCodRemittanceToWallet(params: {
-  remittanceId: string
-  settledDate?: Date
-  utrNumber?: string
-  settledAmount?: number
-  notes?: string
-  creditedBy?: string // admin user ID
-}) {
+export async function initiateCodRemittancePayout(params: CodRemittancePayoutParams) {
   const { remittanceId, settledDate, utrNumber, settledAmount, notes, creditedBy } = params
 
   return await db
@@ -368,6 +369,9 @@ export async function creditCodRemittanceToWallet(params: {
       return result.updatedRemittance
     })
 }
+
+// Backward-compatible alias for older callers. This still initiates a payout and never credits wallet.
+export const creditCodRemittanceToWallet = initiateCodRemittancePayout
 
 /**
  * Get all COD remittances for a user with filters

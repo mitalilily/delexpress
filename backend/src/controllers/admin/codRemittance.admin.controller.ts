@@ -5,7 +5,7 @@ import { db } from '../../models/client'
 import { codRemittances } from '../../models/schema/codRemittance'
 import { users } from '../../models/schema/users'
 import { wallets } from '../../models/schema/wallet'
-import { creditCodRemittanceToWallet } from '../../models/services/codRemittance.service'
+import { initiateCodRemittancePayout } from '../../models/services/codRemittance.service'
 
 /**
  * Admin: Get all COD remittances across all users
@@ -246,7 +246,7 @@ export const manualCreditWallet = async (req: any, res: Response): Promise<any> 
     }
 
     // Pay using the settlement service.
-    const updated = await creditCodRemittanceToWallet({
+    const updated = await initiateCodRemittancePayout({
       remittanceId,
       settledDate: settledDate ? new Date(settledDate) : new Date(), // Default to now
       utrNumber: utrNumber || `MANUAL-${Date.now()}`, // Auto-generate if not provided
