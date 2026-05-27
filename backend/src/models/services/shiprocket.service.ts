@@ -57,6 +57,7 @@ import { calculateB2BRate } from './b2bAdmin.service'
 import {
   computeB2CRateCardCharge,
   computeEffectiveCodCharge,
+  fetchLegacyFallbackB2CRateCards,
   fetchResolvedB2CRateCards,
   findMatchingSlabIndex,
   formatCourierSlabDisplayName,
@@ -1535,14 +1536,36 @@ export const fetchAvailableCouriersWithRates = async (
           zoneId: zoneRow.id,
         })
 
+        const addLegacyFallbackRates = async (rates: any[]) => {
+          try {
+            const legacyRates = await fetchLegacyFallbackB2CRateCards({ planId })
+            const mergedRates = mergeMissingRateCards(rates, legacyRates)
+            if (mergedRates.length > rates.length) {
+              console.log('[RateCalculator] Added legacy fallback B2C rate cards', {
+                zone: approxZone,
+                added: mergedRates.length - rates.length,
+              })
+            }
+            return mergedRates
+          } catch (fallbackErr: any) {
+            console.warn('[RateCalculator] Legacy fallback rate lookup skipped', {
+              zone: approxZone,
+              message: fallbackErr?.message || fallbackErr,
+            })
+            return rates
+          }
+        }
+
         const currentZoneLabel = `${zoneRow.code || ''} ${zoneRow.name || ''}`.toLowerCase()
         if (currentZoneLabel.includes('roi') || currentZoneLabel.includes('rest of india')) {
-          return zoneRates
+          return addLegacyFallbackRates(zoneRates)
         }
 
         try {
           const roiZone = await fetchZoneIdByKey('ROI')
-          if (!roiZone?.id || roiZone.id === zoneRow.id) return zoneRates
+          if (!roiZone?.id || roiZone.id === zoneRow.id) {
+            return addLegacyFallbackRates(zoneRates)
+          }
 
           const roiRates = await fetchResolvedB2CRateCards({
             planId,
@@ -1556,13 +1579,13 @@ export const fetchAvailableCouriersWithRates = async (
               added: mergedRates.length - zoneRates.length,
             })
           }
-          return mergedRates
+          return addLegacyFallbackRates(mergedRates)
         } catch (fallbackErr: any) {
           console.warn('[RateCalculator] ROI fallback rate lookup skipped', {
             zone: approxZone,
             message: fallbackErr?.message || fallbackErr,
           })
-          return zoneRates
+          return addLegacyFallbackRates(zoneRates)
         }
       }
 

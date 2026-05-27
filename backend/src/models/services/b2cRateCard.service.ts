@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../client'
 import { shippingRates, shippingRateSlabs } from '../schema/shippingRates'
 import { calculateFreight } from './pricing/chargeableFreight'
@@ -197,6 +197,10 @@ export async function fetchResolvedB2CRateCards(filters: {
         return providerFilteredRows.filter((row) => !normalizeB2CShippingMode(row.mode))
       })()
     : providerFilteredRows
+  return resolveB2CRateRows(rateRows)
+}
+
+async function resolveB2CRateRows(rateRows: Array<typeof shippingRates.$inferSelect>) {
   const slabs = await fetchShippingRateSlabs(rateRows.map((row) => row.id))
   const slabMap = new Map<string, ResolvedRateCardSlab[]>()
 
@@ -230,6 +234,34 @@ export async function fetchResolvedB2CRateCards(filters: {
       slabs: slabMap.get(row.id) || [],
     }),
   )
+}
+
+export async function fetchLegacyFallbackB2CRateCards(filters: {
+  planId: string
+  serviceProvider?: string | null
+  type?: 'forward' | 'rto'
+}) {
+  const conditions = [
+    eq(shippingRates.plan_id, filters.planId),
+    eq(shippingRates.business_type, 'b2c'),
+    sql`not exists (
+      select 1
+      from meracourierwala_zones z
+      where z.id = ${shippingRates.zone_id}
+    )`,
+  ]
+
+  if (filters.type) {
+    conditions.push(eq(shippingRates.type, filters.type))
+  }
+
+  const requestedServiceProvider = normalizeB2CServiceProvider(filters.serviceProvider)
+  if (requestedServiceProvider) {
+    conditions.push(sql`lower(trim(${shippingRates.service_provider})) = ${requestedServiceProvider}`)
+  }
+
+  const rateRows = await db.select().from(shippingRates).where(and(...conditions))
+  return resolveB2CRateRows(rateRows)
 }
 
 export function slabContainsWeight(
