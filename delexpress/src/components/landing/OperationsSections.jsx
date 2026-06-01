@@ -1,7 +1,6 @@
 import { Box, Chip, Container, Typography } from "@mui/material";
 import {
   featureList,
-  mediaAssets,
   trackingStages,
   workflowSteps,
 } from "../../utils/landingContent";

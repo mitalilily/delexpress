@@ -41,6 +41,7 @@ function LandingPage() {
   });
   const abortRef = useRef(null);
   const pincodeAbortRefs = useRef({ pickup: null, delivery: null });
+  const { pickupPincode, deliveryPincode } = shippingForm;
 
   const handleFieldChange = (key) => (event) => {
     setShippingForm((current) => ({
@@ -51,12 +52,12 @@ function LandingPage() {
 
   useEffect(() => {
     const lookupConfig = [
-      { field: "pickupPincode", key: "pickup" },
-      { field: "deliveryPincode", key: "delivery" },
+      { pincodeValue: pickupPincode, key: "pickup" },
+      { pincodeValue: deliveryPincode, key: "delivery" },
     ];
 
-    const cleanups = lookupConfig.map(({ field, key }) => {
-      const pincode = String(shippingForm[field] || "").trim();
+    const cleanups = lookupConfig.map(({ pincodeValue, key }) => {
+      const pincode = String(pincodeValue || "").trim();
 
       if (pincodeAbortRefs.current[key]) {
         pincodeAbortRefs.current[key].abort();
@@ -124,7 +125,7 @@ function LandingPage() {
     return () => {
       cleanups.forEach((cleanup) => cleanup());
     };
-  }, [shippingForm.deliveryPincode, shippingForm.pickupPincode]);
+  }, [deliveryPincode, pickupPincode]);
 
   const handleCalculateRates = async () => {
     if (abortRef.current) {

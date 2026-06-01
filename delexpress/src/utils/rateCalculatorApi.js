@@ -63,7 +63,7 @@ export async function fetchPincodeLocation(pincode, signal) {
     return null;
   }
 
-  const url = new URL(`${getApiBaseUrl()}/serviceability/locations`);
+  const url = new URL(`${getApiBaseUrl()}/serviceability/locations/lookup`);
   url.searchParams.set("pincode", normalizedPincode);
 
   const response = await fetch(url.toString(), {
@@ -80,7 +80,7 @@ export async function fetchPincodeLocation(pincode, signal) {
     throw new Error("Unable to verify this pincode right now.");
   }
 
-  const match = Array.isArray(data?.data) ? data.data[0] : null;
+  const match = Array.isArray(data?.data) ? data.data[0] : data?.data;
 
   if (!match?.city || !match?.state) {
     return null;
@@ -104,6 +104,8 @@ export async function fetchGuestRateEstimate(formValues, signal) {
     length: toPositiveNumber(formValues.length),
     breadth: toPositiveNumber(formValues.breadth),
     height: toPositiveNumber(formValues.height),
+    isCalculator: true,
+    context: "rate_calculator",
   };
 
   const response = await fetch(`${getApiBaseUrl()}/couriers/available-to-guest`, {
