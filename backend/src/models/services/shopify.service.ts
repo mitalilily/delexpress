@@ -238,14 +238,19 @@ const mapProducts = (order: any) => {
     const lineTaxRate = Array.isArray(item?.tax_lines)
       ? item.tax_lines.reduce((sum: number, t: any) => sum + toNumber(t?.rate, 0), 0) * 100
       : 0
+    const name = item?.name || item?.title || 'Item'
     return {
-      name: item?.name || item?.title || 'Item',
+      name,
+      productName: name,
       sku: item?.sku || 'NA',
       qty,
+      quantity: qty,
       price,
       discount,
       tax_rate: lineTaxRate,
+      taxRate: lineTaxRate,
       hsn: '',
+      hsnCode: '',
     }
   })
 }
@@ -479,9 +484,9 @@ const upsertFromShopifyOrder = async (
     gift_wrap: 0,
     discount: 0,
     order_status: mappedStatus,
-    courier_partner: 'Shopify',
+    courier_partner: null,
     integration_type: 'shopify',
-    is_external_api: false,
+    is_external_api: true,
     tags: String(order?.tags || '').slice(0, 200) || `shopify_store:${store.id}`,
     updated_at: new Date(),
   }

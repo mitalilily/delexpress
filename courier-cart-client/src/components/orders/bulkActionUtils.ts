@@ -83,6 +83,14 @@ export const isB2CManifestEligible = (order: BulkOrderDocumentShape) => {
   return Boolean(getB2CManifestIdentifier(order)) && B2C_MANIFESTABLE_STATUSES.has(status) && !hasManifest
 }
 
+export const isShopifySyncedOrderReadyForCourier = (order: BulkOrderDocumentShape) => {
+  const provider = String(order.integration_type || '').trim().toLowerCase()
+  const status = String(order.order_status || '').trim().toLowerCase()
+  const hasAwb = Boolean(String(order.awb_number || '').trim())
+
+  return provider === 'shopify' && !hasAwb && !['cancelled', 'delivered', 'rto'].includes(status)
+}
+
 const sanitizeFileNameSegment = (value: string) =>
   value
     .trim()

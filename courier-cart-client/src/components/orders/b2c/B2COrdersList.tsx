@@ -46,6 +46,7 @@ import {
   getDownloadFileName,
   getOrderDocumentLabel,
   isB2CManifestEligible,
+  isShopifySyncedOrderReadyForCourier,
   summarizeMessages,
   summarizeOrderNumbers,
 } from '../bulkActionUtils'
@@ -159,6 +160,7 @@ const B2COrdersList = () => {
   const [pickupDialogDescription, setPickupDialogDescription] = useState('')
   const [pickupDialogDate, setPickupDialogDate] = useState(getDefaultPickupDateInput())
   const [pickupDialogTime, setPickupDialogTime] = useState(getDefaultPickupTimeInput())
+  const [shopifyOrderForCourier, setShopifyOrderForCourier] = useState<B2COrder | null>(null)
   const pickupDialogResolverRef = useRef<((value: PickupSchedulePayload | null) => void) | null>(
     null,
   )
@@ -691,8 +693,20 @@ const B2COrdersList = () => {
       id: 'is_external_api',
       render: (_, row) => (
         <StatusChip
-          label={row.is_external_api ? 'API' : 'Local'}
-          status={row.is_external_api ? 'info' : 'success'}
+          label={
+            String(row.integration_type || '').toLowerCase() === 'shopify'
+              ? 'Shopify'
+              : row.is_external_api
+                ? 'API'
+                : 'Local'
+          }
+          status={
+            String(row.integration_type || '').toLowerCase() === 'shopify'
+              ? 'info'
+              : row.is_external_api
+                ? 'info'
+                : 'success'
+          }
         />
       ),
     },
@@ -750,8 +764,20 @@ const B2COrdersList = () => {
       id: 'is_external_api',
       render: (_v, row) => (
         <StatusChip
-          label={row.is_external_api ? 'API' : 'Local'}
-          status={row.is_external_api ? 'info' : 'success'}
+          label={
+            String(row.integration_type || '').toLowerCase() === 'shopify'
+              ? 'Shopify'
+              : row.is_external_api
+                ? 'API'
+                : 'Local'
+          }
+          status={
+            String(row.integration_type || '').toLowerCase() === 'shopify'
+              ? 'info'
+              : row.is_external_api
+                ? 'info'
+                : 'success'
+          }
         />
       ),
     },
@@ -774,6 +800,20 @@ const B2COrdersList = () => {
       render: (_, row) => {
         // 1) Build actions compactly; include Reverse + Manifest + Cancel where applicable
         const actions: ReactNode[] = []
+
+        if (isShopifySyncedOrderReadyForCourier(row)) {
+          actions.push(
+            <Button
+              key="select-courier"
+              size="small"
+              variant="contained"
+              onClick={() => setShopifyOrderForCourier(row)}
+              sx={{ px: 1.25, minWidth: 0, textTransform: 'none' }}
+            >
+              Select Courier
+            </Button>,
+          )
+        }
 
         // Show Reverse for delivered (all providers)
         if ((row.order_status || '').toLowerCase() === 'delivered') {
@@ -1106,11 +1146,21 @@ const B2COrdersList = () => {
 
       <CustomDrawer
         width={drawerWidth}
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        title="Create New B2C Order"
+        open={drawerOpen || Boolean(shopifyOrderForCourier)}
+        onClose={() => {
+          setDrawerOpen(false)
+          setShopifyOrderForCourier(null)
+        }}
+        title={shopifyOrderForCourier ? 'Select Courier' : 'Create New B2C Order'}
       >
-        <B2COrderFormSteps onClose={() => setDrawerOpen(false)} />
+        {shopifyOrderForCourier ? (
+          <B2COrderFormSteps
+            sourceOrder={shopifyOrderForCourier}
+            onClose={() => setShopifyOrderForCourier(null)}
+          />
+        ) : (
+          <B2COrderFormSteps onClose={() => setDrawerOpen(false)} />
+        )}
       </CustomDrawer>
     </Stack>
   )

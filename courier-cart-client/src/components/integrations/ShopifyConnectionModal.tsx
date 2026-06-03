@@ -128,12 +128,13 @@ const ShopifyConnectionModal = ({
                 { primary: '4. Create a new custom app' },
                 {
                   primary: '5. Configure Admin API permissions',
-                  secondary: 'Select required scopes (read/write permissions).',
+                  secondary:
+                    'Enable read_orders, read_products, read_customers, write_webhooks, write_fulfillments, and write_metafields.',
                 },
                 { primary: '6. Install the app' },
                 {
                   primary: '7. Get your credentials',
-                  secondary: "You’ll find the Admin API token under 'API credentials'",
+                  secondary: "Copy the Admin API access token from 'API credentials'.",
                 },
               ].map((step, index) => (
                 <ListItem key={index}>

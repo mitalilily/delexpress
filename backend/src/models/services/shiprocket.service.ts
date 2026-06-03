@@ -2531,6 +2531,7 @@ export interface ShipmentParams {
   tags?: string
   original_order_id?: string
   order_id?: string
+  source_order_id?: string
 }
 
 export interface InsertB2COrderParams {
@@ -2582,6 +2583,14 @@ export async function createB2COrder({
   }
 
   const requestedOrderNumberKey = requestedOrderNumber.toLowerCase()
+  const sourceOrderId = String(params.source_order_id || '').trim()
+  const [existingSourceOrder] = sourceOrderId
+    ? await tx
+        .select()
+        .from(b2c_orders)
+        .where(and(eq(b2c_orders.id, sourceOrderId), eq(b2c_orders.user_id, userId)))
+        .limit(1)
+    : []
   const [existingSameOrderNumber] = await tx
     .select()
     .from(b2c_orders)
@@ -2593,12 +2602,39 @@ export async function createB2COrder({
     )
     .limit(1)
 
-  const canAttachShipmentToShopifyOrder = Boolean(
+  const isAttachableShopifyOrder = (order: any) =>
+    Boolean(
+      order &&
+        String(order.order_id || '').startsWith('shopify_') &&
+        String(order.integration_type || '').toLowerCase() === 'shopify' &&
+        !String(order.awb_number || '').trim(),
+    )
+
+  if (sourceOrderId && !isAttachableShopifyOrder(existingSourceOrder)) {
+    throw new HttpError(
+      400,
+      'The selected Shopify order is not available for courier booking.',
+    )
+  }
+
+  const targetShopifyOrder = isAttachableShopifyOrder(existingSourceOrder)
+    ? existingSourceOrder
+    : isAttachableShopifyOrder(existingSameOrderNumber)
+      ? existingSameOrderNumber
+      : null
+
+  if (
+    targetShopifyOrder &&
     existingSameOrderNumber &&
-    String(existingSameOrderNumber.order_id || '').startsWith('shopify_') &&
-    String(existingSameOrderNumber.integration_type || '').toLowerCase() === 'shopify' &&
-    !String(existingSameOrderNumber.awb_number || '').trim(),
-  )
+    existingSameOrderNumber.id !== targetShopifyOrder!.id
+  ) {
+    throw new HttpError(
+      409,
+      `Order ID "${requestedOrderNumber}" already exists for this merchant.`,
+    )
+  }
+
+  const canAttachShipmentToShopifyOrder = Boolean(targetShopifyOrder)
 
   const normalizedOrderNumber = canAttachShipmentToShopifyOrder
     ? requestedOrderNumber
@@ -2644,7 +2680,7 @@ export async function createB2COrder({
         // Order info
         order_number: normalizedOrderNumber,
         order_id: canAttachShipmentToShopifyOrder
-          ? existingSameOrderNumber.order_id
+          ? targetShopifyOrder!.order_id
           : shipmentData?.data?.order_id ?? null,
         order_date: params.order_date ?? new Date().toISOString().slice(0, 10), // 'YYYY-MM-DD'
         order_amount: orderAmount,
@@ -2716,7 +2752,7 @@ export async function createB2COrder({
         is_external_api: is_external_api ?? false,
 
         // Tags / meta
-        tags: params.tags ?? (canAttachShipmentToShopifyOrder ? existingSameOrderNumber.tags : null),
+        tags: params.tags ?? (canAttachShipmentToShopifyOrder ? targetShopifyOrder!.tags : null),
         invoice_link: shipmentData?.invoice_link ?? null,
         updated_at: new Date(),
       }
@@ -2725,7 +2761,7 @@ export async function createB2COrder({
       const [updatedOrder] = await tx
         .update(b2c_orders)
         .set(orderValues)
-        .where(eq(b2c_orders.id, existingSameOrderNumber.id))
+        .where(eq(b2c_orders.id, targetShopifyOrder!.id))
         .returning({ id: b2c_orders.id })
 
       return updatedOrder

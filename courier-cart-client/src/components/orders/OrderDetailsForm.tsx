@@ -23,6 +23,7 @@ const OrderDetailsForm = () => {
   const {
     control,
     clearErrors,
+    getValues,
     setError,
     setValue,
     watch,
@@ -48,13 +49,24 @@ const OrderDetailsForm = () => {
 
   const currentOrderType = watch('orderType')
   const currentOrderId = String(watch('orderId') || '').trim()
+  const sourceOrderId = String((watch as any)('sourceOrderId') || '').trim()
 
   useEffect(() => {
-    setValue('orderId', generateOrderId())
-    setValue('orderDate', getTodayDate())
-  }, [setValue])
+    if (!String(getValues('orderId' as keyof OrderFormData) || '').trim()) {
+      setValue('orderId', generateOrderId())
+    }
+    if (!String(getValues('orderDate' as keyof OrderFormData) || '').trim()) {
+      setValue('orderDate', getTodayDate())
+    }
+  }, [getValues, setValue])
 
   useEffect(() => {
+    if (sourceOrderId) {
+      setOrderIdStatus('idle')
+      clearErrors('orderId')
+      return
+    }
+
     if (!currentOrderId) {
       setOrderIdStatus('idle')
       setLastCheckedOrderId('')
@@ -94,7 +106,7 @@ const OrderDetailsForm = () => {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [clearErrors, currentOrderId, errors?.orderId?.type, setError])
+  }, [clearErrors, currentOrderId, errors?.orderId?.type, setError, sourceOrderId])
 
   const orderIdHelperText =
     (errors?.orderId?.message as string) ||
@@ -134,7 +146,9 @@ const OrderDetailsForm = () => {
               {...field}
               error={!!errors?.orderId || orderIdStatus === 'unavailable'}
               helperText={orderIdHelperText}
+              disabled={Boolean(sourceOrderId)}
               postfix={
+                sourceOrderId ? null :
                 <Tooltip title="Regenerate Order ID">
                   <FaSync
                     style={{ cursor: 'pointer' }}

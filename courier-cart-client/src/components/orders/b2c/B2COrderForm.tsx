@@ -1,6 +1,12 @@
 import { Alert, Box, Button, Chip, Paper, Stack, Typography, alpha } from '@mui/material'
 import { useEffect, useState } from 'react'
-import { FormProvider, useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
+import {
+  FormProvider,
+  useFieldArray,
+  useForm,
+  type DefaultValues,
+  type FieldErrors,
+} from 'react-hook-form'
 import { BiRupee } from 'react-icons/bi'
 import { FaBox, FaTruck, FaUser } from 'react-icons/fa'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -8,6 +14,7 @@ import { fetchLocations } from '../../../api/locations'
 import type { CreateShipmentParams } from '../../../api/order.service'
 import { useCreateShipment } from '../../../hooks/Orders/useOrders'
 import { usePaymentOptions } from '../../../hooks/usePaymentOptions'
+import type { B2COrder } from '../../../types/generic.types'
 import { normalizePickupTime } from '../../../utils/pickupSchedule'
 import FormSectionAccordion from '../../UI/accordion/FormSectionAccordion'
 import AmountSummaryCard from '../AmountSummaryCard'
@@ -34,6 +41,7 @@ export type Product = {
 }
 
 export type B2CFormData = {
+  sourceOrderId?: string
   buyerName: string
   buyerPhone: string
   buyerEmail: string
@@ -92,7 +100,93 @@ export type B2CFormData = {
   zoneId?: string
 }
 
-export default function B2COrderFormSteps({ onClose }: { onClose?: () => void }) {
+const toNumber = (value: unknown, fallback = 0) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const normalizeSourceProducts = (products: unknown): Product[] => {
+  const items = Array.isArray(products) ? products : []
+  const normalized = items.map((item) => {
+    const product = item as Record<string, unknown>
+    return {
+      productName: String(product.productName || product.name || product.title || 'Item'),
+      price: toNumber(product.price, 0),
+      quantity: Math.max(1, toNumber(product.quantity ?? product.qty, 1)),
+      discount: toNumber(product.discount, 0),
+      taxRate: toNumber(product.taxRate ?? product.tax_rate, 0),
+      hsnCode: String(product.hsnCode || product.hsn || ''),
+      sku: String(product.sku || 'NA'),
+    }
+  })
+
+  return normalized.length ? normalized : [{ productName: 'Item', price: 0, quantity: 1 }]
+}
+
+const buildDefaultValues = (
+  sourceOrder: B2COrder | null | undefined,
+  defaultPickupDate: string,
+  defaultOrderType: 'prepaid' | 'cod',
+): DefaultValues<B2CFormData> => {
+  const base: DefaultValues<B2CFormData> = {
+    products: [{ productName: '', price: 0, quantity: 1 }],
+    weight: 0,
+    length: 0,
+    breadth: 0,
+    height: 0,
+    courierPartnerId: '',
+    pickupDate: defaultPickupDate,
+    pickupTime: '',
+    orderType: defaultOrderType,
+    selectedMaxSlabWeight: null,
+  }
+
+  if (!sourceOrder) return base
+
+  const orderType: 'prepaid' | 'cod' =
+    String(sourceOrder.order_type || '').toLowerCase() === 'cod' ? 'cod' : 'prepaid'
+  const orderDate = String(sourceOrder.order_date || sourceOrder.created_at || '').slice(0, 10)
+
+  return {
+    ...base,
+    sourceOrderId: String(sourceOrder.id || ''),
+    buyerName: sourceOrder.buyer_name || '',
+    buyerPhone: sourceOrder.buyer_phone || '',
+    buyerEmail: sourceOrder.buyer_email || '',
+    address: sourceOrder.address || '',
+    pincode: sourceOrder.pincode || '',
+    city: sourceOrder.city || '',
+    state: sourceOrder.state || '',
+    country: sourceOrder.country || 'India',
+    products: normalizeSourceProducts(sourceOrder.products),
+    weight: toNumber(sourceOrder.weight, 500),
+    length: toNumber(sourceOrder.length, 10),
+    breadth: toNumber(sourceOrder.breadth, 10),
+    height: toNumber(sourceOrder.height, 10),
+    orderId: sourceOrder.order_number || '',
+    orderDate: orderDate || new Date().toISOString().split('T')[0],
+    orderType,
+    shippingCharges: toNumber(sourceOrder.shipping_charges, 0),
+    transactionFee: toNumber(sourceOrder.transaction_fee, 0),
+    giftWrap: toNumber(sourceOrder.gift_wrap, 0),
+    discount: toNumber(sourceOrder.discount, 0),
+    prepaidAmount: orderType === 'prepaid' ? toNumber(sourceOrder.prepaid_amount, 0) : 0,
+    courierCod: 0,
+    otherCharges: 0,
+    forwardCharges: 0,
+    courierPartner: '',
+    courierPartnerId: '',
+    integrationType: undefined,
+  }
+}
+
+export default function B2COrderFormSteps({
+  onClose,
+  sourceOrder,
+}: {
+  onClose?: () => void
+  sourceOrder?: B2COrder | null
+}) {
   const createShipmentMutation = useCreateShipment(onClose)
   const navigate = useNavigate()
   const location = useLocation()
@@ -111,30 +205,26 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
   }
 
   const methods = useForm<B2CFormData>({
-    defaultValues: {
-      products: [{ productName: '', price: 0, quantity: 1 }],
-      weight: 0,
-      length: 0,
-      breadth: 0,
-      height: 0,
-      courierPartnerId: '',
-      pickupDate: defaultPickupDate,
-      pickupTime: '',
-      orderType: getDefaultOrderType(),
-      selectedMaxSlabWeight: null,
-    },
+    defaultValues: buildDefaultValues(sourceOrder, defaultPickupDate, getDefaultOrderType()),
   })
 
   const {
     control,
     watch,
     setValue,
+    reset,
     handleSubmit,
     trigger,
     register,
     formState: { errors },
   } = methods
   const { fields, append, remove } = useFieldArray({ control, name: 'products' })
+
+  useEffect(() => {
+    if (!sourceOrder) return
+    reset(buildDefaultValues(sourceOrder, defaultPickupDate, getDefaultOrderType()))
+    setCurrentStep(0)
+  }, [sourceOrder?.id, reset])
 
   const shippingCharges = Number(watch('shippingCharges') || 0)
   const transactionFee = Number(watch('transactionFee') || 0)
@@ -197,6 +287,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
 
       const payload: CreateShipmentParams = {
         order_number: normalizedOrderId,
+        ...(data.sourceOrderId ? { source_order_id: data.sourceOrderId } : {}),
         ...(data.wbn?.trim() ? { wbn: data.wbn.trim() } : {}),
         payment_type: data.orderType,
         order_amount: subtotal,
@@ -393,7 +484,11 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
                 B2C Order Creation
               </Typography>
               <Chip
-                label={`Step ${currentStep + 1} of ${stepLabels.length}`}
+                label={
+                  sourceOrder
+                    ? `Shopify order - step ${currentStep + 1} of ${stepLabels.length}`
+                    : `Step ${currentStep + 1} of ${stepLabels.length}`
+                }
                 size="small"
                 sx={{
                   fontWeight: 700,

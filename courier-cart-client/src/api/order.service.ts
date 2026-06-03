@@ -2,6 +2,7 @@ import axiosInstance from './axiosInstance'
 
 export interface CreateShipmentParams {
   order_number: string
+  source_order_id?: string
   wbn?: string
   payment_type: 'cod' | 'prepaid' | 'reverse'
   package_weight?: number

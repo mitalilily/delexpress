@@ -9,8 +9,10 @@ import { normalizePickupTime } from '../../utils/pickupSchedule'
 import { FilterBar, type FilterField } from '../FilterBar'
 import { toast } from '../UI/Toast'
 import StatusChip from '../UI/chip/StatusChip'
+import CustomDrawer from '../UI/drawer/CustomDrawer'
 import DataTable, { type Column } from '../UI/table/DataTable'
 import TableSkeleton from '../UI/table/TableSkeleton'
+import B2COrderFormSteps from './b2c/B2COrderForm'
 import { statusColorMap } from './b2c/B2COrdersList'
 import {
   BULK_MANIFEST_LIMIT,
@@ -24,6 +26,7 @@ import {
   getDownloadFileName,
   getOrderDocumentLabel,
   isB2CManifestEligible,
+  isShopifySyncedOrderReadyForCourier,
   summarizeMessages,
   summarizeOrderNumbers,
 } from './bulkActionUtils'
@@ -112,6 +115,7 @@ const AllOrders = () => {
   const [pickupDialogDescription, setPickupDialogDescription] = useState('')
   const [pickupDialogDate, setPickupDialogDate] = useState(getDefaultPickupDateInput())
   const [pickupDialogTime, setPickupDialogTime] = useState(getDefaultPickupTimeInput())
+  const [shopifyOrderForCourier, setShopifyOrderForCourier] = useState<Order | null>(null)
   const pickupDialogResolverRef = useRef<((value: PickupSchedulePayload | null) => void) | null>(
     null,
   )
@@ -514,7 +518,7 @@ const AllOrders = () => {
       label: 'Docs',
       minWidth: 220,
       sticky: 'right',
-      stickyOffset: 0,
+      stickyOffset: 290,
       render: (_v, row) => renderDocumentTags(row),
     },
     {
@@ -522,8 +526,35 @@ const AllOrders = () => {
       id: 'order_status',
       minWidth: 150,
       sticky: 'right',
-      stickyOffset: 220,
+      stickyOffset: 140,
       render: (v) => <StatusChip label={v} status={statusColorMap[v] || 'info'} />,
+    },
+    {
+      label: 'Actions',
+      id: 'id',
+      minWidth: 140,
+      sticky: 'right',
+      stickyOffset: 0,
+      render: (_v, row) => {
+        if (row.type === 'b2c' && isShopifySyncedOrderReadyForCourier(row)) {
+          return (
+            <Button
+              size="small"
+              variant="contained"
+              onClick={() => setShopifyOrderForCourier(row)}
+              sx={{ px: 1.25, minWidth: 0, textTransform: 'none' }}
+            >
+              Select Courier
+            </Button>
+          )
+        }
+
+        return (
+          <Typography variant="body2" color="text.secondary">
+            -
+          </Typography>
+        )
+      },
     },
   ]
 
@@ -743,6 +774,19 @@ const AllOrders = () => {
           })
         }
       />
+      <CustomDrawer
+        width={1200}
+        open={Boolean(shopifyOrderForCourier)}
+        onClose={() => setShopifyOrderForCourier(null)}
+        title="Select Courier"
+      >
+        {shopifyOrderForCourier ? (
+          <B2COrderFormSteps
+            sourceOrder={shopifyOrderForCourier as any}
+            onClose={() => setShopifyOrderForCourier(null)}
+          />
+        ) : null}
+      </CustomDrawer>
     </Stack>
   )
 }
