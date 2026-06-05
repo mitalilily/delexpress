@@ -2572,6 +2572,9 @@ export async function createB2COrder({
   discount = 0,
   integration_type,
   is_external_api = false,
+  volumetricWeight,
+  chargedWeight,
+  chargedSlabs,
   shippingMode,
   selectedMaxSlabWeight,
   manifestError,
@@ -2685,7 +2688,7 @@ export async function createB2COrder({
         order_date: params.order_date ?? new Date().toISOString().slice(0, 10), // 'YYYY-MM-DD'
         order_amount: orderAmount,
         cod_charges: storedCodCharges,
-        integration_type: params?.integration_type,
+        integration_type: params?.integration_type ?? integration_type,
 
         // Buyer info
         buyer_name: params.consignee?.name ?? '',
@@ -2714,10 +2717,10 @@ export async function createB2COrder({
         transaction_fee: transactionFee,
         gift_wrap: giftWrap,
         discount: discount,
-        volumetric_weight: params.volumetricWeight ?? null,
-        charged_weight: params.chargedWeight ?? null,
+        volumetric_weight: volumetricWeight ?? params.volumetricWeight ?? null,
+        charged_weight: chargedWeight ?? params.chargedWeight ?? null,
         weight_discrepancy: false,
-        charged_slabs: params.chargedSlabs ?? null,
+        charged_slabs: chargedSlabs ?? params.chargedSlabs ?? null,
 
         order_status: status ?? 'booked',
 
@@ -2762,7 +2765,7 @@ export async function createB2COrder({
         .update(b2c_orders)
         .set(orderValues)
         .where(eq(b2c_orders.id, targetShopifyOrder!.id))
-        .returning({ id: b2c_orders.id })
+        .returning()
 
       return updatedOrder
     }
@@ -2773,7 +2776,7 @@ export async function createB2COrder({
         ...orderValues,
         created_at: new Date(),
       })
-      .returning({ id: b2c_orders.id })
+      .returning()
 
     return newOrder
   } catch (err: any) {

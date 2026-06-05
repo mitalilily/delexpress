@@ -24,6 +24,7 @@ import {
   Heading,
 } from '@chakra-ui/react'
 import { usePresignedDownloadUrls } from 'hooks/usePresignedUrls'
+import { getOrderAwbNumber, getOrderCourierDisplayName } from 'utils/orderDisplay'
 import {
   FiPackage,
   FiUser,
@@ -40,6 +41,8 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
   const labelColor = useColorModeValue('gray.600', 'gray.400')
   const sectionBg = useColorModeValue('gray.50', 'gray.700')
   const safeOrder = order || {}
+  const awbNumber = getOrderAwbNumber(safeOrder)
+  const courierName = getOrderCourierDisplayName(safeOrder)
 
   const isHttpUrl = (value) => typeof value === 'string' && /^https?:\/\//i.test(value)
   const labelSource = safeOrder.label_url || safeOrder.label || safeOrder.label_key || null
@@ -177,8 +180,8 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
 
             {/* Shipment Information */}
             <Section title="Shipment Information" icon={FiTruck}>
-              <InfoRow label="AWB Number" value={order.awb_number} copyable />
-              <InfoRow label="Courier Partner" value={order.courier_partner} />
+              <InfoRow label="AWB Number" value={awbNumber} copyable />
+              <InfoRow label="Courier Partner" value={courierName} />
               <InfoRow label="Shipment ID" value={order.shipment_id} />
               {labelSource && (
                 <Flex justify="space-between" align="center" py={2}>
@@ -336,7 +339,7 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
           <Button variant="outline" mr={3} onClick={onClose}>
             Close
           </Button>
-          {order.awb_number && (
+          {awbNumber && (
             <Button colorScheme="blue" leftIcon={<FiTruck />}>
               Track Order
             </Button>

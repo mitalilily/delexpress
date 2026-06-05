@@ -1,4 +1,5 @@
 import api from './axios'
+import { getOrderCourierName } from 'utils/orderDisplay'
 
 // Get comprehensive admin dashboard statistics
 export const getAdminDashboardStats = async () => {
@@ -302,7 +303,9 @@ export const getAdminDashboardStats = async () => {
 
     // ========== COURIER PERFORMANCE ==========
     const ordersByCourier = orders.reduce((acc, o) => {
-      const courierName = o.courier_partner || o.courierPartner || o.integration_type || o.integrationType || 'Unknown'
+      const courierName = getOrderCourierName(o)
+      if (!courierName) return acc
+
       if (!acc[courierName]) {
         acc[courierName] = {
           count: 0,
@@ -406,7 +409,9 @@ export const getAdminDashboardStats = async () => {
       ordersByDate[dateStr] = dayOrders.length
 
       ordersByDateByIntegration[dateStr] = dayOrders.reduce((acc, o) => {
-        const courierName = o.courier_partner || o.courierPartner || o.integration_type || o.integrationType || 'Unknown'
+        const courierName = getOrderCourierName(o)
+        if (!courierName) return acc
+
         acc[courierName] = (acc[courierName] || 0) + 1
         return acc
       }, {})

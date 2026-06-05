@@ -42,6 +42,7 @@ import {
   FiXCircle,
 } from 'react-icons/fi'
 import { useHistory } from 'react-router-dom'
+import { getOrderAwbNumber, getOrderCourierDisplayName } from 'utils/orderDisplay'
 import { GenericTable } from 'views/Dashboard/Tables/components/GenericTable'
 import OrderDetailsModal from './OrderDetailsModal'
 
@@ -166,8 +167,9 @@ const OrdersTable = ({
   }
 
   const handleTrackShipment = (order) => {
-    if (!order?.awb_number) return
-    history.push(`/admin/order-tracking?awb=${encodeURIComponent(order.awb_number)}`)
+    const awbNumber = getOrderAwbNumber(order)
+    if (!awbNumber) return
+    history.push(`/admin/order-tracking?awb=${encodeURIComponent(awbNumber)}`)
   }
 
   const openStatusModal = (order, nextStatus = '') => {
@@ -243,8 +245,13 @@ const OrdersTable = ({
     if (!order) return false
     const status = (order.order_status || '').toLowerCase()
     if (!cancellableStatuses.has(status)) return false
-    const provider = (order.integration_type || '').toLowerCase()
-    if (provider && !supportedCancellationProviders.has(provider)) return false
+    const rawProvider = String(
+      order.integration_type || order.integrationType || order.courier_partner || order.courierPartner || '',
+    )
+      .toLowerCase()
+      .trim()
+    const provider = rawProvider === 'ekart logistics' ? 'ekart' : rawProvider
+    if (!supportedCancellationProviders.has(provider)) return false
     return Boolean(order.id)
   }
 
@@ -361,20 +368,24 @@ const OrdersTable = ({
         {value || row?.merchantEmail || row?.merchantPhone || 'Unknown Merchant'}
       </Button>
     ),
-    awb_number: (value) => (
-      <Flex align="center" gap={2}>
-        <span style={{ fontFamily: 'monospace' }}>{value || 'N/A'}</span>
-        {value && (
-          <Icon
-            as={FiCopy}
-            cursor="pointer"
-            onClick={() => handleCopyAWB(value)}
-            color="gray.500"
-            _hover={{ color: 'blue.500' }}
-          />
-        )}
-      </Flex>
-    ),
+    awb_number: (value, row) => {
+      const awbNumber = value || getOrderAwbNumber(row)
+
+      return (
+        <Flex align="center" gap={2}>
+          <span style={{ fontFamily: 'monospace' }}>{awbNumber || 'N/A'}</span>
+          {awbNumber && (
+            <Icon
+              as={FiCopy}
+              cursor="pointer"
+              onClick={() => handleCopyAWB(awbNumber)}
+              color="gray.500"
+              _hover={{ color: 'blue.500' }}
+            />
+          )}
+        </Flex>
+      )
+    },
     documents: (_value, row) => {
       const hasLabel = Boolean(String(row.label_url || row.label_key || row.label || '').trim())
       const hasInvoice = Boolean(
@@ -419,7 +430,7 @@ const OrdersTable = ({
     order_amount: (value) => (
       <span style={{ fontWeight: '600' }}>₹{parseFloat(value || 0).toFixed(2)}</span>
     ),
-    courier_partner: (value) => value || 'Not Assigned',
+    courier_partner: (_value, row) => getOrderCourierDisplayName(row),
     order_date: (value) => {
       if (!value) return 'N/A'
       const date = new Date(value)
@@ -451,7 +462,7 @@ const OrdersTable = ({
           <MenuItem icon={<FiRefreshCw />} onClick={() => openStatusModal(order)}>
             Change Status
           </MenuItem>
-          {order.awb_number && (
+          {getOrderAwbNumber(order) && (
             <MenuItem icon={<FiTruck />} onClick={() => handleTrackShipment(order)}>
               Track Shipment
             </MenuItem>
@@ -522,7 +533,7 @@ const OrdersTable = ({
               <FormControl>
                 <FormLabel>Order</FormLabel>
                 <Input
-                  value={`${statusOrder?.order_number || '—'}${statusOrder?.awb_number ? ` • ${statusOrder.awb_number}` : ''}`}
+                  value={`${statusOrder?.order_number || '—'}${getOrderAwbNumber(statusOrder) ? ` • ${getOrderAwbNumber(statusOrder)}` : ''}`}
                   isReadOnly
                 />
               </FormControl>

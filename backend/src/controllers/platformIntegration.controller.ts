@@ -17,6 +17,13 @@ import { db } from "../models/client";
 import { stores } from "../schema/schema";
 import { eq } from "drizzle-orm";
 
+const summarizeShopifyError = (error: any) => ({
+  message: error?.message || "Unknown Shopify error",
+  status: error?.response?.status ?? error?.status ?? null,
+  code: error?.code ?? null,
+  response: error?.response?.data ?? null,
+});
+
 /**
  * Enum for supported platforms
  */
@@ -270,7 +277,7 @@ export const integrateShopifyStore = async (
       warning: [settingsWarning, webhookWarning].filter(Boolean).join(" ") || null,
     });
   } catch (error: any) {
-    console.error("❌ Error integrating Shopify:", error);
+    console.error("❌ Error integrating Shopify:", summarizeShopifyError(error));
     const message = error?.message || "Failed to integrate Shopify store";
     res.status(shopifyIntegrationErrorStatus(message)).json({ error: message });
   }

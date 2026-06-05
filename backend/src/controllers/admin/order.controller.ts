@@ -86,7 +86,7 @@ export const exportOrdersControllerAdmin = async (req: any, res: Response) => {
       order.order_status,
       order.order_type,
       order.order_amount,
-      order.courier_partner,
+      order.display_courier_partner || order.courier_partner,
       order.order_date,
       order.city,
       order.state,

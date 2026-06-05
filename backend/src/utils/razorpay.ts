@@ -26,6 +26,9 @@ const CREDENTIALS: Record<RazorpayMode, { key_id: string; key_secret: string }> 
 
 export const isRazorpayConfigured = Boolean(CREDENTIALS[MODE].key_id && CREDENTIALS[MODE].key_secret)
 
+const maskCredential = (value: string) =>
+  value ? `${value.slice(0, 4)}...${value.slice(-4)}` : 'missing'
+
 if (!isRazorpayConfigured) {
   console.warn(
     `[Razorpay] Missing credentials for ${MODE.toUpperCase()} mode. Wallet topups are disabled until env vars are set.`,
@@ -39,7 +42,9 @@ export const razorpay = new Razorpay({
 
 if (isRazorpayConfigured) {
   console.info(
-    `[Razorpay] Initialised in ${MODE.toUpperCase()} mode with key ${CREDENTIALS[MODE].key_id}`,
+    `[Razorpay] Initialised in ${MODE.toUpperCase()} mode with key ${maskCredential(
+      CREDENTIALS[MODE].key_id,
+    )}`,
   )
 }
 

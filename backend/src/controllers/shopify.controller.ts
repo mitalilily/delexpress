@@ -5,6 +5,13 @@ import {
   verifyShopifyWebhookSignatureForDomain,
 } from '../models/services/shopify.service'
 
+const summarizeShopifyError = (error: any) => ({
+  message: error?.message || 'Unknown Shopify error',
+  status: error?.response?.status ?? error?.status ?? null,
+  code: error?.code ?? null,
+  response: error?.response?.data ?? null,
+})
+
 export const syncShopifyOrdersController = async (req: any, res: Response): Promise<any> => {
   try {
     const userId = req.user?.sub
@@ -21,7 +28,7 @@ export const syncShopifyOrdersController = async (req: any, res: Response): Prom
       ...result,
     })
   } catch (error: any) {
-    console.error('Shopify sync failed:', error)
+    console.error('Shopify sync failed:', summarizeShopifyError(error))
     return res.status(500).json({
       success: false,
       error: error?.message || 'Failed to sync Shopify orders',
@@ -49,7 +56,7 @@ export const shopifyOrderWebhookController = async (req: Request, res: Response)
     const result = await processShopifyWebhookOrder(shopDomain, topic, payload)
     return res.status(200).json({ success: true, result })
   } catch (error: any) {
-    console.error('Shopify webhook handling failed:', error)
+    console.error('Shopify webhook handling failed:', summarizeShopifyError(error))
     return res.status(500).json({
       success: false,
       error: error?.message || 'Failed to process Shopify webhook',

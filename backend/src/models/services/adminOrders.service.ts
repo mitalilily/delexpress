@@ -3,6 +3,7 @@ import { eq, inArray } from 'drizzle-orm'
 import { db } from '../client'
 import { b2b_orders } from '../schema/b2bOrders'
 import { b2c_orders } from '../schema/b2cOrders'
+import { couriers } from '../schema/couriers'
 import { invoicePreferences } from '../schema/invoicePreferences'
 import { userProfiles } from '../schema/userProfile'
 import { users } from '../schema/users'
@@ -18,6 +19,88 @@ import {
 } from './invoiceHelpers'
 import { presignDownload, presignUpload } from './upload.service'
 import { resolveInvoiceNumber } from './invoiceNumber.service'
+
+const STORE_SOURCE_KEYS = new Set(['shopify'])
+
+const COURIER_PROVIDER_LABELS: Record<string, string> = {
+  delhivery: 'Delhivery',
+  ekart: 'Ekart Logistics',
+  xpressbees: 'Xpressbees',
+  couriercart: 'CourierCart',
+}
+
+const cleanString = (value: unknown): string => {
+  if (value === undefined || value === null) return ''
+  return String(value).trim()
+}
+
+const titleCaseProvider = (value: string): string =>
+  value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+
+const resolveAdminAwbNumber = (order: any): string => {
+  return cleanString(order?.awb_number) || cleanString(order?.awbNumber)
+}
+
+type CourierLookup = Map<number, { name: string; serviceProvider: string }>
+
+const resolveAdminCourierPartner = (order: any, courierLookup?: CourierLookup): string => {
+  const awbNumber = resolveAdminAwbNumber(order)
+  const rawPartner = cleanString(order?.courier_partner ?? order?.courierPartner)
+  const integration = cleanString(order?.integration_type ?? order?.integrationType)
+  const partnerKey = rawPartner.toLowerCase()
+  const integrationKey = integration.toLowerCase()
+  const courierId = Number(order?.courier_id ?? order?.courierId)
+  const catalogCourier = Number.isFinite(courierId) ? courierLookup?.get(courierId) : undefined
+
+  if (catalogCourier && (STORE_SOURCE_KEYS.has(partnerKey) || STORE_SOURCE_KEYS.has(integrationKey))) {
+    const providerKey = cleanString(catalogCourier.serviceProvider).toLowerCase()
+    return catalogCourier.name || COURIER_PROVIDER_LABELS[providerKey] || titleCaseProvider(providerKey)
+  }
+
+  if (rawPartner && !STORE_SOURCE_KEYS.has(partnerKey)) {
+    return COURIER_PROVIDER_LABELS[partnerKey] || rawPartner
+  }
+
+  if (COURIER_PROVIDER_LABELS[integrationKey]) {
+    return COURIER_PROVIDER_LABELS[integrationKey]
+  }
+
+  if (STORE_SOURCE_KEYS.has(partnerKey) || STORE_SOURCE_KEYS.has(integrationKey)) {
+    return ''
+  }
+
+  if (awbNumber && integration) {
+    return titleCaseProvider(integration)
+  }
+
+  return rawPartner
+}
+
+const normalizeAdminOrderDisplayFields = (order: any, courierLookup?: CourierLookup) => {
+  const awbNumber = resolveAdminAwbNumber(order)
+  const courierPartner = resolveAdminCourierPartner(order, courierLookup)
+  const rawPartner = cleanString(order?.courier_partner ?? order?.courierPartner)
+  const integration = cleanString(order?.integration_type ?? order?.integrationType)
+  const sourceChannel =
+    STORE_SOURCE_KEYS.has(rawPartner.toLowerCase()) || STORE_SOURCE_KEYS.has(integration.toLowerCase())
+      ? integration.toLowerCase() || rawPartner.toLowerCase()
+      : cleanString(order?.source_channel ?? order?.sourceChannel)
+
+  return {
+    ...order,
+    awb_number: awbNumber || null,
+    awbNumber: awbNumber || null,
+    courier_partner: courierPartner || null,
+    courierPartner: courierPartner || null,
+    display_courier_partner: courierPartner || (sourceChannel ? 'Courier not selected' : 'Not Assigned'),
+    source_channel: sourceChannel || null,
+    sourceChannel: sourceChannel || null,
+  }
+}
 
 export const getAllOrdersServiceAdmin = async ({
   page = 1,
@@ -58,6 +141,20 @@ export const getAllOrdersServiceAdmin = async ({
     const userRows = await db.select().from(users).where(inArray(users.id, uniqueUserIds))
     usersMap = new Map(userRows.map((u) => [u.id, u]))
   }
+
+  const courierRows = await db
+    .select({
+      id: couriers.id,
+      name: couriers.name,
+      serviceProvider: couriers.serviceProvider,
+    })
+    .from(couriers)
+  const courierLookup = new Map(
+    courierRows.map((row) => [
+      Number(row.id),
+      { name: row.name, serviceProvider: row.serviceProvider },
+    ]),
+  )
 
   combinedOrders = combinedOrders.map((order) => {
     const userId = order.user_id
@@ -135,7 +232,9 @@ export const getAllOrdersServiceAdmin = async ({
 
   const totalPages = Math.ceil(totalCount / limit)
   const paginatedOrders = combinedOrders.slice(offset, offset + limit)
-  const enrichedOrders = await sanitizeOrdersForCustomer(paginatedOrders)
+  const enrichedOrders = (await sanitizeOrdersForCustomer(paginatedOrders)).map((order) =>
+    normalizeAdminOrderDisplayFields(order, courierLookup),
+  )
 
   return {
     orders: enrichedOrders,
@@ -253,7 +352,10 @@ export const regenerateOrderDocumentsServiceAdmin = async ({
     const pickupDetails = normalizePickupDetails(order.pickup_details)
     const pickupPincode = pickupDetails?.pincode
 
-    const serviceType = (order as any).service_type || order.integration_type || order.courier_partner || ''
+    const courierPartnerForDocument = resolveAdminCourierPartner(order)
+    const awbNumberForDocument = resolveAdminAwbNumber(order)
+    const serviceType =
+      (order as any).service_type || courierPartnerForDocument || order.integration_type || ''
     const pickupAddress = formatPickupAddress(pickupDetails)
     const sellerAddress =
       pickupAddress || companyInfo.companyAddress || companyInfo.address || ''
@@ -316,7 +418,7 @@ export const regenerateOrderDocumentsServiceAdmin = async ({
       transactionFee: toNumber((order as any).transaction_fee),
       discount: toNumber((order as any).discount),
       prepaidAmount: toNumber((order as any).prepaid_amount),
-      courierName: (order as any).courier_partner ?? '',
+      courierName: courierPartnerForDocument,
       courierId: String((order as any).courier_id ?? ''),
       logoBuffer,
       orderType: (order.order_type as 'prepaid' | 'cod') || 'prepaid',
@@ -335,8 +437,8 @@ export const regenerateOrderDocumentsServiceAdmin = async ({
       invoiceNotes: prefs?.invoiceNotes ?? '',
       termsAndConditions: prefs?.termsAndConditions ?? '',
       orderId: order.order_number,
-      awbNumber: order.awb_number ?? '',
-      courierPartner: order.courier_partner ?? '',
+      awbNumber: awbNumberForDocument,
+      courierPartner: courierPartnerForDocument,
       serviceType,
       pickupPincode: pickupPincode ?? '',
       deliveryPincode: order.pincode ?? '',
