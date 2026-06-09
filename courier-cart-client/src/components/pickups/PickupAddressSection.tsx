@@ -56,6 +56,7 @@ const mapGeoapifyFeatureToSuggestion = (feature: any): LocationSuggestion | null
   const address: Record<string, string> = {
     name: props.address_line1 || props.name || '',
     road: props.street || props.address_line2 || props.name || '',
+    formatted: props.formatted || '',
     city: props.city || props.district || props.county || '',
     state: props.state || '',
     country: props.country || '',
@@ -89,6 +90,7 @@ const mapNominatimResultToSuggestion = (result: any): LocationSuggestion | null 
     address: {
       name: address.road || address.neighbourhood || address.suburb || '',
       road: address.road || '',
+      formatted: result.display_name || '',
       city: address.city || address.town || address.village || address.county || '',
       state: address.state || '',
       country: address.country || '',
@@ -235,15 +237,37 @@ const PickupAddressSection = ({
     400,
   )
 
+  const cleanAddressPart = (value?: string) => (value ?? '').replace(/\s+/g, ' ').trim()
+  const hasProviderSafeLength = (value?: string) =>
+    cleanAddressPart(value).replace(/[^a-zA-Z0-9]/g, '').length >= 10
+
+  const buildAutofillAddressLine = (props: any) => {
+    const candidates = [props.road, props.name, props.formatted]
+      .map(cleanAddressPart)
+      .filter(Boolean)
+
+    const providerSafeCandidate = candidates.find(hasProviderSafeLength)
+    if (providerSafeCandidate) return providerSafeCandidate
+
+    return [props.name, props.road, props.city, props.state, props.postcode]
+      .map(cleanAddressPart)
+      .filter(Boolean)
+      .join(', ')
+  }
+
+  const setFormValue = (name: Path<PickupFormValues>, value: string) => {
+    setValue(name, value, { shouldDirty: true, shouldValidate: true })
+  }
+
   const applyGeoPropsToForm = (props: any, lat: number, lng: number) => {
     const getSafe = (v?: string) => v ?? ''
-    setValue(`${prefix}.latitude` as Path<PickupFormValues>, lat.toFixed(6))
-    setValue(`${prefix}.longitude` as Path<PickupFormValues>, lng.toFixed(6))
-    setValue(`${prefix}.addressLine1` as Path<PickupFormValues>, getSafe(props.name || props.road))
-    setValue(`${prefix}.city` as Path<PickupFormValues>, getSafe(props.city || props.county))
-    setValue(`${prefix}.state` as Path<PickupFormValues>, getSafe(props.state))
-    setValue(`${prefix}.country` as Path<PickupFormValues>, getSafe(props.country))
-    setValue(`${prefix}.pincode` as Path<PickupFormValues>, getSafe(props.postcode))
+    setFormValue(`${prefix}.latitude` as Path<PickupFormValues>, lat.toFixed(6))
+    setFormValue(`${prefix}.longitude` as Path<PickupFormValues>, lng.toFixed(6))
+    setFormValue(`${prefix}.addressLine1` as Path<PickupFormValues>, buildAutofillAddressLine(props))
+    setFormValue(`${prefix}.city` as Path<PickupFormValues>, getSafe(props.city || props.county))
+    setFormValue(`${prefix}.state` as Path<PickupFormValues>, getSafe(props.state))
+    setFormValue(`${prefix}.country` as Path<PickupFormValues>, getSafe(props.country))
+    setFormValue(`${prefix}.pincode` as Path<PickupFormValues>, getSafe(props.postcode))
   }
 
   // 🔹 Handle selection from autocomplete

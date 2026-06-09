@@ -40,6 +40,88 @@ function buildEkartWarehouseAlias(input: {
   )
 }
 
+const MIN_COURIER_ADDRESS_ALNUM_LENGTH = 10
+
+function compactText(value: unknown) {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function courierSafeText(value: unknown) {
+  return compactText(value)
+    .normalize('NFKD')
+    .replace(/[^\x20-\x7E]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function alnumLength(value: unknown) {
+  return courierSafeText(value).replace(/[^a-zA-Z0-9]/g, '').length
+}
+
+function joinUniqueAddressParts(parts: unknown[]) {
+  const seen = new Set<string>()
+  const cleaned: string[] = []
+
+  for (const part of parts) {
+    const value = courierSafeText(part)
+    if (!value) continue
+
+    const key = value.toLowerCase()
+    if (seen.has(key)) continue
+
+    seen.add(key)
+    cleaned.push(value)
+  }
+
+  return cleaned.join(', ')
+}
+
+function buildCourierAddressLine(address: any) {
+  const addressLine = joinUniqueAddressParts([
+    address?.addressLine1,
+    address?.addressLine2,
+    address?.landmark,
+  ])
+
+  if (alnumLength(addressLine) >= MIN_COURIER_ADDRESS_ALNUM_LENGTH) {
+    return addressLine
+  }
+
+  const contextualAddressLine = joinUniqueAddressParts([
+    addressLine,
+    address?.city,
+    address?.state,
+    address?.pincode,
+  ])
+
+  return contextualAddressLine || addressLine
+}
+
+function assertUsableCourierAddress(address: any, message: string, field: string) {
+  if (alnumLength(buildCourierAddressLine(address)) >= MIN_COURIER_ADDRESS_ALNUM_LENGTH) return
+
+  const err: any = new Error(message)
+  err.code = 'PICKUP_PROVIDER_PREFLIGHT_FAILED'
+  err.field = field
+  throw err
+}
+
+function buildDelhiveryWarehouseName(address: any) {
+  return (
+    courierSafeText(address?.addressNickname) ||
+    courierSafeText(address?.contactName) ||
+    courierSafeText(address?.id) ||
+    'Default Warehouse'
+  ).slice(0, 100)
+}
+
+function normalizeCourierPhone(value: unknown) {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  return digits.length > 10 ? digits.slice(-10) : digits
+}
+
 function assertPresent(value: unknown, message: string, field?: string) {
   if (String(value ?? '').trim()) return
   const err: any = new Error(message)
@@ -65,6 +147,11 @@ function preflightDelhiveryWarehouse(payload: CreatePickupDto) {
     'Pickup address is required before registering courier warehouses.',
     'pickup.addressLine1',
   )
+  assertUsableCourierAddress(
+    pickup,
+    'Pickup Address Line 1 must include at least 10 letters/numbers for courier warehouse registration.',
+    'pickup.addressLine1',
+  )
   assertPresent(
     pickup.city,
     'Pickup city is required before registering courier warehouses.',
@@ -80,6 +167,19 @@ function preflightDelhiveryWarehouse(payload: CreatePickupDto) {
     'Pickup pincode is required before registering courier warehouses.',
     'pickup.pincode',
   )
+
+  if (payload.rtoAddress) {
+    assertPresent(
+      payload.rtoAddress.addressLine1,
+      'RTO address is required before registering courier warehouses.',
+      'rtoAddress.addressLine1',
+    )
+    assertUsableCourierAddress(
+      payload.rtoAddress,
+      'RTO Address Line 1 must include at least 10 letters/numbers for courier warehouse registration.',
+      'rtoAddress.addressLine1',
+    )
+  }
 }
 
 function preflightEkartWarehouse(payload: CreatePickupDto) {
@@ -203,19 +303,22 @@ function extractEkartValidationMessage(err: any) {
 async function syncDelhiveryWarehouse(params: { pickupAddr: any; rtoAddressData: any }) {
   const { pickupAddr, rtoAddressData } = params
   const delhivery = new DelhiveryService()
+  const pickupAddressLine = buildCourierAddressLine(pickupAddr)
+  const returnAddressLine = buildCourierAddressLine(rtoAddressData) || pickupAddressLine
+  const pickupPhone = normalizeCourierPhone(pickupAddr.contactPhone)
   const delhiveryResp = await delhivery.createWarehouse({
-    name: pickupAddr.addressNickname ?? pickupAddr.contactName ?? 'Default Warehouse',
+    name: buildDelhiveryWarehouseName(pickupAddr),
     registered_name: 'ExpressoPro',
-    phone: pickupAddr.contactPhone,
-    email: pickupAddr.contactEmail ?? '',
-    address: pickupAddr.addressLine1,
-    city: pickupAddr.city,
-    pin: pickupAddr.pincode.toString(),
-    country: pickupAddr.country ?? 'India',
-    return_address: rtoAddressData.addressLine1 ?? pickupAddr.addressLine1,
-    return_city: rtoAddressData.city ?? pickupAddr.city,
-    return_pin: rtoAddressData.pincode?.toString() ?? pickupAddr.pincode?.toString(),
-    return_state: rtoAddressData.state ?? pickupAddr.state,
+    phone: pickupPhone || pickupAddr.contactPhone,
+    email: courierSafeText(pickupAddr.contactEmail),
+    address: pickupAddressLine,
+    city: courierSafeText(pickupAddr.city),
+    pin: compactText(pickupAddr.pincode).toString(),
+    country: courierSafeText(pickupAddr.country) || 'India',
+    return_address: returnAddressLine,
+    return_city: courierSafeText(rtoAddressData.city) || courierSafeText(pickupAddr.city),
+    return_pin: compactText(rtoAddressData.pincode) || compactText(pickupAddr.pincode),
+    return_state: courierSafeText(rtoAddressData.state) || courierSafeText(pickupAddr.state),
     return_country: 'India',
   })
 
@@ -236,28 +339,30 @@ async function syncEkartWarehouse(params: { pickupAddr: any }) {
   const phoneRaw = String(pickupAddr.contactPhone || '')
   const phoneDigits = phoneRaw.replace(/\D/g, '')
   const geo = buildEkartGeo(pickupAddr.latitude, pickupAddr.longitude)
+  const addressLine1 = buildCourierAddressLine(pickupAddr)
+  const addressLine2 = joinUniqueAddressParts([pickupAddr.addressLine2, pickupAddr.landmark])
 
   const payload = {
     alias,
     contactName: pickupAddr.contactName || 'ExpressoPro',
     phone: Number(phoneDigits) || 0,
     email: pickupAddr.contactEmail || '',
-    addressLine1: pickupAddr.addressLine1,
-    addressLine2: pickupAddr.addressLine2 || '',
-    city: pickupAddr.city,
-    state: pickupAddr.state,
+    addressLine1,
+    addressLine2,
+    city: courierSafeText(pickupAddr.city),
+    state: courierSafeText(pickupAddr.state),
     pincode: Number(pickupAddr.pincode) || 0,
-    country: (pickupAddr.country || 'India').toUpperCase(),
+    country: (courierSafeText(pickupAddr.country) || 'India').toUpperCase(),
     ...(geo ? { geo } : {}),
     returnAddress: {
       contactName: pickupAddr.contactName || 'ExpressoPro',
       phone: Number(phoneDigits) || 0,
-      addressLine1: pickupAddr.addressLine1,
-      addressLine2: pickupAddr.addressLine2 || '',
-      city: pickupAddr.city,
-      state: pickupAddr.state,
+      addressLine1,
+      addressLine2,
+      city: courierSafeText(pickupAddr.city),
+      state: courierSafeText(pickupAddr.state),
       pincode: Number(pickupAddr.pincode) || 0,
-      country: (pickupAddr.country || 'India').toUpperCase(),
+      country: (courierSafeText(pickupAddr.country) || 'India').toUpperCase(),
       ...(geo ? { geo } : {}),
     },
   }
@@ -555,12 +660,16 @@ export async function updatePickupAddressService(
               await syncDelhiveryWarehouse({ pickupAddr: updatedPickup, rtoAddressData: updatedPickup })
             } else {
               const delhivery = new DelhiveryService()
+              assertUsableCourierAddress(
+                updatedPickup,
+                'Pickup Address Line 1 must include at least 10 letters/numbers for courier warehouse registration.',
+                'pickup.addressLine1',
+              )
               const delhiveryResp = await delhivery.updateWarehouse({
-                name:
-                  updatedPickup?.addressNickname ?? updatedPickup?.contactName ?? 'Default Warehouse',
-                address: updatedPickup?.addressLine1,
-                pin: updatedPickup?.pincode?.toString(),
-                phone: updatedPickup?.contactPhone,
+                name: buildDelhiveryWarehouseName(updatedPickup),
+                address: buildCourierAddressLine(updatedPickup),
+                pin: compactText(updatedPickup?.pincode),
+                phone: normalizeCourierPhone(updatedPickup?.contactPhone),
               })
 
               if (!delhiveryResp || delhiveryResp.success === false) {
