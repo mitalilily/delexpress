@@ -151,23 +151,40 @@ export interface B2COrder {
   length: number
   breadth: number
   height: number
+  actual_weight?: number | null
+  volumetric_weight?: number | null
+  charged_weight?: number | null
+  weight_discrepancy?: boolean | null
+  charged_slabs?: number | null
 
   // Charges
   order_type: 'prepaid' | 'cod'
   prepaid_amount?: number | null
+  freight_charges?: number | null
   shipping_charges?: number | null
+  courier_cost?: number | null
   cod_charges?: number | null
   other_charges?: number | null
   transaction_fee?: number | null
   gift_wrap?: number | null
   discount?: number | null
+  invoice_number?: string | null
+  invoice_date?: string | null
+  invoice_amount?: number | null
+  edd?: string | null
 
   // Order status
   order_status: string
+  pickup_status?: string | null
+  pickup_error?: string | null
 
   // Courier info
   courier_partner?: string | null
   courier_id?: number | null
+  delivery_location?: string | null
+  delivery_message?: string | null
+  shipping_mode?: string | null
+  selected_max_slab_weight?: number | null
   shipment_id?: string | null
   is_insurance: boolean
   label?: string | null
@@ -185,6 +202,7 @@ export interface B2COrder {
   manifest_retries_remaining?: number | null
   can_retry_manifest?: boolean
   awb_number?: string | null
+  sort_code?: string | null
 
   // Pickup & RTO info
   pickup_location_id?: string | null

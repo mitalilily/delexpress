@@ -4,6 +4,12 @@ import {
   AlertTitle,
   Box,
   Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
   Link,
   Stack,
   Typography,
@@ -50,7 +56,6 @@ import {
   summarizeMessages,
   summarizeOrderNumbers,
 } from '../bulkActionUtils'
-import { OrderExpandedRow } from '../OrderExpandedRow'
 import ReverseModal from '../reverse/ReverseModal'
 import B2COrderFormSteps from './B2COrderForm'
 
@@ -97,6 +102,111 @@ const parsePickupDetails = (value: unknown) => {
   return value as Record<string, unknown>
 }
 
+const empty = '—'
+
+const asText = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return empty
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  return String(value)
+}
+
+const asDateTime = (value: unknown) => {
+  if (!value) return empty
+  const date = moment(value as string)
+  return date.isValid() ? date.format('DD MMM YYYY, hh:mm A') : asText(value)
+}
+
+const asDate = (value: unknown) => {
+  if (!value) return empty
+  const date = moment(value as string)
+  return date.isValid() ? date.format('DD MMM YYYY') : asText(value)
+}
+
+const asMoney = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return '₹0.00'
+  const amount = Number(value)
+  return Number.isFinite(amount) ? `₹${amount.toFixed(2)}` : asText(value)
+}
+
+const asWeight = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return empty
+  const weight = Number(value)
+  return Number.isFinite(weight) ? `${weight.toFixed(2)} kg` : asText(value)
+}
+
+const getSourceLabel = (row: B2COrder) =>
+  String(row.integration_type || '').toLowerCase() === 'shopify'
+    ? 'Shopify'
+    : row.is_external_api
+      ? 'API'
+      : 'Local'
+
+const getSourceStatus = (row: B2COrder): 'success' | 'pending' | 'error' | 'info' =>
+  String(row.integration_type || '').toLowerCase() === 'shopify' || row.is_external_api
+    ? 'info'
+    : 'success'
+
+const getAddressLine = (parts: unknown[]) =>
+  parts
+    .map((part) => String(part ?? '').trim())
+    .filter(Boolean)
+    .join(', ') || empty
+
+const getProductName = (product: Record<string, unknown>) =>
+  asText(product.productName ?? product.name ?? product.title)
+
+const getProductQuantity = (product: Record<string, unknown>) =>
+  asText(product.quantity ?? product.qty ?? product.quantityOrdered)
+
+const getProductPrice = (product: Record<string, unknown>) => asMoney(product.price ?? product.amount)
+
+const compactId = (value: unknown, max = 18) => {
+  const text = String(value ?? '').trim()
+  if (!text) return empty
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text
+}
+
+const DetailItem = ({ label, value }: { label: string; value: ReactNode }) => (
+  <Box
+    sx={{
+      minWidth: 0,
+      borderBottom: '1px solid rgba(13, 59, 142, 0.08)',
+      pb: 0.75,
+    }}
+  >
+    <Typography variant="caption" sx={{ display: 'block', color: '#6B7280', fontWeight: 700 }}>
+      {label}
+    </Typography>
+    <Typography
+      component="div"
+      sx={{ color: '#1f3559', fontSize: 13, fontWeight: 600, wordBreak: 'break-word' }}
+    >
+      {value || empty}
+    </Typography>
+  </Box>
+)
+
+const DetailSection = ({ title, children }: { title: string; children: ReactNode }) => (
+  <Stack spacing={1.25}>
+    <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#0D3B8E', textTransform: 'uppercase' }}>
+      {title}
+    </Typography>
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: '1fr',
+          sm: 'repeat(2, minmax(0, 1fr))',
+          md: 'repeat(3, minmax(0, 1fr))',
+        },
+        gap: 1.25,
+      }}
+    >
+      {children}
+    </Box>
+  </Stack>
+)
+
 /* ───────────── Status Color Mapping ───────────── */
 export const statusColorMap: Record<string, 'success' | 'pending' | 'error' | 'info'> = {
   pending: 'pending',
@@ -134,6 +244,216 @@ const shippingStatusMap: Record<string, string> = {
   cancelled: 'Cancelled',
 }
 
+const ShipmentDetailsDialog = ({
+  order,
+  open,
+  onClose,
+}: {
+  order: B2COrder | null
+  open: boolean
+  onClose: () => void
+}) => {
+  if (!order) return null
+
+  const pickup = parsePickupDetails(order.pickup_details)
+  const rto = parsePickupDetails(order.rto_details)
+  const products = Array.isArray(order.products) ? order.products : []
+  const dimensions = `${asText(order.length)} x ${asText(order.breadth)} x ${asText(order.height)} cm`
+  const totalCustomerCharge = Math.max(Number(order.order_amount ?? 0) - Number(order.cod_charges ?? 0), 0)
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+      <DialogTitle sx={{ pb: 1 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
+          <Box>
+            <Typography sx={{ fontWeight: 900, color: '#172B4D' }}>
+              Shipment {order.order_number}
+            </Typography>
+            <Typography sx={{ fontSize: 13, color: '#6B7280' }}>
+              AWB {order.awb_number || empty} · {order.courier_partner || empty}
+            </Typography>
+          </Box>
+          <StatusChip
+            label={shippingStatusMap[order.order_status] || order.order_status || 'Unknown'}
+            status={statusColorMap[order.order_status] || 'info'}
+          />
+        </Stack>
+      </DialogTitle>
+      <DialogContent dividers sx={{ p: { xs: 2, md: 2.5 } }}>
+        <Stack spacing={2.5}>
+          <DetailSection title="Shipment">
+            <DetailItem label="Order Number" value={order.order_number} />
+            <DetailItem label="Backend Order ID" value={asText(order.order_id)} />
+            <DetailItem label="Shipment ID" value={asText(order.shipment_id)} />
+            <DetailItem
+              label="AWB"
+              value={
+                order.awb_number ? (
+                  <Link href={`/tracking?awb=${encodeURIComponent(order.awb_number)}`} underline="hover">
+                    {order.awb_number}
+                  </Link>
+                ) : (
+                  empty
+                )
+              }
+            />
+            <DetailItem label="Source" value={getSourceLabel(order)} />
+            <DetailItem label="Tags" value={asText(order.tags)} />
+            <DetailItem label="Order Date" value={asDate(order.order_date)} />
+            <DetailItem label="Created" value={asDateTime(order.created_at)} />
+            <DetailItem label="Updated" value={asDateTime(order.updated_at)} />
+          </DetailSection>
+
+          <DetailSection title="Courier & Tracking">
+            <DetailItem label="Courier" value={asText(order.courier_partner)} />
+            <DetailItem label="Courier ID" value={asText(order.courier_id)} />
+            <DetailItem label="Integration" value={asText(order.integration_type)} />
+            <DetailItem label="Shipping Mode" value={asText(order.shipping_mode)} />
+            <DetailItem label="Sort Code" value={asText(order.sort_code)} />
+            <DetailItem label="EDD" value={asDate(order.edd)} />
+            <DetailItem label="Delivery Location" value={asText(order.delivery_location)} />
+            <DetailItem label="Delivery Message" value={asText(order.delivery_message)} />
+            <DetailItem label="Pickup Status" value={asText(order.pickup_status)} />
+            <DetailItem label="Pickup Error" value={asText(order.pickup_error)} />
+          </DetailSection>
+
+          <DetailSection title="Buyer">
+            <DetailItem label="Name" value={order.buyer_name} />
+            <DetailItem label="Phone" value={order.buyer_phone} />
+            <DetailItem label="Email" value={asText(order.buyer_email)} />
+            <DetailItem
+              label="Address"
+              value={getAddressLine([order.address, order.city, order.state, order.country, order.pincode])}
+            />
+          </DetailSection>
+
+          <DetailSection title="Weight & Package">
+            <DetailItem label="Declared Weight" value={asWeight(order.weight)} />
+            <DetailItem label="Actual Weight" value={asWeight(order.actual_weight)} />
+            <DetailItem label="Volumetric Weight" value={asWeight(order.volumetric_weight)} />
+            <DetailItem label="Charged Weight" value={asWeight(order.charged_weight)} />
+            <DetailItem label="Selected Slab" value={asWeight(order.selected_max_slab_weight)} />
+            <DetailItem label="Charged Slabs" value={asText(order.charged_slabs)} />
+            <DetailItem label="Dimensions" value={dimensions} />
+            <DetailItem label="Weight Discrepancy" value={asText(order.weight_discrepancy)} />
+            <DetailItem label="Insurance" value={asText(order.is_insurance)} />
+          </DetailSection>
+
+          <DetailSection title="Rates & Charges">
+            <DetailItem label="Payment Type" value={asText(order.order_type)} />
+            <DetailItem label="Order Amount" value={asMoney(order.order_amount)} />
+            <DetailItem label="Customer Total" value={asMoney(totalCustomerCharge)} />
+            <DetailItem label="Prepaid Amount" value={asMoney(order.prepaid_amount)} />
+            <DetailItem label="Freight Charge" value={asMoney(order.freight_charges)} />
+            <DetailItem label="Shipping Charge" value={asMoney(order.shipping_charges)} />
+            <DetailItem label="Courier Cost" value={asMoney(order.courier_cost)} />
+            <DetailItem label="COD Charge" value={asMoney(order.cod_charges)} />
+            <DetailItem label="Other Charge" value={asMoney(order.other_charges)} />
+            <DetailItem label="Transaction Fee" value={asMoney(order.transaction_fee)} />
+            <DetailItem label="Gift Wrap" value={asMoney(order.gift_wrap)} />
+            <DetailItem label="Discount" value={asMoney(order.discount)} />
+          </DetailSection>
+
+          <DetailSection title="Pickup & RTO">
+            <DetailItem label="Pickup Location ID" value={asText(order.pickup_location_id)} />
+            <DetailItem label="Pickup Warehouse" value={asText(pickup.warehouse_name || pickup.name)} />
+            <DetailItem
+              label="Pickup Address"
+              value={getAddressLine([pickup.address, pickup.city, pickup.state, pickup.pincode])}
+            />
+            <DetailItem label="Pickup Phone" value={asText(pickup.phone)} />
+            <DetailItem label="Pickup GST" value={asText(pickup.gst_number)} />
+            <DetailItem label="RTO Different" value={asText(order.is_rto_different)} />
+            <DetailItem label="RTO Warehouse" value={asText(rto.warehouse_name || rto.name)} />
+            <DetailItem label="RTO Address" value={getAddressLine([rto.address, rto.city, rto.state, rto.pincode])} />
+            <DetailItem label="RTO Phone" value={asText(rto.phone)} />
+          </DetailSection>
+
+          <Stack spacing={1.25}>
+            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#0D3B8E', textTransform: 'uppercase' }}>
+              Products
+            </Typography>
+            {products.length ? (
+              <Stack spacing={0.75}>
+                {products.map((product, index) => {
+                  const item = product as Record<string, unknown>
+                  return (
+                    <Box
+                      key={`${getProductName(item)}-${index}`}
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', md: '1.8fr 0.6fr 0.8fr 1fr 0.8fr' },
+                        gap: 1,
+                        p: 1,
+                        border: '1px solid rgba(13, 59, 142, 0.1)',
+                        borderRadius: 1,
+                      }}
+                    >
+                      <DetailItem label="Product" value={getProductName(item)} />
+                      <DetailItem label="Qty" value={getProductQuantity(item)} />
+                      <DetailItem label="Price" value={getProductPrice(item)} />
+                      <DetailItem label="SKU" value={asText(item.sku)} />
+                      <DetailItem label="HSN" value={asText(item.hsnCode ?? item.hsn)} />
+                    </Box>
+                  )
+                })}
+              </Stack>
+            ) : (
+              <Typography sx={{ fontSize: 13, color: '#6B7280' }}>No product details available.</Typography>
+            )}
+          </Stack>
+
+          <DetailSection title="Documents">
+            <DetailItem label="Label" value={asText(order.label || order.label_key || order.label_url)} />
+            <DetailItem label="Manifest" value={asText(order.manifest || order.manifest_key || order.manifest_url)} />
+            <DetailItem label="Invoice Link" value={asText(order.invoice_link || order.invoice_key || order.invoice_url)} />
+            <DetailItem label="Invoice Number" value={asText(order.invoice_number)} />
+            <DetailItem label="Invoice Date" value={asDate(order.invoice_date)} />
+            <DetailItem label="Invoice Amount" value={asMoney(order.invoice_amount)} />
+            <DetailItem label="Manifest Error" value={asText(order.manifest_error)} />
+            <DetailItem label="Manifest Retry Count" value={asText(order.manifest_retry_count)} />
+            <DetailItem label="Last Manifest Retry" value={asDateTime(order.manifest_last_retry_at)} />
+          </DetailSection>
+
+          <Divider />
+          <Box>
+            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#0D3B8E', mb: 1 }}>
+              Raw Available Order Data
+            </Typography>
+            <Box
+              component="pre"
+              sx={{
+                m: 0,
+                p: 1.25,
+                borderRadius: 1,
+                bgcolor: '#F8FAFC',
+                color: '#1f3559',
+                fontSize: 11,
+                maxHeight: 220,
+                overflow: 'auto',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+              }}
+            >
+              {JSON.stringify(order, null, 2)}
+            </Box>
+          </Box>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        {order.awb_number && (
+          <Button href={`/tracking?awb=${encodeURIComponent(order.awb_number)}`} variant="outlined">
+            Track AWB
+          </Button>
+        )}
+        <Button onClick={onClose} variant="contained">
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 const B2COrdersList = () => {
   const theme = useTheme()
   const isXs = useMediaQuery(theme.breakpoints.down('sm')) // mobile
@@ -161,6 +481,7 @@ const B2COrdersList = () => {
   const [pickupDialogDate, setPickupDialogDate] = useState(getDefaultPickupDateInput())
   const [pickupDialogTime, setPickupDialogTime] = useState(getDefaultPickupTimeInput())
   const [shopifyOrderForCourier, setShopifyOrderForCourier] = useState<B2COrder | null>(null)
+  const [detailOrder, setDetailOrder] = useState<B2COrder | null>(null)
   const pickupDialogResolverRef = useRef<((value: PickupSchedulePayload | null) => void) | null>(
     null,
   )
@@ -689,112 +1010,136 @@ const B2COrdersList = () => {
 
   const columns: Column<B2COrder>[] = [
     {
-      label: 'Source',
-      id: 'is_external_api',
-      render: (_, row) => (
-        <StatusChip
-          label={
-            String(row.integration_type || '').toLowerCase() === 'shopify'
-              ? 'Shopify'
-              : row.is_external_api
-                ? 'API'
-                : 'Local'
-          }
-          status={
-            String(row.integration_type || '').toLowerCase() === 'shopify'
-              ? 'info'
-              : row.is_external_api
-                ? 'info'
-                : 'success'
-          }
-        />
-      ),
-    },
-    { label: 'Order #', id: 'order_number' },
-    { label: 'AWB', id: 'awb_number' },
-    {
-      label: 'Docs',
-      id: 'id',
-      minWidth: 220,
-      sticky: 'right',
-      stickyOffset: 140,
+      label: 'Order',
+      id: 'order_number',
+      minWidth: 150,
+      truncate: false,
       render: (_v, row) => (
-        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-          <StatusChip
-            label={hasLabelGenerated(row) ? 'Label Generated' : 'Label Pending'}
-            status={hasLabelGenerated(row) ? 'success' : 'pending'}
-          />
-          <StatusChip
-            label={hasInvoiceGenerated(row) ? 'Invoice Generated' : 'Invoice Pending'}
-            status={hasInvoiceGenerated(row) ? 'success' : 'pending'}
-          />
+        <Stack spacing={0.35}>
+          <Link
+            component="button"
+            type="button"
+            underline="hover"
+            onClick={() => setDetailOrder(row)}
+            sx={{
+              alignSelf: 'flex-start',
+              border: 0,
+              bgcolor: 'transparent',
+              p: 0,
+              color: '#0D3B8E',
+              fontWeight: 800,
+              fontSize: 13,
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}
+          >
+            {compactId(row.order_number, 20)}
+          </Link>
+          <StatusChip label={getSourceLabel(row)} status={getSourceStatus(row)} />
+          <Typography sx={{ fontSize: 11, color: '#6B7280' }}>{asDate(row.order_date)}</Typography>
         </Stack>
       ),
     },
-    { label: 'Buyer', id: 'buyer_name' },
     {
-      label: 'Order Total',
+      label: 'AWB',
+      id: 'awb_number',
+      minWidth: 140,
+      truncate: false,
+      render: (_v, row) =>
+        row.awb_number ? (
+          <Link
+            href={`/tracking?awb=${encodeURIComponent(row.awb_number)}`}
+            underline="hover"
+            sx={{ fontWeight: 800, color: '#0D3B8E', fontSize: 13 }}
+          >
+            {compactId(row.awb_number, 18)}
+          </Link>
+        ) : (
+          <Typography sx={{ fontSize: 12, color: '#6B7280' }}>Pending</Typography>
+        ),
+    },
+    {
+      label: 'Buyer',
+      id: 'buyer_name',
+      minWidth: 170,
+      truncate: false,
+      render: (_v, row) => (
+        <Stack spacing={0.25}>
+          <Typography sx={{ fontSize: 13, fontWeight: 700 }}>{row.buyer_name}</Typography>
+          <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
+            {row.city}, {row.pincode}
+          </Typography>
+        </Stack>
+      ),
+    },
+    {
+      label: 'Charges',
       id: 'order_amount',
+      minWidth: 150,
+      truncate: false,
       render: (_v, row) => {
         const orderAmount = Number(row.order_amount ?? 0)
         const cod = Number(row.cod_charges ?? 0)
         const customerTotal = Math.max(orderAmount - cod, 0)
-        return `₹${customerTotal.toFixed(2)}`
+        return (
+          <Stack spacing={0.25}>
+            <Typography sx={{ fontSize: 13, fontWeight: 800 }}>{asMoney(customerTotal)}</Typography>
+            <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
+              Ship {asMoney(row.shipping_charges)} | COD {asMoney(row.cod_charges)}
+            </Typography>
+            <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
+              Other {asMoney(row.other_charges)}
+            </Typography>
+          </Stack>
+        )
       },
     },
     {
-      label: 'Shipping Charge',
-      id: 'shipping_charges',
-      render: (v) => `₹${Number(v ?? 0).toFixed(2)}`,
-    },
-    {
-      label: 'COD Charge',
-      id: 'cod_charges',
-      render: (v) => `₹${Number(v ?? 0).toFixed(2)}`,
-    },
-    {
-      label: 'Other Charge',
-      id: 'other_charges',
-      render: (v) => `₹${Number(v ?? 0).toFixed(2)}`,
-    },
-    { label: 'Courier', id: 'courier_partner' },
-
-    {
-      label: 'Source',
-      id: 'is_external_api',
+      label: 'Courier / Docs',
+      id: 'courier_partner',
+      minWidth: 190,
+      truncate: false,
       render: (_v, row) => (
-        <StatusChip
-          label={
-            String(row.integration_type || '').toLowerCase() === 'shopify'
-              ? 'Shopify'
-              : row.is_external_api
-                ? 'API'
-                : 'Local'
-          }
-          status={
-            String(row.integration_type || '').toLowerCase() === 'shopify'
-              ? 'info'
-              : row.is_external_api
-                ? 'info'
-                : 'success'
-          }
-        />
+        <Stack spacing={0.5}>
+          <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+            {row.courier_partner || row.integration_type || empty}
+          </Typography>
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            <Chip
+              size="small"
+              label={hasLabelGenerated(row) ? 'Label' : 'No Label'}
+              color={hasLabelGenerated(row) ? 'success' : 'default'}
+              sx={{ height: 20, fontSize: 10 }}
+            />
+            <Chip
+              size="small"
+              label={hasInvoiceGenerated(row) ? 'Invoice' : 'No Invoice'}
+              color={hasInvoiceGenerated(row) ? 'success' : 'default'}
+              sx={{ height: 20, fontSize: 10 }}
+            />
+          </Stack>
+        </Stack>
       ),
     },
     {
-      label: 'Status',
+      label: 'Status / Updated',
       id: 'order_status',
       minWidth: 150,
-      sticky: 'right',
-      stickyOffset: 360,
-      render: (v) => <StatusChip label={v} status={statusColorMap[v] || 'info'} />,
+      truncate: false,
+      render: (v, row) => (
+        <Stack spacing={0.35}>
+          <StatusChip
+            label={shippingStatusMap[String(v)] || String(v || 'Unknown')}
+            status={statusColorMap[String(v)] || 'info'}
+          />
+          <Typography sx={{ fontSize: 11, color: '#6B7280' }}>{asDateTime(row.updated_at)}</Typography>
+        </Stack>
+      ),
     },
-    { label: 'Created At', id: 'created_at', render: (v) => moment(v).format('DD MMM YYYY, hh:mm A') },
-    { label: 'Last Updated', id: 'updated_at', render: (v) => moment(v).format('DD MMM YYYY, hh:mm A') },
     {
       label: 'Actions',
       id: 'id',
-      minWidth: 140,
+      minWidth: 132,
       sticky: 'right',
       stickyOffset: 0,
       render: (_, row) => {
@@ -931,7 +1276,7 @@ const B2COrdersList = () => {
         }
 
         return (
-          <Stack direction="row" spacing={0.75}>
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
             {actions}
           </Stack>
         )
@@ -1111,10 +1456,14 @@ const B2COrdersList = () => {
           onSelectRows={(ids) => setSelectedOrderIds(ids)}
           selectedRowIds={selectedOrderIds}
           selectionResetToken={selectionResetToken}
-          expandable
-          renderExpandedRow={(row) => <OrderExpandedRow row={row} />}
         />
       )}
+
+      <ShipmentDetailsDialog
+        open={Boolean(detailOrder)}
+        order={detailOrder}
+        onClose={() => setDetailOrder(null)}
+      />
 
       <ReverseModal
         open={Boolean(reverseOrder)}
