@@ -8,6 +8,7 @@ import { db } from '../../models/client'
 import { recordNdrEvent } from '../../models/services/ndr.service'
 import { b2c_orders } from '../../models/schema/b2cOrders'
 import { buildCsv } from '../../utils/csv'
+import { createZipBuffer } from '../../utils/zip'
 
 export const getAllOrdersControllerAdmin = async (req: any, res: Response) => {
   try {
@@ -95,11 +96,16 @@ export const exportOrdersControllerAdmin = async (req: any, res: Response) => {
     ])
 
     const csv = buildCsv(headers, rows)
+    const exportDate = new Date().toISOString().split('T')[0]
+    const csvFilename = `orders_export_${exportDate}.csv`
+    const zipFilename = `orders_export_${exportDate}.zip`
+    const zip = createZipBuffer([{ filename: csvFilename, content: csv }])
 
     // Set headers for file download
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
-    res.setHeader('Content-Disposition', `attachment; filename=orders_export_${new Date().toISOString().split('T')[0]}.csv`)
-    res.status(200).send(csv)
+    res.setHeader('Content-Type', 'application/zip')
+    res.setHeader('Content-Disposition', `attachment; filename=${zipFilename}`)
+    res.setHeader('Content-Length', String(zip.length))
+    res.status(200).send(zip)
   } catch (error: any) {
     console.error('Error exporting orders:', error.message)
     res.status(500).json({ success: false, message: error.message })

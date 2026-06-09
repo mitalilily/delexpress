@@ -31,18 +31,29 @@ export async function fetchAllOrders(page, limit = 10, filters = {}) {
   }
 }
 
-export async function exportOrdersToCSV(filters = {}) {
+const getAttachmentFilename = (contentDisposition, fallback) => {
+  const header = contentDisposition || ''
+  const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1].replace(/"/g, ''))
+
+  const filenameMatch = header.match(/filename="?([^";]+)"?/i)
+  return filenameMatch?.[1] || fallback
+}
+
+export async function exportOrdersToZip(filters = {}) {
   try {
     const response = await api.get('/admin/orders/export', {
       params: filters,
       responseType: 'blob', // Important for file download
     })
+    const fallbackName = `orders_export_${new Date().toISOString().split('T')[0]}.zip`
+    const filename = getAttachmentFilename(response.headers?.['content-disposition'], fallbackName)
 
     // Create a download link
-    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/zip' }))
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', `orders_export_${new Date().toISOString().split('T')[0]}.csv`)
+    link.setAttribute('download', filename)
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -54,6 +65,8 @@ export async function exportOrdersToCSV(filters = {}) {
     throw error
   }
 }
+
+export const exportOrdersToCSV = exportOrdersToZip
 
 export async function cancelAdminOrder(orderId) {
   try {

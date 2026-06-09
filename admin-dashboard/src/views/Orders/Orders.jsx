@@ -28,7 +28,7 @@ import {
   FiXCircle,
 } from 'react-icons/fi'
 import { useLocation } from 'react-router-dom'
-import { exportOrdersToCSV } from 'services/order.service'
+import { exportOrdersToZip } from 'services/order.service'
 
 const Orders = () => {
   const location = useLocation()
@@ -93,10 +93,10 @@ const Orders = () => {
   const handleExport = async () => {
     try {
       setIsExporting(true)
-      await exportOrdersToCSV(filters)
+      await exportOrdersToZip(filters)
       toast({
         title: 'Export successful',
-        description: 'Orders have been exported to CSV',
+        description: 'Orders have been exported to ZIP',
         status: 'success',
         duration: 3000,
         isClosable: true,
