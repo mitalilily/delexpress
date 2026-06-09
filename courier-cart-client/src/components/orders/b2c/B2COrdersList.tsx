@@ -11,19 +11,24 @@ import {
   DialogTitle,
   Divider,
   Link,
+  ListItemIcon,
+  Menu,
+  MenuItem,
   Stack,
   Typography,
   useMediaQuery,
   useTheme,
 } from '@mui/material'
 import moment from 'moment'
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { MdArrowDropDown, MdDescription, MdFileDownload, MdReceipt } from 'react-icons/md'
 import { generateManifestService } from '../../../api/order.service'
 import { useAllCouriersWithDetails } from '../../../hooks/Integrations/useCouriers'
 import {
   useB2COrdersByUser,
   useCancelShipment,
   useCreateReverseShipment,
+  useRegenerateOrderDocuments,
   useRetryFailedManifest,
 } from '../../../hooks/Orders/useOrders'
 import { usePickupAddresses } from '../../../hooks/Pickup/usePickupAddresses'
@@ -482,6 +487,9 @@ const B2COrdersList = () => {
   const [pickupDialogTime, setPickupDialogTime] = useState(getDefaultPickupTimeInput())
   const [shopifyOrderForCourier, setShopifyOrderForCourier] = useState<B2COrder | null>(null)
   const [detailOrder, setDetailOrder] = useState<B2COrder | null>(null)
+  const [documentMenuAnchor, setDocumentMenuAnchor] = useState<HTMLElement | null>(null)
+  const [documentMenuOrder, setDocumentMenuOrder] = useState<B2COrder | null>(null)
+  const [documentActionKey, setDocumentActionKey] = useState<string | null>(null)
   const pickupDialogResolverRef = useRef<((value: PickupSchedulePayload | null) => void) | null>(
     null,
   )
@@ -501,6 +509,8 @@ const B2COrdersList = () => {
 
   const { data, isLoading, isError } = useB2COrdersByUser(page, rowsPerPage, effectiveFilters)
   const { mutateAsync: retryFailedManifest, isPending: retryingManifest } = useRetryFailedManifest()
+  const { mutateAsync: regenerateDocuments, isPending: isRegeneratingDocuments } =
+    useRegenerateOrderDocuments()
   const queryClient = useQueryClient()
   const { mutateAsync: presignDownloads } = usePresignedDownloadMutation()
   const { data: couriers } = useAllCouriersWithDetails()
@@ -1008,6 +1018,130 @@ const B2COrdersList = () => {
   const hasInvoiceGenerated = (row: B2COrder) =>
     Boolean(String(row.invoice_url || row.invoice_key || row.invoice_link || '').trim())
 
+  const hasManifestGenerated = (row: B2COrder) =>
+    Boolean(String(row.manifest_url || row.manifest_key || row.manifest || '').trim())
+
+  const isDocumentOperational = (row: B2COrder) => {
+    const normalizedStatus = String(row.order_status || '').trim().toLowerCase()
+    return (
+      Boolean(String(row.manifest_key || row.manifest || row.awb_number || '').trim()) ||
+      [
+        'booked',
+        'shipment_created',
+        'pickup_initiated',
+        'in_transit',
+        'out_for_delivery',
+        'delivered',
+        'ndr',
+        'undelivered',
+        'rto',
+        'rto_in_transit',
+        'rto_delivered',
+      ].includes(normalizedStatus)
+    )
+  }
+
+  const handleOpenDocumentMenu = (
+    event: ReactMouseEvent<HTMLButtonElement>,
+    row: B2COrder,
+  ) => {
+    event.stopPropagation()
+    setDocumentMenuAnchor(event.currentTarget)
+    setDocumentMenuOrder(row)
+  }
+
+  const handleCloseDocumentMenu = () => {
+    setDocumentMenuAnchor(null)
+    setDocumentMenuOrder(null)
+  }
+
+  const handleSingleDocumentDownload = async (row: B2COrder, type: DocumentType) => {
+    const actionKey = `${row.id}-${type}`
+    const { key, url } = getDocumentReference(row, type)
+    const source = key || url
+
+    if (!source) {
+      toast.open({
+        message: `${type[0].toUpperCase()}${type.slice(1)} is not available yet.`,
+        severity: 'error',
+      })
+      return
+    }
+
+    setDocumentActionKey(actionKey)
+    try {
+      let downloadUrl = url || null
+      if (!downloadUrl && key) {
+        const presignedUrls = await presignDownloads({ keys: [key] })
+        downloadUrl = Array.isArray(presignedUrls) ? presignedUrls[0] : null
+      }
+
+      if (!downloadUrl) {
+        throw new Error(`${type} file not found`)
+      }
+
+      await downloadFile(downloadUrl, getDownloadFileName(row, type, source))
+    } catch (error) {
+      const message = getActionableErrorMessage(
+        error,
+        `Failed to download ${type}. Please try again.`,
+      )
+      toast.open({ message, severity: 'error' })
+    } finally {
+      setDocumentActionKey((current) => (current === actionKey ? null : current))
+    }
+  }
+
+  const handleGenerateMissingDocuments = async (row: B2COrder) => {
+    const actionKey = `${row.id}-generate-documents`
+    const regenerateLabel = !hasLabelGenerated(row)
+    const regenerateInvoice = !hasInvoiceGenerated(row)
+
+    if (!isDocumentOperational(row)) {
+      toast.open({
+        message: 'Label and invoice can be generated after the shipment is booked.',
+        severity: 'info',
+      })
+      return
+    }
+
+    if (!regenerateLabel && !regenerateInvoice) {
+      toast.open({ message: 'Label and invoice are already available.', severity: 'info' })
+      return
+    }
+
+    setDocumentActionKey(actionKey)
+    try {
+      await regenerateDocuments({
+        orderId: String(row.id),
+        regenerateLabel,
+        regenerateInvoice,
+      })
+    } finally {
+      setDocumentActionKey((current) => (current === actionKey ? null : current))
+    }
+  }
+
+  const runDocumentMenuAction = async (
+    action: 'generate-manifest' | 'generate-documents' | DocumentType,
+  ) => {
+    const row = documentMenuOrder
+    if (!row) return
+    handleCloseDocumentMenu()
+
+    if (action === 'generate-manifest') {
+      await handleGenerateManifest(row)
+      return
+    }
+
+    if (action === 'generate-documents') {
+      await handleGenerateMissingDocuments(row)
+      return
+    }
+
+    await handleSingleDocumentDownload(row, action)
+  }
+
   const columns: Column<B2COrder>[] = [
     {
       label: 'Order',
@@ -1145,6 +1279,31 @@ const B2COrdersList = () => {
       render: (_, row) => {
         // 1) Build actions compactly; include Reverse + Manifest + Cancel where applicable
         const actions: ReactNode[] = []
+        const canUseDocumentMenu =
+          isDocumentOperational(row) ||
+          isB2CManifestEligible(row) ||
+          hasLabelGenerated(row) ||
+          hasInvoiceGenerated(row) ||
+          hasManifestGenerated(row)
+
+        if (canUseDocumentMenu) {
+          const isDocsBusy = Boolean(
+            documentActionKey?.startsWith(`${row.id}-`) || manifestingOrderId === row.id,
+          )
+          actions.push(
+            <Button
+              key="documents"
+              size="small"
+              variant="outlined"
+              endIcon={<MdArrowDropDown />}
+              onClick={(event) => handleOpenDocumentMenu(event, row)}
+              disabled={isDocsBusy}
+              sx={{ px: 1.25, minWidth: 0, textTransform: 'none' }}
+            >
+              Docs
+            </Button>,
+          )
+        }
 
         if (isShopifySyncedOrderReadyForCourier(row)) {
           actions.push(
@@ -1429,6 +1588,90 @@ const B2COrdersList = () => {
       )}
 
       {/* 🔹 Data Table */}
+      <Menu
+        anchorEl={documentMenuAnchor}
+        open={Boolean(documentMenuAnchor)}
+        onClose={handleCloseDocumentMenu}
+        PaperProps={{
+          sx: {
+            minWidth: 230,
+            borderRadius: 1.5,
+            border: '1px solid rgba(13, 59, 142, 0.1)',
+          },
+        }}
+      >
+        {documentMenuOrder && (
+          <>
+            <MenuItem
+              disabled={
+                !isB2CManifestEligible(documentMenuOrder) ||
+                bulkManifesting ||
+                manifestingOrderId === documentMenuOrder.id
+              }
+              onClick={() => void runDocumentMenuAction('generate-manifest')}
+            >
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <MdReceipt size={18} />
+              </ListItemIcon>
+              Generate Manifest
+            </MenuItem>
+            <MenuItem
+              disabled={
+                !isDocumentOperational(documentMenuOrder) ||
+                isRegeneratingDocuments ||
+                documentActionKey === `${documentMenuOrder.id}-generate-documents` ||
+                (hasLabelGenerated(documentMenuOrder) && hasInvoiceGenerated(documentMenuOrder))
+              }
+              onClick={() => void runDocumentMenuAction('generate-documents')}
+            >
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <MdDescription size={18} />
+              </ListItemIcon>
+              {hasLabelGenerated(documentMenuOrder) || hasInvoiceGenerated(documentMenuOrder)
+                ? 'Generate Missing Docs'
+                : 'Generate Label & Invoice'}
+            </MenuItem>
+            <Divider sx={{ my: 0.5 }} />
+            <MenuItem
+              disabled={
+                !getDocumentReference(documentMenuOrder, 'label').key &&
+                !getDocumentReference(documentMenuOrder, 'label').url
+              }
+              onClick={() => void runDocumentMenuAction('label')}
+            >
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <MdFileDownload size={18} />
+              </ListItemIcon>
+              Download Label
+            </MenuItem>
+            <MenuItem
+              disabled={
+                !getDocumentReference(documentMenuOrder, 'invoice').key &&
+                !getDocumentReference(documentMenuOrder, 'invoice').url
+              }
+              onClick={() => void runDocumentMenuAction('invoice')}
+            >
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <MdFileDownload size={18} />
+              </ListItemIcon>
+              Download Invoice
+            </MenuItem>
+            <MenuItem
+              disabled={
+                !getDocumentReference(documentMenuOrder, 'manifest').key &&
+                !getDocumentReference(documentMenuOrder, 'manifest').url
+              }
+              onClick={() => void runDocumentMenuAction('manifest')}
+            >
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <MdFileDownload size={18} />
+              </ListItemIcon>
+              Download Manifest
+            </MenuItem>
+          </>
+        )}
+      </Menu>
+
       {isLoading ? (
         <TableSkeleton />
       ) : (
