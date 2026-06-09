@@ -856,6 +856,8 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
   const status_type = trackingUpdate.statusType
   const location = trackingUpdate.location
   const instructions = trackingUpdate.instructions
+  const statusInfo = trackingUpdate.statusInfo
+  const statusCode = trackingUpdate.statusCode
 
   if (!waybill) return { success: false, reason: 'missing_awb' }
 
@@ -1178,6 +1180,25 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
     })
     // 🔔 NDR capture for Delhivery
     const statusLower = (internalStatus || '').toLowerCase()
+    const eventReason =
+      instructions ||
+      statusInfo?.Instructions ||
+      statusInfo?.instructions ||
+      statusInfo?.Remarks ||
+      statusInfo?.remarks ||
+      statusInfo?.StatusCode ||
+      statusInfo?.statusCode ||
+      statusCode ||
+      null
+    const eventRemarks = status || statusInfo?.Status || statusInfo?.status || statusCode || null
+    const attemptNo =
+      shipment?.AttemptedCount?.toString?.() ||
+      shipment?.attempted_count?.toString?.() ||
+      shipment?.attempt_count?.toString?.() ||
+      payload?.AttemptedCount?.toString?.() ||
+      payload?.attempted_count?.toString?.() ||
+      payload?.attempt_count?.toString?.() ||
+      null
     const isNdr = ['ndr', 'undelivered'].includes(statusLower)
     if (isNdr) {
       try {
@@ -1186,9 +1207,9 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
           userId: order.user_id,
           awbNumber: order.awb_number || undefined,
           status: statusLower,
-          reason: shipment?.Status?.Instructions || null,
-          remarks: shipment?.Status?.Status || null,
-          attemptNo: shipment?.AttemptedCount?.toString?.() || null,
+          reason: eventReason,
+          remarks: eventRemarks,
+          attemptNo,
           payload,
         })
         await createNotificationService({
@@ -1217,8 +1238,8 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
           userId: order.user_id,
           awbNumber: order.awb_number || undefined,
           status: statusLower,
-          reason: shipment?.Status?.Instructions || null,
-          remarks: shipment?.Status?.Status || null,
+          reason: eventReason,
+          remarks: eventRemarks,
           rtoCharges: rtoCharge,
           payload,
         })

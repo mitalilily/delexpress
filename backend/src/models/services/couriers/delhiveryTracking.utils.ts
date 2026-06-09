@@ -86,6 +86,25 @@ const getScanDetails = (shipment: any): any[] => {
   return (Array.isArray(detail) ? detail : [detail]).filter(Boolean)
 }
 
+const delhiveryNdrStatusCodes = new Set([
+  'eod-3',
+  'eod-6',
+  'eod-11',
+  'eod-15',
+  'eod-16',
+  'eod-43',
+  'eod-69',
+  'eod-74',
+  'eod-86',
+  'eod-104',
+  'st-108',
+])
+
+const isKnownNdrStatusCode = (statusCode?: unknown) => {
+  const code = normalizeText(statusCode).replace(/\s+/g, '-')
+  return delhiveryNdrStatusCodes.has(code)
+}
+
 export const mapDelhiveryStatusToInternal = (
   statusType?: unknown,
   status?: unknown,
@@ -97,6 +116,10 @@ export const mapDelhiveryStatusToInternal = (
   const code = normalizeText(statusCode)
   const instruction = normalizeText(instructionText)
   const signal = [type.toLowerCase(), statusText, code, instruction].filter(Boolean).join(' ')
+
+  if (isKnownNdrStatusCode(statusCode)) {
+    return 'ndr'
+  }
 
   if (
     signal.includes('seller cancelled') ||
@@ -324,13 +347,28 @@ export const extractDelhiveryTrackingUpdate = (payload: any): DelhiveryTrackingU
   const instructions = pickString(
     statusInfo?.Instructions,
     statusInfo?.instructions,
+    statusInfo?.Remark,
+    statusInfo?.Remarks,
+    statusInfo?.remark,
+    statusInfo?.remarks,
     shipment?.Instructions,
     shipment?.instructions,
     shipment?.Remarks,
+    shipment?.Remark,
+    shipment?.ndr_reason,
+    shipment?.NDRReason,
+    shipment?.Reason,
+    shipment?.reason,
     payload?.Instructions,
     payload?.instructions,
+    payload?.NDRReason,
+    payload?.ndr_reason,
+    payload?.Reason,
+    payload?.reason,
     payload?.remarks,
+    payload?.Remarks,
     payload?.remark,
+    payload?.Remark,
     payload?.message,
     latestScan?.instructions,
   )
