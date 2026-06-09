@@ -21,8 +21,19 @@ import {
 } from '@mui/material'
 import moment from 'moment'
 import { useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
-import { MdArrowDropDown, MdDescription, MdFileDownload, MdReceipt } from 'react-icons/md'
+import {
+  MdArrowDropDown,
+  MdCancel,
+  MdDescription,
+  MdFileDownload,
+  MdLocalShipping,
+  MdMoreVert,
+  MdReceipt,
+  MdSync,
+  MdVisibility,
+} from 'react-icons/md'
 import { generateManifestService } from '../../../api/order.service'
+import { fetchTracking } from '../../../api/tracking.service'
 import { useAllCouriersWithDetails } from '../../../hooks/Integrations/useCouriers'
 import {
   useB2COrdersByUser,
@@ -87,6 +98,21 @@ type PickupSchedulePayload = {
   pickup_date: string
   pickup_time: string
 }
+
+type ActionMenuAction =
+  | 'view-details'
+  | 'generate-manifest'
+  | 'regenerate-label'
+  | 'regenerate-invoice'
+  | 'download-label'
+  | 'download-invoice'
+  | 'download-manifest'
+  | 'cancel-shipment'
+  | 'track-shipment'
+  | 'sync-live-status'
+  | 'select-courier'
+  | 'reverse-shipment'
+  | 'retry-manifest'
 
 const getDefaultPickupDateInput = () => new Date().toISOString().split('T')[0]
 
@@ -487,9 +513,10 @@ const B2COrdersList = () => {
   const [pickupDialogTime, setPickupDialogTime] = useState(getDefaultPickupTimeInput())
   const [shopifyOrderForCourier, setShopifyOrderForCourier] = useState<B2COrder | null>(null)
   const [detailOrder, setDetailOrder] = useState<B2COrder | null>(null)
-  const [documentMenuAnchor, setDocumentMenuAnchor] = useState<HTMLElement | null>(null)
-  const [documentMenuOrder, setDocumentMenuOrder] = useState<B2COrder | null>(null)
+  const [actionMenuAnchor, setActionMenuAnchor] = useState<HTMLElement | null>(null)
+  const [actionMenuOrder, setActionMenuOrder] = useState<B2COrder | null>(null)
   const [documentActionKey, setDocumentActionKey] = useState<string | null>(null)
+  const [syncingStatusOrderId, setSyncingStatusOrderId] = useState<string | number | null>(null)
   const pickupDialogResolverRef = useRef<((value: PickupSchedulePayload | null) => void) | null>(
     null,
   )
@@ -1041,18 +1068,18 @@ const B2COrdersList = () => {
     )
   }
 
-  const handleOpenDocumentMenu = (
+  const handleOpenActionMenu = (
     event: ReactMouseEvent<HTMLButtonElement>,
     row: B2COrder,
   ) => {
     event.stopPropagation()
-    setDocumentMenuAnchor(event.currentTarget)
-    setDocumentMenuOrder(row)
+    setActionMenuAnchor(event.currentTarget)
+    setActionMenuOrder(row)
   }
 
-  const handleCloseDocumentMenu = () => {
-    setDocumentMenuAnchor(null)
-    setDocumentMenuOrder(null)
+  const handleCloseActionMenu = () => {
+    setActionMenuAnchor(null)
+    setActionMenuOrder(null)
   }
 
   const handleSingleDocumentDownload = async (row: B2COrder, type: DocumentType) => {
@@ -1092,54 +1119,135 @@ const B2COrdersList = () => {
     }
   }
 
-  const handleGenerateMissingDocuments = async (row: B2COrder) => {
-    const actionKey = `${row.id}-generate-documents`
-    const regenerateLabel = !hasLabelGenerated(row)
-    const regenerateInvoice = !hasInvoiceGenerated(row)
-
+  const handleRegenerateDocument = async (row: B2COrder, type: 'label' | 'invoice') => {
     if (!isDocumentOperational(row)) {
       toast.open({
-        message: 'Label and invoice can be generated after the shipment is booked.',
+        message: `${type === 'label' ? 'Label' : 'Invoice'} can be regenerated after the shipment is booked.`,
         severity: 'info',
       })
       return
     }
 
-    if (!regenerateLabel && !regenerateInvoice) {
-      toast.open({ message: 'Label and invoice are already available.', severity: 'info' })
-      return
-    }
-
+    const actionKey = `${row.id}-regenerate-${type}`
     setDocumentActionKey(actionKey)
     try {
       await regenerateDocuments({
         orderId: String(row.id),
-        regenerateLabel,
-        regenerateInvoice,
+        regenerateLabel: type === 'label',
+        regenerateInvoice: type === 'invoice',
       })
     } finally {
       setDocumentActionKey((current) => (current === actionKey ? null : current))
     }
   }
 
-  const runDocumentMenuAction = async (
-    action: 'generate-manifest' | 'generate-documents' | DocumentType,
-  ) => {
-    const row = documentMenuOrder
+  const handleTrackShipment = (row: B2COrder) => {
+    const awb = String(row.awb_number || '').trim()
+    if (!awb) {
+      toast.open({ message: 'Tracking is unavailable until an AWB is assigned.', severity: 'info' })
+      return
+    }
+
+    window.open(`/tracking?awb=${encodeURIComponent(awb)}`, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleSyncLiveStatus = async (row: B2COrder) => {
+    const awb = String(row.awb_number || '').trim()
+    if (!awb) {
+      toast.open({ message: 'Live status sync needs an AWB number.', severity: 'info' })
+      return
+    }
+
+    setSyncingStatusOrderId(row.id)
+    try {
+      const tracking = await fetchTracking({ awb })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['b2cOrdersByUser'] }),
+        queryClient.invalidateQueries({ queryKey: ['orders'] }),
+      ])
+      toast.open({
+        message: `Live status checked: ${tracking.status || 'status available'}.`,
+        severity: 'success',
+      })
+    } catch (error) {
+      const message = getActionableErrorMessage(
+        error,
+        'Failed to sync live status. Please try again.',
+      )
+      toast.open({ message, severity: 'error' })
+    } finally {
+      setSyncingStatusOrderId((current) => (current === row.id ? null : current))
+    }
+  }
+
+  const runActionMenuAction = async (action: ActionMenuAction) => {
+    const row = actionMenuOrder
     if (!row) return
-    handleCloseDocumentMenu()
+    handleCloseActionMenu()
 
     if (action === 'generate-manifest') {
       await handleGenerateManifest(row)
       return
     }
 
-    if (action === 'generate-documents') {
-      await handleGenerateMissingDocuments(row)
+    if (action === 'regenerate-label') {
+      await handleRegenerateDocument(row, 'label')
       return
     }
 
-    await handleSingleDocumentDownload(row, action)
+    if (action === 'regenerate-invoice') {
+      await handleRegenerateDocument(row, 'invoice')
+      return
+    }
+
+    if (action === 'download-label') {
+      await handleSingleDocumentDownload(row, 'label')
+      return
+    }
+
+    if (action === 'download-invoice') {
+      await handleSingleDocumentDownload(row, 'invoice')
+      return
+    }
+
+    if (action === 'download-manifest') {
+      await handleSingleDocumentDownload(row, 'manifest')
+      return
+    }
+
+    if (action === 'view-details') {
+      setDetailOrder(row)
+      return
+    }
+
+    if (action === 'cancel-shipment') {
+      cancelShipment(String(row.id))
+      return
+    }
+
+    if (action === 'track-shipment') {
+      handleTrackShipment(row)
+      return
+    }
+
+    if (action === 'sync-live-status') {
+      await handleSyncLiveStatus(row)
+      return
+    }
+
+    if (action === 'select-courier') {
+      setShopifyOrderForCourier(row)
+      return
+    }
+
+    if (action === 'reverse-shipment') {
+      setReverseOrder(row)
+      return
+    }
+
+    if (action === 'retry-manifest') {
+      await handleRetryManifest(row)
+    }
   }
 
   const columns: Column<B2COrder>[] = [
@@ -1276,170 +1384,25 @@ const B2COrdersList = () => {
       minWidth: 132,
       sticky: 'right',
       stickyOffset: 0,
-      render: (_, row) => {
-        // 1) Build actions compactly; include Reverse + Manifest + Cancel where applicable
-        const actions: ReactNode[] = []
-        const canUseDocumentMenu =
-          isDocumentOperational(row) ||
-          isB2CManifestEligible(row) ||
-          hasLabelGenerated(row) ||
-          hasInvoiceGenerated(row) ||
-          hasManifestGenerated(row)
-
-        if (canUseDocumentMenu) {
-          const isDocsBusy = Boolean(
-            documentActionKey?.startsWith(`${row.id}-`) || manifestingOrderId === row.id,
-          )
-          actions.push(
-            <Button
-              key="documents"
-              size="small"
-              variant="outlined"
-              endIcon={<MdArrowDropDown />}
-              onClick={(event) => handleOpenDocumentMenu(event, row)}
-              disabled={isDocsBusy}
-              sx={{ px: 1.25, minWidth: 0, textTransform: 'none' }}
-            >
-              Docs
-            </Button>,
-          )
-        }
-
-        if (isShopifySyncedOrderReadyForCourier(row)) {
-          actions.push(
-            <Button
-              key="select-courier"
-              size="small"
-              variant="contained"
-              onClick={() => setShopifyOrderForCourier(row)}
-              sx={{ px: 1.25, minWidth: 0, textTransform: 'none' }}
-            >
-              Select Courier
-            </Button>,
-          )
-        }
-
-        // Show Reverse for delivered (all providers)
-        if ((row.order_status || '').toLowerCase() === 'delivered') {
-          actions.push(
-            <Button
-              key="reverse"
-              size="small"
-              variant="outlined"
-              onClick={() => setReverseOrder(row)}
-              sx={{ px: 1.25, minWidth: 0 }}
-            >
-              Reverse
-            </Button>,
-          )
-        }
-
-        if (isB2CManifestEligible(row)) {
-          const isThisManifesting = manifestingOrderId === row.id
-          actions.push(
-            <Button
-              key="manifest"
-              size="small"
-              variant="contained"
-              loading={isThisManifesting}
-              disabled={bulkManifesting || isThisManifesting}
-              onClick={() => handleGenerateManifest(row)}
-              sx={{ px: 1.25, minWidth: 0 }}
-            >
-              {isThisManifesting ? 'Manifesting...' : 'Manifest'}
-            </Button>,
-          )
-        }
-
-        const retriesRemaining = Number(row.manifest_retries_remaining ?? 0)
-        const canRetryManifest =
-          row.can_retry_manifest === true &&
-          String(row.integration_type || '').toLowerCase() === 'delhivery'
-
-        if (String(row.order_status || '').toLowerCase() === 'manifest_failed' && canRetryManifest) {
-          actions.push(
-            <Button
-              key="retry-manifest"
-              size="small"
-              variant="contained"
-              color="warning"
-              loading={retryingManifest}
-              disabled={retryingManifest}
-              onClick={() => handleRetryManifest(row)}
-              sx={{ px: 1.25, minWidth: 0 }}
-            >
-              {retryingManifest ? 'Retrying...' : `Retry (${retriesRemaining} left)`}
-            </Button>,
-          )
-        }
-
-        if (isCancellable(row)) {
-          actions.push(
-            <Button
-              key="cancel"
-              size="small"
-              variant="outlined"
-              color="error"
-              onClick={() => cancelShipment(row.id as unknown as string)}
-              sx={{ px: 1.25, minWidth: 0, border: '1px solid red', color: 'red' }}
-            >
-              Cancel
-            </Button>,
-          )
-        }
-
-        // If the provider already returned a manifest/label flow and there are no direct actions, show info text
-        if (
-          actions.length === 0 &&
-          String(row.order_status || '').toLowerCase() !== 'manifest_failed' &&
-          ['delhivery', 'ekart', 'xpressbees'].includes(
-            String(row.integration_type || '').toLowerCase(),
-          )
-        ) {
-          return (
-            <Typography variant="body2" color="text.secondary">
-              Auto-Manifested{' '}
-              {/* {row.manifest && (
-                <Typography component="span" color="primary" fontWeight={500}>
-                  (Batch ID: {row.manifest})
-                </Typography>
-              )} */}
-            </Typography>
-          )
-        }
-
-        if (
-          actions.length === 0 &&
-          String(row.order_status || '').toLowerCase() === 'manifest_failed' &&
-          String(row.integration_type || '').toLowerCase() === 'delhivery'
-        ) {
-          return (
-            <Typography variant="body2" color="error.main">
-              Retry limit reached
-            </Typography>
-          )
-        }
-
-        if (row.order_status === 'manifest_generated' && row.manifest) {
-          actions.push(
-            <Link
-              key="view-manifest"
-              href={row.manifest}
-              target="_blank"
-              rel="noopener"
-              underline="hover"
-            >
-              View
-            </Link>,
-          )
-        }
-
-        return (
-          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-            {actions}
-          </Stack>
-        )
-      },
+      render: (_, row) => (
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<MdMoreVert />}
+          endIcon={<MdArrowDropDown />}
+          aria-label={`Actions for ${row.order_number || row.awb_number || 'order'}`}
+          onClick={(event) => handleOpenActionMenu(event, row)}
+          sx={{
+            minWidth: 112,
+            px: 1.25,
+            textTransform: 'none',
+            borderRadius: 1.5,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Actions
+        </Button>
+      ),
     },
   ]
 
@@ -1589,85 +1552,183 @@ const B2COrdersList = () => {
 
       {/* 🔹 Data Table */}
       <Menu
-        anchorEl={documentMenuAnchor}
-        open={Boolean(documentMenuAnchor)}
-        onClose={handleCloseDocumentMenu}
+        anchorEl={actionMenuAnchor}
+        open={Boolean(actionMenuAnchor)}
+        onClose={handleCloseActionMenu}
         PaperProps={{
           sx: {
-            minWidth: 230,
+            minWidth: 250,
             borderRadius: 1.5,
             border: '1px solid rgba(13, 59, 142, 0.1)',
+            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.16)',
+            '& .MuiMenuItem-root': {
+              minHeight: 40,
+              fontSize: 13,
+              fontWeight: 650,
+              color: '#374151',
+            },
           },
         }}
       >
-        {documentMenuOrder && (
+        {actionMenuOrder && (
           <>
-            <MenuItem
-              disabled={
-                !isB2CManifestEligible(documentMenuOrder) ||
-                bulkManifesting ||
-                manifestingOrderId === documentMenuOrder.id
-              }
-              onClick={() => void runDocumentMenuAction('generate-manifest')}
-            >
-              <ListItemIcon sx={{ minWidth: 32 }}>
-                <MdReceipt size={18} />
+            <MenuItem onClick={() => void runActionMenuAction('view-details')}>
+              <ListItemIcon sx={{ minWidth: 34 }}>
+                <MdVisibility size={18} />
               </ListItemIcon>
-              Generate Manifest
-            </MenuItem>
-            <MenuItem
-              disabled={
-                !isDocumentOperational(documentMenuOrder) ||
-                isRegeneratingDocuments ||
-                documentActionKey === `${documentMenuOrder.id}-generate-documents` ||
-                (hasLabelGenerated(documentMenuOrder) && hasInvoiceGenerated(documentMenuOrder))
-              }
-              onClick={() => void runDocumentMenuAction('generate-documents')}
-            >
-              <ListItemIcon sx={{ minWidth: 32 }}>
-                <MdDescription size={18} />
-              </ListItemIcon>
-              {hasLabelGenerated(documentMenuOrder) || hasInvoiceGenerated(documentMenuOrder)
-                ? 'Generate Missing Docs'
-                : 'Generate Label & Invoice'}
+              View Details
             </MenuItem>
             <Divider sx={{ my: 0.5 }} />
             <MenuItem
               disabled={
-                !getDocumentReference(documentMenuOrder, 'label').key &&
-                !getDocumentReference(documentMenuOrder, 'label').url
+                !isB2CManifestEligible(actionMenuOrder) ||
+                hasManifestGenerated(actionMenuOrder) ||
+                bulkManifesting ||
+                manifestingOrderId === actionMenuOrder.id
               }
-              onClick={() => void runDocumentMenuAction('label')}
+              onClick={() => void runActionMenuAction('generate-manifest')}
             >
-              <ListItemIcon sx={{ minWidth: 32 }}>
+              <ListItemIcon sx={{ minWidth: 34 }}>
+                <MdReceipt size={18} />
+              </ListItemIcon>
+              {manifestingOrderId === actionMenuOrder.id ? 'Generating Manifest...' : 'Generate Manifest'}
+            </MenuItem>
+            <MenuItem
+              disabled={
+                !isDocumentOperational(actionMenuOrder) ||
+                isRegeneratingDocuments ||
+                documentActionKey === `${actionMenuOrder.id}-regenerate-label`
+              }
+              onClick={() => void runActionMenuAction('regenerate-label')}
+            >
+              <ListItemIcon sx={{ minWidth: 34 }}>
+                <MdDescription size={18} />
+              </ListItemIcon>
+              Regenerate Label
+            </MenuItem>
+            <MenuItem
+              disabled={
+                !isDocumentOperational(actionMenuOrder) ||
+                isRegeneratingDocuments ||
+                documentActionKey === `${actionMenuOrder.id}-regenerate-invoice`
+              }
+              onClick={() => void runActionMenuAction('regenerate-invoice')}
+            >
+              <ListItemIcon sx={{ minWidth: 34 }}>
+                <MdReceipt size={18} />
+              </ListItemIcon>
+              Regenerate Invoice
+            </MenuItem>
+            <Divider sx={{ my: 0.5 }} />
+            <MenuItem
+              disabled={
+                (!getDocumentReference(actionMenuOrder, 'label').key &&
+                  !getDocumentReference(actionMenuOrder, 'label').url) ||
+                documentActionKey === `${actionMenuOrder.id}-label`
+              }
+              onClick={() => void runActionMenuAction('download-label')}
+            >
+              <ListItemIcon sx={{ minWidth: 34 }}>
                 <MdFileDownload size={18} />
               </ListItemIcon>
               Download Label
             </MenuItem>
             <MenuItem
               disabled={
-                !getDocumentReference(documentMenuOrder, 'invoice').key &&
-                !getDocumentReference(documentMenuOrder, 'invoice').url
+                (!getDocumentReference(actionMenuOrder, 'invoice').key &&
+                  !getDocumentReference(actionMenuOrder, 'invoice').url) ||
+                documentActionKey === `${actionMenuOrder.id}-invoice`
               }
-              onClick={() => void runDocumentMenuAction('invoice')}
+              onClick={() => void runActionMenuAction('download-invoice')}
             >
-              <ListItemIcon sx={{ minWidth: 32 }}>
+              <ListItemIcon sx={{ minWidth: 34 }}>
                 <MdFileDownload size={18} />
               </ListItemIcon>
               Download Invoice
             </MenuItem>
             <MenuItem
               disabled={
-                !getDocumentReference(documentMenuOrder, 'manifest').key &&
-                !getDocumentReference(documentMenuOrder, 'manifest').url
+                (!getDocumentReference(actionMenuOrder, 'manifest').key &&
+                  !getDocumentReference(actionMenuOrder, 'manifest').url) ||
+                documentActionKey === `${actionMenuOrder.id}-manifest`
               }
-              onClick={() => void runDocumentMenuAction('manifest')}
+              onClick={() => void runActionMenuAction('download-manifest')}
             >
-              <ListItemIcon sx={{ minWidth: 32 }}>
+              <ListItemIcon sx={{ minWidth: 34 }}>
                 <MdFileDownload size={18} />
               </ListItemIcon>
               Download Manifest
             </MenuItem>
+            <Divider sx={{ my: 0.5 }} />
+            <MenuItem
+              disabled={!isCancellable(actionMenuOrder)}
+              onClick={() => void runActionMenuAction('cancel-shipment')}
+              sx={{ color: '#B42318 !important' }}
+            >
+              <ListItemIcon sx={{ minWidth: 34, color: '#B42318' }}>
+                <MdCancel size={18} />
+              </ListItemIcon>
+              Cancel Shipment
+            </MenuItem>
+            <MenuItem
+              disabled={!String(actionMenuOrder.awb_number || '').trim()}
+              onClick={() => void runActionMenuAction('track-shipment')}
+            >
+              <ListItemIcon sx={{ minWidth: 34 }}>
+                <MdLocalShipping size={18} />
+              </ListItemIcon>
+              Track Shipment
+            </MenuItem>
+            <MenuItem
+              disabled={
+                !String(actionMenuOrder.awb_number || '').trim() ||
+                syncingStatusOrderId === actionMenuOrder.id
+              }
+              onClick={() => void runActionMenuAction('sync-live-status')}
+            >
+              <ListItemIcon sx={{ minWidth: 34 }}>
+                <MdSync size={18} />
+              </ListItemIcon>
+              {syncingStatusOrderId === actionMenuOrder.id ? 'Syncing Live Status...' : 'Sync Live Status'}
+            </MenuItem>
+            {(isShopifySyncedOrderReadyForCourier(actionMenuOrder) ||
+              (actionMenuOrder.order_status || '').toLowerCase() === 'delivered' ||
+              (String(actionMenuOrder.order_status || '').toLowerCase() === 'manifest_failed' &&
+                actionMenuOrder.can_retry_manifest === true &&
+                String(actionMenuOrder.integration_type || '').toLowerCase() === 'delhivery')) && (
+              <Divider sx={{ my: 0.5 }} />
+            )}
+            {isShopifySyncedOrderReadyForCourier(actionMenuOrder) && (
+              <MenuItem onClick={() => void runActionMenuAction('select-courier')}>
+                <ListItemIcon sx={{ minWidth: 34 }}>
+                  <MdLocalShipping size={18} />
+                </ListItemIcon>
+                Select Courier
+              </MenuItem>
+            )}
+            {(actionMenuOrder.order_status || '').toLowerCase() === 'delivered' && (
+              <MenuItem onClick={() => void runActionMenuAction('reverse-shipment')}>
+                <ListItemIcon sx={{ minWidth: 34 }}>
+                  <MdLocalShipping size={18} />
+                </ListItemIcon>
+                Reverse Shipment
+              </MenuItem>
+            )}
+            {String(actionMenuOrder.order_status || '').toLowerCase() === 'manifest_failed' &&
+              actionMenuOrder.can_retry_manifest === true &&
+              String(actionMenuOrder.integration_type || '').toLowerCase() === 'delhivery' && (
+                <MenuItem
+                  disabled={retryingManifest}
+                  onClick={() => void runActionMenuAction('retry-manifest')}
+                >
+                  <ListItemIcon sx={{ minWidth: 34 }}>
+                    <MdSync size={18} />
+                  </ListItemIcon>
+                  {retryingManifest
+                    ? 'Retrying Manifest...'
+                    : `Retry Manifest (${Number(actionMenuOrder.manifest_retries_remaining ?? 0)} left)`}
+                </MenuItem>
+              )}
           </>
         )}
       </Menu>
