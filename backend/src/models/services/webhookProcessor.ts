@@ -20,6 +20,11 @@ import {
   mapDelhiveryStatusToInternal,
 } from './couriers/delhiveryTracking.utils'
 import {
+  detectDelhiveryDocumentType,
+  extractDelhiveryDocumentReference,
+  type DelhiveryDocumentType,
+} from './couriers/delhiveryDocument.utils'
+import {
   calculateChargedWeight,
   calculateVolumetricWeight,
 } from './courierWeightCalculation.service'
@@ -1473,11 +1478,18 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
  */
 export async function processDelhiveryDocumentWebhook(
   payload: any,
-  documentType: string | null,
+  documentType: DelhiveryDocumentType | null,
   tx = db,
 ) {
   const shipment = payload?.Shipment || payload
-  const waybill = shipment?.AWB || payload?.AWB || payload?.waybill
+  const waybill =
+    shipment?.AWB ||
+    payload?.AWB ||
+    payload?.waybill ||
+    payload?.waybillId ||
+    payload?.waybill_id ||
+    shipment?.Waybill ||
+    payload?.Waybill
 
   if (!waybill) {
     return { success: false, reason: 'missing_awb' }
@@ -1489,54 +1501,18 @@ export async function processDelhiveryDocumentWebhook(
     return { success: false, reason: 'order_not_found' }
   }
 
-  // Extract document URLs based on document type
-  let documentUrl: string | null = null
-  const docType = (documentType || '').toLowerCase()
+  const resolvedDocumentType = documentType || detectDelhiveryDocumentType(payload)
+  const documentReference = extractDelhiveryDocumentReference(payload, resolvedDocumentType)
 
-  if (docType === 'pod' || docType === 'poddocument') {
-    documentUrl =
-      shipment?.PODDocument ||
-      payload?.PODDocument ||
-      shipment?.POD?.DocumentURL ||
-      payload?.POD?.DocumentURL ||
-      shipment?.DocumentURL ||
-      payload?.DocumentURL
-  } else if (docType === 'sorterimage' || docType === 'sorter') {
-    documentUrl =
-      shipment?.SorterImage ||
-      payload?.SorterImage ||
-      shipment?.Sorter?.ImageURL ||
-      payload?.Sorter?.ImageURL ||
-      shipment?.ImageURL ||
-      payload?.ImageURL
-  } else if (docType === 'qcimage' || docType === 'qc') {
-    documentUrl =
-      shipment?.QCImage ||
-      payload?.QCImage ||
-      shipment?.QC?.ImageURL ||
-      payload?.QC?.ImageURL ||
-      shipment?.ImageURL ||
-      payload?.ImageURL
-  } else {
-    // Generic document URL extraction
-    documentUrl =
-      shipment?.DocumentURL ||
-      payload?.DocumentURL ||
-      shipment?.ImageURL ||
-      payload?.ImageURL ||
-      shipment?.URL ||
-      payload?.URL
-  }
-
-  if (!documentUrl) {
-    console.warn(`⚠️ No document URL found in Delhivery document webhook for AWB ${waybill}`)
+  if (!documentReference) {
+    console.warn(`⚠️ No document reference found in Delhivery document webhook for AWB ${waybill}`)
     return { success: false, reason: 'missing_document_url' }
   }
 
   console.log(
     `📄 Processing Delhivery ${
-      documentType || 'document'
-    } webhook for AWB ${waybill}, URL: ${documentUrl}`,
+      resolvedDocumentType || 'document'
+    } webhook for AWB ${waybill}, reference: ${documentReference}`,
   )
 
   try {
@@ -1544,15 +1520,8 @@ export async function processDelhiveryDocumentWebhook(
       // Store document URL in order metadata or delivery_message field
       // Note: You may want to add a dedicated field for POD/document URLs in the schema
       const updateData: any = {
+        delivery_message: `${resolvedDocumentType || 'Document'} received`,
         updated_at: new Date(),
-      }
-
-      // Store in delivery_message if it's POD, otherwise append to existing message
-      if (docType === 'pod' || docType === 'poddocument') {
-        const existingMessage = order.delivery_message || ''
-        updateData.delivery_message = existingMessage
-          ? `${existingMessage}\nPOD Document: ${documentUrl}`
-          : `POD Document: ${documentUrl}`
       }
 
       // Log the document for tracking
@@ -1562,11 +1531,11 @@ export async function processDelhiveryDocumentWebhook(
         awbNumber: order.awb_number,
         courier: 'Delhivery',
         statusCode: 'document_received',
-        statusText: `${documentType || 'Document'} received`,
+        statusText: `${resolvedDocumentType || 'Document'} received`,
         location: null,
         raw: {
-          documentType,
-          documentUrl,
+          documentType: resolvedDocumentType,
+          documentReference,
           payload,
         },
       })
@@ -1577,24 +1546,20 @@ export async function processDelhiveryDocumentWebhook(
       await createNotificationService({
         targetRole: 'user',
         userId: order.user_id,
-        title: `${documentType || 'Document'} received (Delhivery)`,
-        message: `Order ${order.order_number} - ${
-          documentType || 'Document'
-        } document is now available.`,
+        title: `${resolvedDocumentType || 'Document'} received (Delhivery)`,
+        message: `Order ${order.order_number} - ${resolvedDocumentType || 'Document'} document is now available.`,
       })
 
       // Also notify admins so POD/document events are visible in admin notification center.
       await createNotificationService({
         targetRole: 'admin',
-        title: `${documentType || 'Document'} received (Delhivery)`,
-        message: `Order ${order.order_number} (${order.awb_number || waybill}) - ${
-          documentType || 'Document'
-        } document received.`,
+        title: `${resolvedDocumentType || 'Document'} received (Delhivery)`,
+        message: `Order ${order.order_number} (${order.awb_number || waybill}) - ${resolvedDocumentType || 'Document'} document received.`,
       })
 
       console.log(
         `✅ Delhivery ${
-          documentType || 'document'
+          resolvedDocumentType || 'document'
         } webhook processed successfully for AWB ${waybill}`,
       )
     })

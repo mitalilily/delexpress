@@ -9,7 +9,10 @@ import { initSocketServer } from './config/socketServer'
 import { shopifyOrderWebhookController } from './controllers/shopify.controller'
 import {
   delhiveryDocumentPushHandler,
+  delhiveryEpodPushHandler,
   delhiveryScanPushHandler,
+  delhiveryQcImagePushHandler,
+  delhiverySorterImagePushHandler,
   delhiveryWebhookHandler,
 } from './controllers/webhooks/delhivery.webhook'
 import { ekartWebhookHandler } from './controllers/webhooks/ekart.webhook'
@@ -266,6 +269,14 @@ app.post('/api/webhook/delhiveryone/ndr', express.json(), delhiveryScanPushHandl
 app.post('/api/webhook/delhiveryone/rto', express.json(), delhiveryScanPushHandler)
 app.post('/api/webhook/delhivery/document', express.json(), delhiveryDocumentPushHandler) // Document Push (POD, Sorter Image, QC Image)
 app.post('/api/webhook/delhiveryone/document', express.json(), delhiveryDocumentPushHandler)
+app.post('/api/webhook/delhivery/qc-image', express.json(), delhiveryQcImagePushHandler)
+app.post('/api/webhook/delhivery/qc', express.json(), delhiveryQcImagePushHandler)
+app.post('/api/webhook/delhiveryone/qc-image', express.json(), delhiveryQcImagePushHandler)
+app.post('/api/webhook/delhivery/sorter-image', express.json(), delhiverySorterImagePushHandler)
+app.post('/api/webhook/delhivery/sorter', express.json(), delhiverySorterImagePushHandler)
+app.post('/api/webhook/delhiveryone/sorter-image', express.json(), delhiverySorterImagePushHandler)
+app.post('/api/webhook/delhivery/epod', express.json(), delhiveryEpodPushHandler)
+app.post('/api/webhook/delhiveryone/epod', express.json(), delhiveryEpodPushHandler)
 // Legacy unified endpoint (auto-detects type) - kept for backward compatibility
 app.post('/api/webhook/delhivery/order', express.json(), delhiveryWebhookHandler)
 

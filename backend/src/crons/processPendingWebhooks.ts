@@ -2,9 +2,14 @@
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '../models/client'
 import {
+  processDelhiveryDocumentWebhook,
   processDelhiveryWebhook,
   processXpressbeesWebhook,
 } from '../models/services/webhookProcessor'
+import {
+  detectDelhiveryDocumentType,
+  isDelhiveryDocumentWebhookPayload,
+} from '../models/services/couriers/delhiveryDocument.utils'
 import { extractDelhiveryTrackingUpdate } from '../models/services/couriers/delhiveryTracking.utils'
 import { pending_webhooks } from '../schema/schema'
 
@@ -14,6 +19,13 @@ const MAX_PENDING_DUPLICATE_RETRIES = Number(
   process.env.PENDING_WEBHOOK_MAX_DUPLICATE_RETRIES || 5,
 )
 let isProcessingPendingWebhooks = false
+
+const isPendingDelhiveryDocument = (payload: any, status: string) =>
+  Boolean(
+    payload?.__delhiveryDocumentType ||
+      String(status || '').startsWith('delhivery:document') ||
+      isDelhiveryDocumentWebhookPayload(payload?.body || payload),
+  )
 
 export async function processPendingWebhooks() {
   if (isProcessingPendingWebhooks) {
@@ -43,7 +55,7 @@ export async function processPendingWebhooks() {
       const payload: any = event.payload || {}
       const provider =
         payload?.__provider || (String(event.status || '').startsWith('xpressbees:') ? 'xpressbees' : 'delhivery')
-      const rawPayload = payload?.__provider === 'xpressbees' ? payload?.body || {} : payload
+      const rawPayload = payload?.__provider === 'xpressbees' ? payload?.body || {} : payload?.body || payload
       const delhiveryUpdate =
         provider === 'delhivery' ? extractDelhiveryTrackingUpdate(rawPayload) : null
       const awb =
@@ -71,7 +83,7 @@ export async function processPendingWebhooks() {
     for (const event of events) {
       const payload: any = event.payload || {}
       const provider = payload?.__provider || (String(event.status || '').startsWith('xpressbees:') ? 'xpressbees' : 'delhivery')
-      const rawPayload = payload?.__provider === 'xpressbees' ? payload?.body || {} : payload
+      const rawPayload = payload?.__provider === 'xpressbees' ? payload?.body || {} : payload?.body || payload
       const delhiveryUpdate =
         provider === 'delhivery' ? extractDelhiveryTrackingUpdate(rawPayload) : null
       const awb =
@@ -117,7 +129,8 @@ export async function processPendingWebhooks() {
             !!delhiveryUpdate?.waybill ||
             typeof rawPayload?.waybill === 'string' ||
             typeof rawPayload?.AWB === 'string' ||
-            typeof awb === 'string')
+            typeof awb === 'string' ||
+            isPendingDelhiveryDocument(payload, event.status))
         const looksLikeXpressbees =
           provider === 'xpressbees' &&
           (typeof rawPayload?.awb_number === 'string' ||
@@ -139,7 +152,12 @@ export async function processPendingWebhooks() {
         const result =
           provider === 'xpressbees'
             ? await processXpressbeesWebhook(rawPayload)
-            : await processDelhiveryWebhook(rawPayload)
+            : isPendingDelhiveryDocument(payload, event.status)
+              ? await processDelhiveryDocumentWebhook(
+                  rawPayload,
+                  detectDelhiveryDocumentType(rawPayload, payload?.__delhiveryDocumentType || null),
+                )
+              : await processDelhiveryWebhook(rawPayload)
 
         if (result.success) {
           processedCount++
