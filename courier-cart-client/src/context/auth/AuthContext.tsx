@@ -21,7 +21,7 @@ interface AuthCtx {
   user: IUserProfileDB
   loading: boolean
   isAuthenticated: boolean
-  setTokens: (access: string, refresh: string) => void
+  setTokens: (access?: string | null, refresh?: string | null) => void
   clearTokens: () => void
   logout: () => Promise<void>
   refetchUser: () => void
@@ -58,7 +58,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // is done in axios interceptors which clear tokens and redirect as needed.
   }, [user])
 
-  const setTokens = (access: string, refresh: string) => {
+  const setTokens = (access?: string | null, refresh?: string | null) => {
+    if (!access || !refresh) {
+      console.error('Refusing to persist incomplete auth tokens')
+      clearTokens()
+      return
+    }
+
     setAuthTokens(access, refresh)
     setIsAuthenticated(true)
     refetchUser()

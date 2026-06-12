@@ -138,10 +138,17 @@ export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPass
               return
             }
 
-            setUserId(user?.id)
-            if (user) {
-              queryClient.setQueryData(['userProfile'], user)
+            if (!token || !refreshToken) {
+              toast.open({
+                message: 'Login succeeded but the server did not return a session token.',
+                severity: 'error',
+                position: { vertical: 'top', horizontal: 'center' },
+              })
+              return
             }
+
+            if (user?.id) setUserId(user.id)
+            if (user) queryClient.setQueryData(['userProfile'], user)
             setTokens(token, refreshToken)
             navigate(user?.onboardingComplete ? '/home' : '/onboarding-questions', { replace: true })
           },

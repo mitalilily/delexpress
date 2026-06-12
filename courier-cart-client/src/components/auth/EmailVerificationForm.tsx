@@ -71,11 +71,16 @@ export default function EmailVerificationForm({
       { email, otp: code, password },
       {
         onSuccess: ({ token, refreshToken, user }) => {
+          if (!token || !refreshToken) {
+            setError('Login succeeded but the server did not return a session token.')
+            return
+          }
+
           if (user) {
             queryClient.setQueryData(['userProfile'], user)
           }
           setTokens(token, refreshToken)
-          setUserId(user?.id)
+          if (user?.id) setUserId(user.id)
           sessionStorage.setItem('activeEmail', email)
           setError('')
           toast.open({

@@ -140,11 +140,14 @@ export default function OtpForm({ email, onEditEmail }: Props) {
       { email, otp },
       {
         onSuccess: ({ token, refreshToken, user }) => {
-          sessionStorage.setItem('activeEmail', email)
-          setUserId(user?.id)
-          if (user) {
-            queryClient.setQueryData(['userProfile'], user)
+          if (!token || !refreshToken) {
+            setError('Login succeeded but the server did not return a session token.')
+            return
           }
+
+          sessionStorage.setItem('activeEmail', email)
+          if (user?.id) setUserId(user.id)
+          if (user) queryClient.setQueryData(['userProfile'], user)
           setTokens(token, refreshToken)
           navigate(user?.onboardingComplete ? '/home' : '/onboarding-questions', { replace: true })
         },

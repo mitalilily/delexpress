@@ -35,6 +35,46 @@ dotenv.config({ path: path.resolve(__dirname, `../.env.${env}`) })
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000
 export const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString()
 
+const issueSessionTokens = async (userId: string, role: string) => {
+  const accessToken = signAccessToken(userId, role)
+  const { token: refreshToken } = signRefreshToken(userId, role)
+
+  await saveRefreshToken(userId, refreshToken, ONE_WEEK_MS)
+
+  return { accessToken, refreshToken }
+}
+
+const buildSessionUser = async (userId: string) => {
+  const sessionUser = await findUserById(userId)
+
+  if (!sessionUser) {
+    throw new Error('User not found')
+  }
+
+  const {
+    passwordHash,
+    refreshToken,
+    previousRefreshToken,
+    previousRefreshTokenExpiresAt,
+    otp,
+    otpExpiresAt,
+    emailVerificationToken,
+    emailVerificationTokenExpiresAt,
+    ...safeSessionUser
+  } = sessionUser as typeof sessionUser & {
+    passwordHash?: string | null
+    refreshToken?: string | null
+    previousRefreshToken?: string | null
+    previousRefreshTokenExpiresAt?: Date | string | null
+    otp?: string | null
+    otpExpiresAt?: Date | string | null
+    emailVerificationToken?: string | null
+    emailVerificationTokenExpiresAt?: Date | string | null
+  }
+
+  return safeSessionUser
+}
+
 const sendSmsViaTwilio = async (phone: string, message: string) => {
   const client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!)
   await client.messages.create({
@@ -244,25 +284,17 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
 
     await clearUserOtpByEmail(normalizedEmail)
     await markEmailVerified(normalizedEmail) // update emailVerified = true
-    const accessToken = signAccessToken(user.id, user.role ?? 'customer')
-
-    const { token: refreshToken } = signRefreshToken(user.id, user.role ?? 'customer')
-
-    /* ---------- persist newest refresh token ---------- */
-    await saveRefreshToken(user.id, refreshToken, ONE_WEEK_MS)
+    const sessionUser = await buildSessionUser(user.id)
+    const { accessToken, refreshToken } = await issueSessionTokens(
+      sessionUser.id,
+      sessionUser.role ?? 'customer',
+    )
 
     return res.json({
       message: 'OTP verified successfully',
       token: accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        phone: user.phone,
-        phoneVerified: user.phoneVerified,
-        email: user.email,
-        emailVerified: true,
-        role: user.role,
-      },
+      user: sessionUser,
     })
   } catch (error) {
     console.error('Error in verifyOtp:', error)
@@ -314,14 +346,15 @@ export const requestEmailVerification = async (req: Request, res: Response): Pro
 
     // ── If the flow returned a user (authenticated / verified)
     if (user) {
-      const accessToken = signAccessToken(user.id, user.role ?? 'customer')
-      const { token: refreshToken } = signRefreshToken(user.id, user.role ?? 'customer')
-
-      // Save refresh token to DB
-      await saveRefreshToken(user.id, refreshToken, ONE_WEEK_MS)
+      const sessionUser = await buildSessionUser(user.id)
+      const { accessToken, refreshToken } = await issueSessionTokens(
+        sessionUser.id,
+        sessionUser.role ?? 'customer',
+      )
 
       result.data.token = accessToken
       result.data.refreshToken = refreshToken
+      result.data.user = sessionUser
     }
 
     return res.status(result.status).json(result.data)
@@ -357,23 +390,17 @@ export const verifyEmailToken = async (req: Request, res: Response): Promise<any
     await markEmailVerified(email)
     await clearUserEmailToken(email)
     /* ── Sign & Set JWTs ────────────────────────────────────────────── */
-    const accessToken = signAccessToken(user.id, user.role ?? 'customer')
-
-    const { token: refreshToken } = signRefreshToken(user.id, user.role ?? 'customer')
-
-    /* ---------- persist newest refresh token ---------- */
-    await saveRefreshToken(user.id, refreshToken, ONE_WEEK_MS)
+    const sessionUser = await buildSessionUser(user.id)
+    const { accessToken, refreshToken } = await issueSessionTokens(
+      sessionUser.id,
+      sessionUser.role ?? 'customer',
+    )
 
     return res.json({
       message: 'Email verified successfully',
       token: accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        emailVerified: true,
-        role: user.role,
-      },
+      user: sessionUser,
     })
   } catch (error) {
     console.error('verifyEmailToken error:', error)
@@ -451,26 +478,17 @@ export const googleOAuthLogin = async (req: Request, res: Response): Promise<any
 
     if (user) {
       /* ── Sign & Set JWTs ────────────────────────────────────────────── */
-      const accessToken = signAccessToken(user.id, user.role ?? 'customer')
-
-      const { token: refreshToken } = signRefreshToken(user.id, user.role ?? 'customer')
-
-      /* ---------- persist newest refresh token ---------- */
-      await saveRefreshToken(user.id, refreshToken, ONE_WEEK_MS)
+      const sessionUser = await buildSessionUser(user.id)
+      const { accessToken, refreshToken } = await issueSessionTokens(
+        sessionUser.id,
+        sessionUser.role ?? 'customer',
+      )
 
       return res.json({
         message: 'Google login successful',
         token: accessToken,
         refreshToken,
-        user: {
-          id: user?.id,
-          email: user?.email,
-          emailVerified: user?.emailVerified,
-          phone: user?.phone,
-          phoneVerified: user?.phoneVerified,
-          profilePicture: user?.profilePicture,
-          role: user?.role,
-        },
+        user: sessionUser,
       })
     } else {
       return res.status(500).json({ error: 'User not found' })
