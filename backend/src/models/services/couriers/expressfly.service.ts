@@ -157,6 +157,24 @@ type ExpressflyWarehouseListResponse = {
   raw?: any
 }
 
+type ExpressflyWarehouseCreateParams = {
+  warehouse_name: string
+  contact_person_name: string
+  contact_no: string
+  address_line1: string
+  city: string
+  state: string
+  pincode: string
+  landmark?: string
+}
+
+type ExpressflyWarehouseCreateResponse = {
+  status?: string | number | boolean
+  message?: string
+  data?: Record<string, any>
+  raw?: any
+}
+
 const DEFAULT_BASE_API = 'https://tech.expressfly.in/api'
 const DEFAULT_AUTH_PATH = '/unicommerce/authToken'
 const DEFAULT_PROFILE_PATH = '/auth/get-profile'
@@ -360,6 +378,27 @@ export class ExpressflyService {
       },
       headers: {
         Authorization: token,
+        Accept: 'application/json',
+      },
+      validateStatus: (status) => status >= 200 && status < 500,
+    })
+  }
+
+  private async requestWarehouseCreate(token: string, payload: Record<string, any>) {
+    const url = this.buildUrl('/admin/users/warehouse/create')
+    this.log('Creating warehouse', {
+      url,
+      warehouseName: normalize(payload?.warehouse_name),
+      city: normalize(payload?.city),
+      state: normalize(payload?.state),
+      pincode: normalize(payload?.pincode),
+    })
+
+    return axios.post(url, payload, {
+      timeout: 30000,
+      headers: {
+        Authorization: token,
+        'Content-Type': 'application/json',
         Accept: 'application/json',
       },
       validateStatus: (status) => status >= 200 && status < 500,
@@ -626,6 +665,47 @@ export class ExpressflyService {
       totalUsers: Number(response.data?.totalUsers ?? 0) || 0,
       currentPage: Number(response.data?.currentPage ?? params.page ?? 1) || 1,
       totalPages: Number(response.data?.totalPages ?? 0) || 0,
+      raw: response.data,
+    }
+  }
+
+  async createWarehouse(
+    params: ExpressflyWarehouseCreateParams,
+  ): Promise<ExpressflyWarehouseCreateResponse> {
+    await this.ensureConfigLoaded()
+    const token = await this.getAccessToken()
+
+    const payload: Record<string, any> = {
+      warehouse_name: normalize(params.warehouse_name),
+      contact_person_name: normalize(params.contact_person_name),
+      contact_no: normalize(params.contact_no),
+      address_line1: normalize(params.address_line1),
+      city: normalize(params.city),
+      state: normalize(params.state),
+      pincode: normalize(params.pincode),
+    }
+
+    // The live Expressfly validator rejects `landmark` even though the docs list it as optional,
+    // so we intentionally omit it from the production request to keep the booking flow reliable.
+    if (normalize(params.landmark)) {
+      this.log('Warehouse landmark omitted to match live validator', {
+        landmarkProvided: true,
+      })
+    }
+
+    const response = await this.requestWarehouseCreate(token, payload)
+
+    if (response.status >= 400) {
+      throw new HttpError(
+        response.status,
+        this.extractErrorMessage({ response }, 'Expressfly warehouse creation failed'),
+      )
+    }
+
+    return {
+      status: response.data?.status ?? response.status,
+      message: response.data?.message || 'Warehouse created successfully.',
+      data: response.data?.data ?? response.data,
       raw: response.data,
     }
   }

@@ -8,6 +8,7 @@ import {
   getExpressflyOrderController,
   getExpressflyOrderRatesController,
   getExpressflyOrdersController,
+  createExpressflyWarehouseController,
   getExpressflyWarehouseListController,
   getShippingRatesController,
   importShippingRatesController,
@@ -66,6 +67,12 @@ router.get(
   requireAuth,
   isAdminMiddleware,
   getExpressflyWarehouseListController,
+)
+router.post(
+  '/expressfly/warehouses',
+  requireAuth,
+  isAdminMiddleware,
+  createExpressflyWarehouseController,
 )
 router.put(
   '/credentials/ekart',
