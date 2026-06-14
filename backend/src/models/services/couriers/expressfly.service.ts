@@ -27,6 +27,7 @@ export type ExpressflyBookingResponse = {
   shippingProviderCode?: string
   shippingProviderName?: string
   trackingNumber?: string
+  orderId?: string
   shippingLabelLink?: string
   label?: string
   trackingLink?: string
@@ -104,6 +105,7 @@ const DEFAULT_BASE_API = 'https://tech.expressfly.in/api'
 const DEFAULT_AUTH_PATH = '/unicommerce/authToken'
 const DEFAULT_PROFILE_PATH = '/auth/get-profile'
 const DEFAULT_ORDERS_PATH = '/orders'
+const DEFAULT_WAREHOUSE_LIST_PATH = '/admin/users/warehouse/list'
 const DEFAULT_SALE_ORDER_PATH = '/services/rest/v1/oms/saleOrder/create'
 const DEFAULT_SHIPPING_PACKAGE_PATH = '/services/rest/v1/oms/shippingPackage/create'
 const DEFAULT_BOOKING_PATH = '/services/rest/v1/oms/shippingPackage/createInvoiceAndGenerateLabel'
@@ -123,6 +125,8 @@ export class ExpressflyService {
   private authPath = process.env.EXPRESSFLY_AUTH_PATH || DEFAULT_AUTH_PATH
   private profilePath = process.env.EXPRESSFLY_PROFILE_PATH || DEFAULT_PROFILE_PATH
   private ordersPath = process.env.EXPRESSFLY_ORDERS_PATH || DEFAULT_ORDERS_PATH
+  private warehouseListPath =
+    process.env.EXPRESSFLY_WAREHOUSE_LIST_PATH || DEFAULT_WAREHOUSE_LIST_PATH
   private saleOrderPath = process.env.EXPRESSFLY_SALE_ORDER_PATH || DEFAULT_SALE_ORDER_PATH
   private shippingPackagePath =
     process.env.EXPRESSFLY_SHIPPING_PACKAGE_PATH || DEFAULT_SHIPPING_PACKAGE_PATH
@@ -132,6 +136,7 @@ export class ExpressflyService {
   private shippingCourier = process.env.EXPRESSFLY_SHIPPING_COURIER || 'Expressfly Logistics'
   private apiUserId = process.env.EXPRESSFLY_API_USER_ID || ''
   private apiKey = process.env.EXPRESSFLY_API_KEY || ''
+  private pickupAddressId = process.env.EXPRESSFLY_PICKUP_ADDRESS_ID || ''
   private authScheme = (process.env.EXPRESSFLY_AUTH_SCHEME || 'raw').toLowerCase()
   private token: string | null = null
   private tokenExpiry = 0
@@ -157,7 +162,6 @@ export class ExpressflyService {
 
     return {
       Authorization: authorization,
-      apiKey: token,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     }
@@ -220,6 +224,29 @@ export class ExpressflyService {
 
     return axios.get(url, {
       timeout: 30000,
+      headers: {
+        Authorization: token,
+        Accept: 'application/json',
+      },
+      validateStatus: (status) => status >= 200 && status < 500,
+    })
+  }
+
+  private async requestWarehouseList(token: string, userId: string) {
+    const url = this.buildUrl(this.warehouseListPath)
+    this.log('Fetching warehouse list', {
+      url,
+      userId: mask(userId),
+    })
+
+    return axios.get(url, {
+      timeout: 30000,
+      params: {
+        page: 1,
+        limit: 1000,
+        search: '',
+        user_id: userId,
+      },
       headers: {
         Authorization: token,
         Accept: 'application/json',
@@ -404,6 +431,58 @@ export class ExpressflyService {
     return profile
   }
 
+  async getWarehouseList(forceRefresh = false) {
+    const token = await this.getAccessToken(forceRefresh)
+    const profile = this.profileCache || (await this.getProfile())
+    const userId = normalize(profile?.data?._id || profile?.data?.id)
+
+    if (!userId) {
+      throw new HttpError(400, 'Expressfly account profile did not include a user id')
+    }
+
+    const response = await this.requestWarehouseList(token, userId)
+    if (response.status >= 400) {
+      throw new HttpError(
+        response.status,
+        this.extractErrorMessage({ response }, 'Expressfly warehouse list failed'),
+      )
+    }
+
+    const warehouses = Array.isArray(response.data?.data) ? response.data.data : []
+    this.log('Warehouse list fetched successfully', {
+      status: response.status,
+      count: warehouses.length,
+    })
+
+    return {
+      status: response.data?.status ?? response.status,
+      message: response.data?.message || 'Warehouse data found.',
+      data: warehouses,
+      raw: response.data,
+    }
+  }
+
+  private async resolvePickupAddressId(explicitPickupId?: string) {
+    const explicit = normalize(explicitPickupId)
+    if (explicit) return explicit
+
+    const envPickupId = normalize(this.pickupAddressId)
+    if (envPickupId) return envPickupId
+
+    const warehouseList = await this.getWarehouseList()
+    const firstWarehouse = Array.isArray(warehouseList.data) ? warehouseList.data[0] : null
+    const resolved = normalize(firstWarehouse?._id || firstWarehouse?.id)
+
+    if (!resolved) {
+      throw new HttpError(
+        400,
+        'Expressfly pickup address id is missing and no warehouse records were found.',
+      )
+    }
+
+    return resolved
+  }
+
   async getOrders(params: ExpressflyOrderListParams) {
     const token = await this.getAccessToken()
     const http = this.createHttpClient(token)
@@ -447,6 +526,79 @@ export class ExpressflyService {
         orders,
         total,
       },
+      raw: response.data,
+    }
+  }
+
+  async createOrder(params: ExpressflyShipmentParams) {
+    await this.ensureConfigLoaded()
+    const token = await this.getAccessToken()
+    const pickupAddressId = await this.resolvePickupAddressId(params.pickup_location_id)
+    const productItems = this.buildSaleOrderItems(params.order_number, params.order_items || [])
+    const product_quantity = productItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+    const productdetatis = productItems.map((item) => ({
+      product_sku: item.itemSku,
+      product_name: item.itemName,
+      product_quantity: item.quantity,
+      product_value: item.sellingPrice,
+    }))
+    const orderType = String(params.payment_type || 'prepaid').toLowerCase() === 'cod' ? 1 : 0
+    const shipmentType = String(params.integration_type || '').toLowerCase() === 'dto' ? 1 : 0
+    const orderValue =
+      Number(params.order_amount ?? productItems.reduce((sum, item) => sum + item.totalPrice, 0)) ||
+      0
+    const payload = {
+      name: params.consignee.name,
+      mobile_no: params.consignee.phone,
+      ...(params.consignee.email ? { email_id: params.consignee.email } : {}),
+      shipment_type: shipmentType,
+      receiver_address: params.consignee.address,
+      receiver_pincode: params.consignee.pincode,
+      receiver_city: params.consignee.city,
+      receiver_state: params.consignee.state,
+      order_no: params.order_number,
+      order_type: orderType,
+      product_quantity,
+      ...(orderType === 1 ? { cod_amount: orderValue } : {}),
+      order_value: orderValue,
+      physical_weight: 1,
+      product_length: 10,
+      product_width: 10,
+      product_height: 10,
+      pickup_address_id: pickupAddressId,
+      productdetatis,
+    }
+
+    this.log('Create order request', {
+      url: this.buildUrl(this.ordersPath),
+      orderNo: params.order_number,
+      pickupAddressId,
+      productCount: productdetatis.length,
+    })
+
+    const response = await axios.post(this.buildUrl(this.ordersPath), payload, {
+      timeout: 30000,
+      headers: {
+        Authorization: token,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      validateStatus: (status) => status >= 200 && status < 500,
+    })
+
+    if (response.status >= 400) {
+      throw new HttpError(
+        response.status,
+        this.extractErrorMessage({ response }, 'Expressfly order creation failed'),
+      )
+    }
+
+    const data = response.data?.data ?? response.data
+    return {
+      successful: Boolean(response.data?.status === 1 || response.data?.success === true),
+      status: response.data?.status ?? response.status,
+      message: response.data?.message || 'Order created successfully.',
+      orderId: normalize(data?.order_id || data?.orderId),
       raw: response.data,
     }
   }
@@ -666,35 +818,7 @@ export class ExpressflyService {
   }
 
   async bookShipment(params: ExpressflyShipmentParams): Promise<ExpressflyBookingResponse> {
-    const saleOrderResponse = await this.createSaleOrder(params)
-    const saleOrderCode =
-      normalize(saleOrderResponse?.saleOrderCode) ||
-      normalize(saleOrderResponse?.data?.saleOrderCode) ||
-      params.order_number
-
-    const shippingPackageResponse = await this.createShippingPackage(
-      saleOrderCode,
-      params.order_items || [],
-    )
-
-    const shippingPackageCode =
-      normalize(shippingPackageResponse?.shippingPackageCode) ||
-      normalize(shippingPackageResponse?.data?.shippingPackageCode) ||
-      normalize(shippingPackageResponse?.code) ||
-      saleOrderCode
-
-    let bookingResponse: any = null
-    try {
-      bookingResponse = await this.createInvoiceAndGenerateLabel(shippingPackageCode)
-    } catch (err: any) {
-      this.log('Invoice and label step failed, returning sale order + shipping package details', {
-        message: err?.message || String(err),
-      })
-      bookingResponse = null
-    }
-
-    const rawBooking = bookingResponse?.data ?? bookingResponse ?? shippingPackageResponse
-    return this.parseBookingResponse(rawBooking, saleOrderCode, shippingPackageCode)
+    return this.createOrder(params)
   }
 
   async cancelShipment(trackingNumber: string) {

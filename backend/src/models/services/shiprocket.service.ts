@@ -3872,46 +3872,44 @@ export const createB2CShipmentService = async (
         sort_code: providerSortCode,
       }
     } else if (integrationType === 'expressfly') {
-      console.log('→ Using Expressfly booking API...')
+      console.log('→ Using Expressfly create-order API...')
 
       const expressfly = new ExpressflyService()
-      shipmentData = await expressfly.bookShipment({
+      shipmentData = await expressfly.createOrder({
         order_number: params.order_number,
         payment_type: params.payment_type,
         order_date: params.order_date,
         order_amount: params.order_amount,
-        shipping_charges: params.shipping_charges,
-        other_charges: params.other_charges,
-        freight_charges: params.freight_charges,
-        courier_cost: params.courier_cost,
         consignee: params.consignee,
         pickup: params.pickup,
         order_items: params.order_items as any,
         pickup_location_id: params.pickup_location_id,
         integration_type: params.integration_type,
-        shippingProviderCode: (params as any).shippingProviderCode,
-        shippingCourier: (params as any).shippingCourier,
       } as any)
 
       const expressflyPackage = shipmentData?.raw || shipmentData
       const expressflyWaybill =
+        shipmentData?.orderId ||
+        expressflyPackage?.data?.order_id ||
+        expressflyPackage?.orderId ||
+        expressflyPackage?.order_id ||
         expressflyPackage?.trackingNumber ||
         expressflyPackage?.awb_number ||
         expressflyPackage?.waybill ||
         null
 
       if (!shipmentData?.successful && shipmentData?.status !== true) {
-        console.error('❌ Invalid Expressfly shipment:', shipmentData)
-        throw new HttpError(500, 'Expressfly shipment creation failed')
+        console.error('❌ Invalid Expressfly order:', shipmentData)
+        throw new HttpError(500, 'Expressfly order creation failed')
       }
 
-      if (!expressflyWaybill && !shipmentData?.shippingPackageCode) {
+      if (!expressflyWaybill) {
         console.error('❌ Missing Expressfly booking identifiers:', shipmentData)
-        throw new HttpError(500, 'Expressfly did not return a tracking or package number')
+        throw new HttpError(500, 'Expressfly did not return an order id')
       }
 
       shipmentSuccessPackage = {
-        waybill: expressflyWaybill ?? shipmentData?.shippingPackageCode ?? null,
+        waybill: expressflyWaybill,
         label: expressflyPackage?.label ?? expressflyPackage?.shippingLabelLink ?? null,
         manifest: expressflyPackage?.manifest ?? null,
         courier_name: expressflyPackage?.shippingProviderName ?? 'Expressfly Logistics',
@@ -3924,18 +3922,11 @@ export const createB2CShipmentService = async (
       providerSortCode = expressflyPackage?.shippingProviderCode ?? null
 
       shipmentMeta = {
-        shipment_id:
-          expressflyPackage?.invoiceCode ??
-          expressflyPackage?.shippingPackageCode ??
-          expressflyWaybill ??
-          undefined,
-        awb_number: expressflyWaybill ?? shipmentData?.shippingPackageCode ?? undefined,
+        shipment_id: expressflyWaybill ?? undefined,
+        awb_number: expressflyWaybill ?? undefined,
         courier_name: expressflyPackage?.shippingProviderName ?? 'Expressfly Logistics',
         courier_id: params.courier_id ? Number(params.courier_id) : null,
-        label:
-          expressflyPackage?.label ??
-          expressflyPackage?.shippingLabelLink ??
-          undefined,
+        label: expressflyPackage?.label ?? expressflyPackage?.shippingLabelLink ?? undefined,
         manifest: expressflyPackage?.manifest ?? undefined,
         courier_cost: providerCourierCost,
         sort_code: providerSortCode,
