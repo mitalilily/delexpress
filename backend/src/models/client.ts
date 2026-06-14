@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import * as path from 'path' // ✅ use this instead of `import path from 'path'`
 import { Pool } from 'pg'
+import type { PoolClient } from 'pg'
 import * as schema from '../schema/schema'
 
 // Load environment file based on NODE_ENV
@@ -22,6 +23,29 @@ const shouldUseSsl =
   env === 'production' ||
   /render\.com|railway\.app|supabase\.co/i.test(databaseUrl)
 
+const DEFAULT_LOCK_TIMEOUT_MS = Number(process.env.PG_LOCK_TIMEOUT_MS || 10_000)
+const DEFAULT_IDLE_IN_TX_TIMEOUT_MS = Number(
+  process.env.PG_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS || 60_000,
+)
+const DEFAULT_STATEMENT_TIMEOUT_MS = Number(process.env.PG_STATEMENT_TIMEOUT_MS || 0)
+
+const toTimeoutLiteral = (ms: number) => `${Math.max(0, Math.floor(ms))}ms`
+
+async function applySessionGuards(client: PoolClient) {
+  // Fail fast instead of letting one blocked statement hold the request open for minutes.
+  await client.query(`SET lock_timeout = '${toTimeoutLiteral(DEFAULT_LOCK_TIMEOUT_MS)}'`)
+  // Kill sessions that sit inside a transaction without making progress.
+  await client.query(
+    `SET idle_in_transaction_session_timeout = '${toTimeoutLiteral(DEFAULT_IDLE_IN_TX_TIMEOUT_MS)}'`,
+  )
+
+  if (DEFAULT_STATEMENT_TIMEOUT_MS > 0) {
+    await client.query(`SET statement_timeout = '${toTimeoutLiteral(DEFAULT_STATEMENT_TIMEOUT_MS)}'`)
+  }
+
+  await client.query(`SET application_name = 'expressopro-backend'`)
+}
+
 export const pool = new Pool({
   connectionString: databaseUrl,
   ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
@@ -31,6 +55,15 @@ export const pool = new Pool({
 
 export const db = drizzle(pool, {
   schema: schema,
+})
+
+pool.on('connect', (client) => {
+  void applySessionGuards(client).catch((err) => {
+    console.error('❌ Failed to apply Postgres session guardrails:', {
+      message: err?.message,
+      stack: err?.stack,
+    })
+  })
 })
 
 // ✅ New function you can call explicitly in scripts
@@ -55,6 +88,7 @@ export const testDatabaseConnection = async (): Promise<boolean> => {
   try {
     const client = await pool.connect()
     try {
+      await applySessionGuards(client)
       const result = await client.query('SELECT NOW() as current_time, version() as pg_version')
       const { current_time, pg_version } = result.rows[0]
       console.log('✅ Database connection succeeded')
