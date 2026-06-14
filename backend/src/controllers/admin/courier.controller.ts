@@ -1002,6 +1002,61 @@ export const createExpressflyWarehouseController = async (req: Request, res: Res
   }
 }
 
+export const updateExpressflyWarehouseController = async (req: Request, res: Response) => {
+  try {
+    const warehouseId =
+      typeof req.params.warehouseId === 'string' ? req.params.warehouseId.trim() : ''
+    const warehouse_name =
+      typeof req.body.warehouse_name === 'string' ? req.body.warehouse_name.trim() : ''
+    const contact_person_name =
+      typeof req.body.contact_person_name === 'string' ? req.body.contact_person_name.trim() : ''
+    const contact_no = typeof req.body.contact_no === 'string' ? req.body.contact_no.trim() : ''
+    const address_line1 =
+      typeof req.body.address_line1 === 'string' ? req.body.address_line1.trim() : ''
+    const city = typeof req.body.city === 'string' ? req.body.city.trim() : ''
+    const state = typeof req.body.state === 'string' ? req.body.state.trim() : ''
+    const pincode = typeof req.body.pincode === 'string' ? req.body.pincode.trim() : ''
+    const landmark = typeof req.body.landmark === 'string' ? req.body.landmark.trim() : undefined
+
+    if (!warehouseId) return res.status(400).json({ success: false, message: 'warehouseId is required' })
+    if (!warehouse_name) return res.status(400).json({ success: false, message: 'warehouse_name is required' })
+    if (!contact_person_name)
+      return res.status(400).json({ success: false, message: 'contact_person_name is required' })
+    if (!contact_no) return res.status(400).json({ success: false, message: 'contact_no is required' })
+    if (!address_line1)
+      return res.status(400).json({ success: false, message: 'address_line1 is required' })
+    if (!city) return res.status(400).json({ success: false, message: 'city is required' })
+    if (!state) return res.status(400).json({ success: false, message: 'state is required' })
+    if (!pincode) return res.status(400).json({ success: false, message: 'pincode is required' })
+
+    const service = new ExpressflyService()
+    const result = await service.updateWarehouse({
+      warehouse_id: warehouseId,
+      warehouse_name,
+      contact_person_name,
+      contact_no,
+      address_line1,
+      landmark,
+      city,
+      state,
+      pincode,
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result.data,
+      status: result.status,
+    })
+  } catch (err: any) {
+    console.error('Error updating Expressfly warehouse:', err)
+    return res.status(err?.status || 500).json({
+      success: false,
+      message: err?.message || 'Failed to update Expressfly warehouse',
+    })
+  }
+}
+
 export interface RateType {
   forward?: string | number
   rto?: string | number

@@ -168,6 +168,10 @@ type ExpressflyWarehouseCreateParams = {
   landmark?: string
 }
 
+type ExpressflyWarehouseUpdateParams = ExpressflyWarehouseCreateParams & {
+  warehouse_id: string
+}
+
 type ExpressflyWarehouseCreateResponse = {
   status?: string | number | boolean
   message?: string
@@ -405,6 +409,32 @@ export class ExpressflyService {
     })
   }
 
+  private async requestWarehouseUpdate(
+    token: string,
+    warehouseId: string,
+    payload: Record<string, any>,
+  ) {
+    const url = this.buildUrl(`/admin/users/warehouse/update/${encodeURIComponent(warehouseId)}`)
+    this.log('Updating warehouse', {
+      url,
+      warehouseId: mask(warehouseId),
+      warehouseName: normalize(payload?.warehouse_name),
+      city: normalize(payload?.city),
+      state: normalize(payload?.state),
+      pincode: normalize(payload?.pincode),
+    })
+
+    return axios.put(url, payload, {
+      timeout: 30000,
+      headers: {
+        Authorization: token,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      validateStatus: (status) => status >= 200 && status < 500,
+    })
+  }
+
   private extractToken(raw: any): string {
     const directCandidates = [
       raw?.token,
@@ -486,12 +516,15 @@ export class ExpressflyService {
       )
     }
 
-    const authAttempts: Array<'post' | 'get'> = ['post', 'get']
+    const authAttempts: Array<'json' | 'post' | 'get'> = ['json', 'post', 'get']
     let response: any = null
     let lastError: HttpError | null = null
 
     for (const method of authAttempts) {
-      response = await this.requestAuthToken(method)
+      response =
+        method === 'json'
+          ? await this.requestJsonAuthToken()
+          : await this.requestAuthToken(method)
       if (response.status < 400) {
         break
       }
@@ -705,6 +738,51 @@ export class ExpressflyService {
     return {
       status: response.data?.status ?? response.status,
       message: response.data?.message || 'Warehouse created successfully.',
+      data: response.data?.data ?? response.data,
+      raw: response.data,
+    }
+  }
+
+  async updateWarehouse(
+    params: ExpressflyWarehouseUpdateParams,
+  ): Promise<ExpressflyWarehouseCreateResponse> {
+    await this.ensureConfigLoaded()
+    const token = await this.getAccessToken()
+
+    const warehouseId = normalize(params.warehouse_id)
+    if (!warehouseId) {
+      throw new HttpError(400, 'Expressfly warehouse_id is required')
+    }
+
+    const payload: Record<string, any> = {
+      warehouse_name: normalize(params.warehouse_name),
+      contact_person_name: normalize(params.contact_person_name),
+      contact_no: normalize(params.contact_no),
+      address_line1: normalize(params.address_line1),
+      city: normalize(params.city),
+      state: normalize(params.state),
+      pincode: normalize(params.pincode),
+    }
+
+    // The live Expressfly validator rejects `landmark` for update as well.
+    if (normalize(params.landmark)) {
+      this.log('Warehouse landmark omitted to match live validator', {
+        landmarkProvided: true,
+      })
+    }
+
+    const response = await this.requestWarehouseUpdate(token, warehouseId, payload)
+
+    if (response.status >= 400) {
+      throw new HttpError(
+        response.status,
+        this.extractErrorMessage({ response }, 'Expressfly warehouse update failed'),
+      )
+    }
+
+    return {
+      status: response.data?.status ?? response.status,
+      message: response.data?.message || 'Warehouse updated successfully.',
       data: response.data?.data ?? response.data,
       raw: response.data,
     }

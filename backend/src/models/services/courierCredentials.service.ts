@@ -135,6 +135,19 @@ const hasEnvForProviderAndType = (provider: ServiceProviderId, _type: BusinessTy
 
 const normalize = (val?: string | null) => String(val || '').trim()
 
+const isMissingCourierCredentialsTableError = (err: any) => {
+  const candidates = [err, err?.cause, err?.originalError, err?.cause?.cause]
+  return candidates.some((candidate) => {
+    const message = String(candidate?.message || '').toLowerCase()
+    const code = String(candidate?.code || '').toLowerCase()
+    return (
+      message.includes('relation "courier_credentials" does not exist') ||
+      message.includes('does not exist') ||
+      code === '42p01'
+    )
+  })
+}
+
 const looksLikeXpressbeesBearerToken = (value?: string | null) => {
   const normalized = normalize(value)
   if (!normalized) return false
@@ -205,7 +218,7 @@ export const getEffectiveCourierConfig = async <T extends CourierConfig>(
   try {
     ;[row] = await db.select().from(courierCredentials).where(eq(courierCredentials.provider, provider))
   } catch (err: any) {
-    if (err?.message?.includes('does not exist') || err?.message?.includes('relation') || err?.code === '42P01') {
+    if (isMissingCourierCredentialsTableError(err)) {
       console.warn('[getEffectiveCourierConfig] courier_credentials table does not exist, using env fallback', provider)
       return null
     }
