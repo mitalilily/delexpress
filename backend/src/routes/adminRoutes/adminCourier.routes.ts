@@ -11,6 +11,7 @@ import {
   createExpressflyWarehouseController,
   getExpressflyWarehouseController,
   getExpressflyWarehouseListController,
+  deleteExpressflyWarehouseController,
   updateExpressflyWarehouseController,
   getShippingRatesController,
   importShippingRatesController,
@@ -81,6 +82,12 @@ router.get(
   requireAuth,
   isAdminMiddleware,
   getExpressflyWarehouseController,
+)
+router.delete(
+  '/expressfly/warehouses/:warehouseId',
+  requireAuth,
+  isAdminMiddleware,
+  deleteExpressflyWarehouseController,
 )
 router.put(
   '/expressfly/warehouses/:warehouseId',

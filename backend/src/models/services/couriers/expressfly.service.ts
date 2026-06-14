@@ -179,6 +179,12 @@ type ExpressflyWarehouseSingleResponse = {
   raw?: any
 }
 
+type ExpressflyWarehouseDeleteResponse = {
+  status?: string | number | boolean
+  message?: string
+  raw?: any
+}
+
 type ExpressflyWarehouseCreateResponse = {
   status?: string | number | boolean
   message?: string
@@ -450,6 +456,25 @@ export class ExpressflyService {
     })
 
     return axios.get(url, {
+      timeout: 30000,
+      headers: {
+        Authorization: token,
+        Accept: 'application/json',
+      },
+      validateStatus: (status) => status >= 200 && status < 500,
+    })
+  }
+
+  private async requestWarehouseDelete(token: string, warehouseId: string) {
+    const url = this.buildUrl(
+      `/admin/users/warehouse/warehouse_delete/${encodeURIComponent(warehouseId)}`,
+    )
+    this.log('Deleting warehouse', {
+      url,
+      warehouseId: mask(warehouseId),
+    })
+
+    return axios.delete(url, {
       timeout: 30000,
       headers: {
         Authorization: token,
@@ -836,6 +861,31 @@ export class ExpressflyService {
       status: response.data?.status ?? response.status,
       message: response.data?.message || 'Warehouse fetched successfully.',
       data: response.data?.data ?? response.data,
+      raw: response.data,
+    }
+  }
+
+  async deleteWarehouse(warehouseId: string): Promise<ExpressflyWarehouseDeleteResponse> {
+    await this.ensureConfigLoaded()
+    const token = await this.getAccessToken()
+
+    const normalizedWarehouseId = normalize(warehouseId)
+    if (!normalizedWarehouseId) {
+      throw new HttpError(400, 'Expressfly warehouse_id is required')
+    }
+
+    const response = await this.requestWarehouseDelete(token, normalizedWarehouseId)
+
+    if (response.status >= 400) {
+      throw new HttpError(
+        response.status,
+        this.extractErrorMessage({ response }, 'Expressfly warehouse delete failed'),
+      )
+    }
+
+    return {
+      status: response.data?.status ?? response.status,
+      message: response.data?.message || 'Warehouse deleted successfully.',
       raw: response.data,
     }
   }
