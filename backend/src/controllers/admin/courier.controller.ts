@@ -876,6 +876,32 @@ export const getExpressflyOrderController = async (req: Request, res: Response) 
   }
 }
 
+export const getExpressflyOrderRatesController = async (req: Request, res: Response) => {
+  try {
+    const orderId = typeof req.params.orderId === 'string' ? req.params.orderId.trim() : ''
+
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: 'orderId is required' })
+    }
+
+    const service = new ExpressflyService()
+    const result = await service.getOrderRates(orderId)
+
+    return res.json({
+      success: true,
+      message: result.message,
+      data: result.data,
+      status: result.status,
+    })
+  } catch (err: any) {
+    console.error('Error fetching Expressfly order rates:', err)
+    return res.status(err?.status || 500).json({
+      success: false,
+      message: err?.message || 'Failed to fetch Expressfly order rates',
+    })
+  }
+}
+
 export interface RateType {
   forward?: string | number
   rto?: string | number

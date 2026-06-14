@@ -6,6 +6,7 @@ import {
   fetchAvailableCouriersForAdmin,
   getAllCouriersController,
   getExpressflyOrderController,
+  getExpressflyOrderRatesController,
   getExpressflyOrdersController,
   getShippingRatesController,
   importShippingRatesController,
@@ -53,6 +54,12 @@ router.put(
 )
 router.get('/expressfly/orders', requireAuth, isAdminMiddleware, getExpressflyOrdersController)
 router.get('/expressfly/orders/:orderId', requireAuth, isAdminMiddleware, getExpressflyOrderController)
+router.get(
+  '/expressfly/orders/:orderId/rates',
+  requireAuth,
+  isAdminMiddleware,
+  getExpressflyOrderRatesController,
+)
 router.put(
   '/credentials/ekart',
   requireAuth,

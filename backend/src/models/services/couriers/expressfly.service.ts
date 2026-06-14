@@ -119,10 +119,32 @@ type ExpressflySingleOrderResponse = {
   raw?: any
 }
 
+type ExpressflyOrderRate = {
+  courier_info?: Record<string, any>
+  price_info?: Record<string, any>
+  delivery_info?: Record<string, any>
+  temp_rate_id?: string
+  [key: string]: any
+}
+
+type ExpressflyRatesResponse = {
+  status?: string | number | boolean
+  message?: string
+  data?: {
+    rates?: ExpressflyOrderRate[]
+    total?: number
+    page?: number
+    pages?: number
+    [key: string]: any
+  }
+  raw?: any
+}
+
 const DEFAULT_BASE_API = 'https://tech.expressfly.in/api'
 const DEFAULT_AUTH_PATH = '/unicommerce/authToken'
 const DEFAULT_PROFILE_PATH = '/auth/get-profile'
 const DEFAULT_ORDERS_PATH = '/orders'
+const DEFAULT_ORDER_RATES_PATH = '/orders/get-rates'
 const DEFAULT_WAREHOUSE_LIST_PATH = '/admin/users/warehouse/list'
 const DEFAULT_SALE_ORDER_PATH = '/services/rest/v1/oms/saleOrder/create'
 const DEFAULT_SHIPPING_PACKAGE_PATH = '/services/rest/v1/oms/shippingPackage/create'
@@ -167,6 +189,7 @@ export class ExpressflyService {
   private authPath = process.env.EXPRESSFLY_AUTH_PATH || DEFAULT_AUTH_PATH
   private profilePath = process.env.EXPRESSFLY_PROFILE_PATH || DEFAULT_PROFILE_PATH
   private ordersPath = process.env.EXPRESSFLY_ORDERS_PATH || DEFAULT_ORDERS_PATH
+  private orderRatesPath = process.env.EXPRESSFLY_ORDER_RATES_PATH || DEFAULT_ORDER_RATES_PATH
   private warehouseListPath =
     process.env.EXPRESSFLY_WAREHOUSE_LIST_PATH || DEFAULT_WAREHOUSE_LIST_PATH
   private saleOrderPath = process.env.EXPRESSFLY_SALE_ORDER_PATH || DEFAULT_SALE_ORDER_PATH
@@ -712,6 +735,88 @@ export class ExpressflyService {
     return {
       status: response.data?.status ?? response.status,
       message: response.data?.message || 'Order fetched successfully.',
+      data,
+      raw: response.data,
+    }
+  }
+
+  async getOrderRates(orderId: string): Promise<ExpressflyRatesResponse> {
+    const token = await this.getLookupAccessToken()
+    const normalizedOrderId = normalize(orderId)
+
+    if (!normalizedOrderId) {
+      throw new HttpError(400, 'Expressfly order id is required')
+    }
+
+    const url = `${this.orderRatesPath}/${encodeURIComponent(normalizedOrderId)}`
+    this.log('Fetching order rates', {
+      url: this.buildUrl(url),
+      orderId: normalizedOrderId,
+    })
+
+    let response: {
+      status: number
+      data: any
+    } | null = null
+
+    try {
+      const curlBinary = process.platform === 'win32' ? 'curl.exe' : 'curl'
+      const curlUrl = this.buildUrl(url)
+      const curlArgs = [
+        '--silent',
+        '--show-error',
+        '--http1.1',
+        '-H',
+        `Authorization: ${token}`,
+        '-H',
+        'Accept: application/json',
+        '-w',
+        '\n%{http_code}',
+        '-o',
+        '-',
+        curlUrl,
+      ]
+
+      const curlResult = await execFileAsync(curlBinary, curlArgs, {
+        encoding: 'utf8',
+        maxBuffer: 10 * 1024 * 1024,
+      })
+
+      const output = String(curlResult.stdout || '').replace(/\r\n/g, '\n')
+      const lastNewline = output.lastIndexOf('\n')
+      const responseBody = lastNewline >= 0 ? output.slice(0, lastNewline) : output
+      const statusText = lastNewline >= 0 ? output.slice(lastNewline + 1).trim() : ''
+      const parsedBody = responseBody ? JSON.parse(responseBody) : {}
+
+      response = {
+        status: Number(statusText) || 0,
+        data: parsedBody,
+      }
+    } catch (curlError: any) {
+      this.log('Curl rate lookup failed, falling back to axios', {
+        orderId: normalizedOrderId,
+        message: curlError?.message || String(curlError),
+      })
+      const http = this.createHttpClient(token)
+      response = await http.get(url)
+    }
+
+    if (!response) {
+      throw new HttpError(502, 'Expressfly order rates lookup failed')
+    }
+
+    if (response.status >= 400) {
+      throw new HttpError(
+        response.status,
+        this.extractErrorMessage({ response }, 'Expressfly order rates lookup failed'),
+      )
+    }
+
+    const data = response.data?.data ?? response.data
+
+    return {
+      status: response.data?.status ?? response.status,
+      message: response.data?.message || 'Orders rate calculation successfully.',
       data,
       raw: response.data,
     }
