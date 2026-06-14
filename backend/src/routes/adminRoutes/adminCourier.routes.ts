@@ -9,6 +9,7 @@ import {
   getExpressflyOrderRatesController,
   getExpressflyOrdersController,
   createExpressflyWarehouseController,
+  getExpressflyWarehouseController,
   getExpressflyWarehouseListController,
   updateExpressflyWarehouseController,
   getShippingRatesController,
@@ -74,6 +75,12 @@ router.post(
   requireAuth,
   isAdminMiddleware,
   createExpressflyWarehouseController,
+)
+router.get(
+  '/expressfly/warehouses/:warehouseId',
+  requireAuth,
+  isAdminMiddleware,
+  getExpressflyWarehouseController,
 )
 router.put(
   '/expressfly/warehouses/:warehouseId',

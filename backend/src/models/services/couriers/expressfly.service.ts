@@ -172,6 +172,13 @@ type ExpressflyWarehouseUpdateParams = ExpressflyWarehouseCreateParams & {
   warehouse_id: string
 }
 
+type ExpressflyWarehouseSingleResponse = {
+  status?: string | number | boolean
+  message?: string
+  data?: Record<string, any>
+  raw?: any
+}
+
 type ExpressflyWarehouseCreateResponse = {
   status?: string | number | boolean
   message?: string
@@ -429,6 +436,23 @@ export class ExpressflyService {
       headers: {
         Authorization: token,
         'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      validateStatus: (status) => status >= 200 && status < 500,
+    })
+  }
+
+  private async requestWarehouseSingle(token: string, warehouseId: string) {
+    const url = this.buildUrl(`/admin/users/warehouse/single/${encodeURIComponent(warehouseId)}`)
+    this.log('Fetching warehouse', {
+      url,
+      warehouseId: mask(warehouseId),
+    })
+
+    return axios.get(url, {
+      timeout: 30000,
+      headers: {
+        Authorization: token,
         Accept: 'application/json',
       },
       validateStatus: (status) => status >= 200 && status < 500,
@@ -783,6 +807,34 @@ export class ExpressflyService {
     return {
       status: response.data?.status ?? response.status,
       message: response.data?.message || 'Warehouse updated successfully.',
+      data: response.data?.data ?? response.data,
+      raw: response.data,
+    }
+  }
+
+  async getWarehouse(
+    warehouseId: string,
+  ): Promise<ExpressflyWarehouseSingleResponse> {
+    await this.ensureConfigLoaded()
+    const token = await this.getAccessToken()
+
+    const normalizedWarehouseId = normalize(warehouseId)
+    if (!normalizedWarehouseId) {
+      throw new HttpError(400, 'Expressfly warehouse_id is required')
+    }
+
+    const response = await this.requestWarehouseSingle(token, normalizedWarehouseId)
+
+    if (response.status >= 400) {
+      throw new HttpError(
+        response.status,
+        this.extractErrorMessage({ response }, 'Expressfly warehouse lookup failed'),
+      )
+    }
+
+    return {
+      status: response.data?.status ?? response.status,
+      message: response.data?.message || 'Warehouse fetched successfully.',
       data: response.data?.data ?? response.data,
       raw: response.data,
     }

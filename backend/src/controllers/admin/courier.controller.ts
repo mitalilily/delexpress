@@ -1057,6 +1057,33 @@ export const updateExpressflyWarehouseController = async (req: Request, res: Res
   }
 }
 
+export const getExpressflyWarehouseController = async (req: Request, res: Response) => {
+  try {
+    const warehouseId =
+      typeof req.params.warehouseId === 'string' ? req.params.warehouseId.trim() : ''
+
+    if (!warehouseId) {
+      return res.status(400).json({ success: false, message: 'warehouseId is required' })
+    }
+
+    const service = new ExpressflyService()
+    const result = await service.getWarehouse(warehouseId)
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result.data,
+      status: result.status,
+    })
+  } catch (err: any) {
+    console.error('Error fetching Expressfly warehouse:', err)
+    return res.status(err?.status || 500).json({
+      success: false,
+      message: err?.message || 'Failed to fetch Expressfly warehouse',
+    })
+  }
+}
+
 export interface RateType {
   forward?: string | number
   rto?: string | number
