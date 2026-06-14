@@ -140,6 +140,23 @@ type ExpressflyRatesResponse = {
   raw?: any
 }
 
+type ExpressflyWarehouseListParams = {
+  page?: number
+  limit?: number
+  search?: string
+  userId?: string
+}
+
+type ExpressflyWarehouseListResponse = {
+  status?: string | number | boolean
+  message?: string
+  data: Array<Record<string, any>>
+  totalUsers?: number
+  currentPage?: number
+  totalPages?: number
+  raw?: any
+}
+
 const DEFAULT_BASE_API = 'https://tech.expressfly.in/api'
 const DEFAULT_AUTH_PATH = '/unicommerce/authToken'
 const DEFAULT_PROFILE_PATH = '/auth/get-profile'
@@ -323,20 +340,23 @@ export class ExpressflyService {
     })
   }
 
-  private async requestWarehouseList(token: string, userId: string) {
+  private async requestWarehouseList(token: string, params: ExpressflyWarehouseListParams = {}) {
     const url = this.buildUrl(this.warehouseListPath)
     this.log('Fetching warehouse list', {
       url,
-      userId: mask(userId),
+      userId: mask(params.userId),
+      page: Math.max(1, Number(params.page) || 1),
+      limit: Math.max(1, Number(params.limit) || 1000),
+      search: normalize(params.search) || '',
     })
 
     return axios.get(url, {
       timeout: 30000,
       params: {
-        page: 1,
-        limit: 1000,
-        search: '',
-        user_id: userId,
+        page: Math.max(1, Number(params.page) || 1),
+        limit: Math.max(1, Number(params.limit) || 1000),
+        ...(normalize(params.search) ? { search: normalize(params.search) } : {}),
+        ...(normalize(params.userId) ? { user_id: normalize(params.userId) } : {}),
       },
       headers: {
         Authorization: token,
@@ -559,16 +579,33 @@ export class ExpressflyService {
     return profile
   }
 
-  async getWarehouseList(forceRefresh = false) {
+  async getWarehouseList(
+    params: ExpressflyWarehouseListParams & { forceRefresh?: boolean } = {},
+  ): Promise<ExpressflyWarehouseListResponse> {
+    const forceRefresh = Boolean(params.forceRefresh)
     const token = await this.getAccessToken(forceRefresh)
-    const profile = this.profileCache || (await this.getProfile())
-    const userId = normalize(profile?.data?._id || profile?.data?.id)
+    let profile: any = this.profileCache
 
-    if (!userId) {
-      throw new HttpError(400, 'Expressfly account profile did not include a user id')
+    if (!profile) {
+      try {
+        profile = await this.getProfile()
+      } catch (err: any) {
+        this.log('Profile lookup skipped for warehouse list', {
+          message: err?.message || String(err),
+        })
+      }
     }
 
-    const response = await this.requestWarehouseList(token, userId)
+    const userId =
+      normalize(params.userId) || normalize(profile?.data?._id || profile?.data?.id) || ''
+
+    const response = await this.requestWarehouseList(token, {
+      page: params.page,
+      limit: params.limit,
+      search: params.search,
+      userId: userId || undefined,
+    })
+
     if (response.status >= 400) {
       throw new HttpError(
         response.status,
@@ -586,6 +623,9 @@ export class ExpressflyService {
       status: response.data?.status ?? response.status,
       message: response.data?.message || 'Warehouse data found.',
       data: warehouses,
+      totalUsers: Number(response.data?.totalUsers ?? 0) || 0,
+      currentPage: Number(response.data?.currentPage ?? params.page ?? 1) || 1,
+      totalPages: Number(response.data?.totalPages ?? 0) || 0,
       raw: response.data,
     }
   }
@@ -597,7 +637,7 @@ export class ExpressflyService {
     const envPickupId = normalize(this.pickupAddressId)
     if (envPickupId) return envPickupId
 
-    const warehouseList = await this.getWarehouseList()
+    const warehouseList = await this.getWarehouseList({ forceRefresh: false, limit: 1000, page: 1 })
     const firstWarehouse = Array.isArray(warehouseList.data) ? warehouseList.data[0] : null
     const resolved = normalize(firstWarehouse?._id || firstWarehouse?.id)
 

@@ -902,6 +902,55 @@ export const getExpressflyOrderRatesController = async (req: Request, res: Respo
   }
 }
 
+export const getExpressflyWarehouseListController = async (req: Request, res: Response) => {
+  try {
+    const rawPage = typeof req.query.page === 'string' ? Number(req.query.page) : Number(req.query.page ?? 1)
+    const rawOffset =
+      typeof req.query.offset === 'string' ? Number(req.query.offset) : Number(req.query.offset ?? 0)
+    const rawLimit = typeof req.query.limit === 'string' ? Number(req.query.limit) : Number(req.query.limit ?? 1000)
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : undefined
+    const userId =
+      typeof req.query.user_id === 'string'
+        ? req.query.user_id.trim()
+        : typeof req.query.userId === 'string'
+          ? req.query.userId.trim()
+          : undefined
+
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : 1000
+    const page =
+      Number.isFinite(rawPage) && rawPage > 0
+        ? Math.floor(rawPage)
+        : Number.isFinite(rawOffset) && rawOffset >= 0
+          ? Math.floor(rawOffset / limit) + 1
+          : 1
+
+    const service = new ExpressflyService()
+    const result = await service.getWarehouseList({
+      page,
+      limit,
+      search,
+      userId,
+      forceRefresh: req.query.forceRefresh === 'true',
+    })
+
+    return res.json({
+      success: true,
+      message: result.message,
+      data: result.data,
+      status: result.status,
+      totalUsers: result.totalUsers,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
+    })
+  } catch (err: any) {
+    console.error('Error fetching Expressfly warehouse list:', err)
+    return res.status(err?.status || 500).json({
+      success: false,
+      message: err?.message || 'Failed to fetch Expressfly warehouse list',
+    })
+  }
+}
+
 export interface RateType {
   forward?: string | number
   rto?: string | number
