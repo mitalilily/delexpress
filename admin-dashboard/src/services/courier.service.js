@@ -150,3 +150,9 @@ export const updateXpressbeesCredentials = async (payload) => {
   if (!data?.success) throw new Error('Failed to update Xpressbees credentials')
   return data.data
 }
+
+export const updateExpressflyCredentials = async (payload) => {
+  const { data } = await api.put('/admin/couriers/credentials/expressfly', payload)
+  if (!data?.success) throw new Error('Failed to update Expressfly credentials')
+  return data.data
+}

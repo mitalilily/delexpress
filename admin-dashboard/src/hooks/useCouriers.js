@@ -11,6 +11,7 @@ import {
   fetchServiceProviders,
   fetchShippingRates,
   updateDelhiveryCredentials,
+  updateExpressflyCredentials,
   updateEkartCredentials,
   updateXpressbeesCredentials,
   updateCourierStatus,
@@ -142,6 +143,17 @@ export const useUpdateXpressbeesCredentials = () => {
 
   return useMutation({
     mutationFn: updateXpressbeesCredentials,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['courierCredentials'])
+    },
+  })
+}
+
+export const useUpdateExpressflyCredentials = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: updateExpressflyCredentials,
     onSuccess: () => {
       queryClient.invalidateQueries(['courierCredentials'])
     },

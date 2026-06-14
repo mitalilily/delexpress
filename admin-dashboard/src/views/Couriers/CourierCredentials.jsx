@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react'
 import {
   useCourierCredentials,
   useUpdateDelhiveryCredentials,
+  useUpdateExpressflyCredentials,
   useUpdateEkartCredentials,
   useUpdateXpressbeesCredentials,
 } from 'hooks/useCouriers'
@@ -23,6 +24,7 @@ const CourierCredentials = () => {
   const toast = useToast()
   const { data, isLoading, error } = useCourierCredentials()
   const updateDelhivery = useUpdateDelhiveryCredentials()
+  const updateExpressfly = useUpdateExpressflyCredentials()
   const updateEkart = useUpdateEkartCredentials()
   const updateXpressbees = useUpdateXpressbeesCredentials()
 
@@ -37,6 +39,10 @@ const CourierCredentials = () => {
     username: '',
     password: '',
     webhookSecret: '',
+  })
+  const [expressflyForm, setExpressflyForm] = useState({
+    apiKey: '',
+    apiUserId: '',
   })
   const [xpressbeesForm, setXpressbeesForm] = useState({
     apiBase: '',
@@ -65,6 +71,12 @@ const CourierCredentials = () => {
         webhookSecret: '',
       })
     }
+    if (data?.expressfly) {
+      setExpressflyForm({
+        apiKey: '',
+        apiUserId: data.expressfly.apiUserId || '',
+      })
+    }
     if (data?.xpressbees) {
       setXpressbeesForm({
         apiBase: data.xpressbees.apiBase || '',
@@ -77,6 +89,28 @@ const CourierCredentials = () => {
       })
     }
   }, [data])
+
+  const handleSaveExpressfly = () => {
+    updateExpressfly.mutate(
+      {
+        ...(expressflyForm.apiKey ? { apiKey: expressflyForm.apiKey } : {}),
+        ...(expressflyForm.apiUserId ? { apiUserId: expressflyForm.apiUserId } : {}),
+      },
+      {
+        onSuccess: () => {
+          toast({ title: 'Expressfly credentials updated', status: 'success' })
+          setExpressflyForm((prev) => ({ ...prev, apiKey: '' }))
+        },
+        onError: (err) => {
+          toast({
+            title: 'Failed to update Expressfly credentials',
+            description: err?.message,
+            status: 'error',
+          })
+        },
+      },
+    )
+  }
 
   const handleSaveDelhivery = () => {
     updateDelhivery.mutate(
@@ -236,6 +270,71 @@ const CourierCredentials = () => {
               alignSelf="flex-start"
             >
               Save Delhivery Credentials
+            </Button>
+          </VStack>
+        </Box>
+
+        <Box borderWidth="1px" borderRadius="lg" p={5} minW="320px" flex="1" maxW="520px">
+          <VStack spacing={4} align="stretch">
+            <Flex justify="space-between" align="center">
+              <Text fontWeight="semibold">Expressfly Logistics</Text>
+              <Badge
+                colorScheme={
+                  data?.expressfly?.hasApiKey && data?.expressfly?.hasApiUserId
+                    ? 'green'
+                    : 'orange'
+                }
+              >
+                {data?.expressfly?.hasApiKey && data?.expressfly?.hasApiUserId
+                  ? 'Configured'
+                  : 'Missing credentials'}
+              </Badge>
+            </Flex>
+
+            <FormControl>
+              <FormLabel>API Key</FormLabel>
+              <Input
+                type="password"
+                value={expressflyForm.apiKey}
+                onChange={(e) =>
+                  setExpressflyForm((prev) => ({ ...prev, apiKey: e.target.value }))
+                }
+                placeholder={data?.expressfly?.apiKeyMasked || 'Enter Expressfly API key'}
+              />
+              {!!data?.expressfly?.apiKeyMasked && (
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Current API key: {data.expressfly.apiKeyMasked}
+                </Text>
+              )}
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>API User ID</FormLabel>
+              <Input
+                value={expressflyForm.apiUserId}
+                onChange={(e) =>
+                  setExpressflyForm((prev) => ({ ...prev, apiUserId: e.target.value }))
+                }
+                placeholder={data?.expressfly?.apiUserIdMasked || 'Enter Expressfly API user ID'}
+              />
+              {!!data?.expressfly?.apiUserIdMasked && (
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Current API user ID: {data.expressfly.apiUserIdMasked}
+                </Text>
+              )}
+            </FormControl>
+
+            <Text fontSize="xs" color="gray.500">
+              Leave either field blank to keep the saved value.
+            </Text>
+
+            <Button
+              colorScheme="blue"
+              onClick={handleSaveExpressfly}
+              isLoading={updateExpressfly.isPending}
+              alignSelf="flex-start"
+            >
+              Save Expressfly Credentials
             </Button>
           </VStack>
         </Box>

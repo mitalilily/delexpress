@@ -8,6 +8,7 @@ import {
   getShippingRatesController,
   importShippingRatesController,
   updateDelhiveryCredentialsController,
+  updateExpressflyCredentialsController,
   updateEkartCredentialsController,
   updateXpressbeesCredentialsController,
   updateShippingRateController,
@@ -41,6 +42,12 @@ router.put(
   requireAuth,
   isAdminMiddleware,
   updateDelhiveryCredentialsController,
+)
+router.put(
+  '/credentials/expressfly',
+  requireAuth,
+  isAdminMiddleware,
+  updateExpressflyCredentialsController,
 )
 router.put(
   '/credentials/ekart',

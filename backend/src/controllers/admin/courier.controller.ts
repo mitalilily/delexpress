@@ -15,6 +15,12 @@ import { courier_credentials } from '../../models/schema/courierCredentials'
 import { couriers } from '../../models/schema/couriers'
 import { getAllZones } from '../../models/services/zone.service'
 
+const maskCredential = (value?: string | null) => {
+  const raw = (value || '').trim()
+  if (!raw) return ''
+  return `${raw.slice(0, 4)}${'*'.repeat(Math.max(raw.length - 8, 0))}${raw.slice(-4)}`
+}
+
 export interface ShippingRateFilters {
   courier_name?: string[]
   mode?: string
@@ -238,7 +244,7 @@ export const updateCourierStatusController = async (req: Request, res: Response)
 export const getServiceProvidersController = async (req: Request, res: Response) => {
   try {
     // Only expose the main integrated service providers in the enable/disable UI
-    const allowedProviders = ['delhivery', 'ekart', 'xpressbees']
+    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'expressfly']
 
     const rows = await db
       .select({
@@ -284,7 +290,7 @@ export const updateServiceProviderStatusController = async (req: Request, res: R
   const { isEnabled } = req.body
 
   try {
-    const allowedProviders = ['delhivery', 'ekart', 'xpressbees']
+    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'expressfly']
 
     if (!serviceProvider || typeof isEnabled !== 'boolean') {
       return res.status(400).json({
@@ -340,7 +346,14 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         webhookSecret: courier_credentials.webhookSecret,
       })
       .from(courier_credentials)
-      .where(inArray(courier_credentials.provider, ['delhivery', 'ekart', 'xpressbees']))
+      .where(
+        inArray(courier_credentials.provider, [
+          'delhivery',
+          'ekart',
+          'xpressbees',
+          'expressfly',
+        ]),
+      )
 
     const defaults = {
       delhivery: {
@@ -370,6 +383,15 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         apiKeyMasked: '',
         hasPassword: false,
         hasWebhookSecret: false,
+      },
+      expressfly: {
+        provider: 'expressfly',
+        apiKey: '',
+        apiKeyMasked: '',
+        apiUserId: '',
+        apiUserIdMasked: '',
+        hasApiKey: false,
+        hasApiUserId: false,
       },
     }
 
@@ -410,19 +432,23 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
             row.apiBase || 'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward',
           username: row.username || '',
           hasSecretKey: Boolean(secretKey.trim()),
-          secretKeyMasked: secretKey
-            ? `${secretKey.slice(0, 4)}${'*'.repeat(Math.max(secretKey.length - 8, 0))}${secretKey.slice(-4)}`
-            : '',
+          secretKeyMasked: maskCredential(secretKey),
           hasXbKey: Boolean(xbKey.trim()),
-          xbKeyMasked: xbKey
-            ? `${xbKey.slice(0, 4)}${'*'.repeat(Math.max(xbKey.length - 8, 0))}${xbKey.slice(-4)}`
-            : '',
+          xbKeyMasked: maskCredential(xbKey),
           hasApiKey: Boolean(apiKey.trim()),
-          apiKeyMasked: apiKey
-            ? `${apiKey.slice(0, 4)}${'*'.repeat(Math.max(apiKey.length - 8, 0))}${apiKey.slice(-4)}`
-            : '',
+          apiKeyMasked: maskCredential(apiKey),
           hasPassword,
           hasWebhookSecret,
+        }
+      } else if (provider === 'expressfly') {
+        const apiKey = row.apiKey || ''
+        const apiUserId = row.clientId || ''
+        acc.expressfly = {
+          provider: 'expressfly',
+          apiKeyMasked: maskCredential(apiKey),
+          apiUserIdMasked: maskCredential(apiUserId),
+          hasApiKey: Boolean(apiKey.trim()),
+          hasApiUserId: Boolean(apiUserId.trim()),
         }
       }
       return acc
@@ -692,6 +718,77 @@ export const updateXpressbeesCredentialsController = async (req: Request, res: R
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false, message: 'Failed to update Xpressbees credentials' })
+  }
+}
+
+export const updateExpressflyCredentialsController = async (req: Request, res: Response) => {
+  const { apiBase, apiKey, apiUserId } = req.body || {}
+
+  try {
+    const nextApiBase = typeof apiBase === 'string' ? apiBase.trim() : undefined
+    const nextApiKey = typeof apiKey === 'string' ? apiKey.trim() : undefined
+    const nextApiUserId = typeof apiUserId === 'string' ? apiUserId.trim() : undefined
+    const hasApiKey = typeof nextApiKey === 'string' && nextApiKey.length > 0
+    const hasApiUserId = typeof nextApiUserId === 'string' && nextApiUserId.length > 0
+
+    const [existing] = await db
+      .select({ id: courier_credentials.id })
+      .from(courier_credentials)
+      .where(eq(courier_credentials.provider, 'expressfly'))
+      .limit(1)
+
+    if (existing) {
+      const updatePayload: Record<string, any> = {
+        updatedAt: new Date(),
+      }
+      if (nextApiBase !== undefined) {
+        updatePayload.apiBase = nextApiBase
+      }
+      if (hasApiKey) {
+        updatePayload.apiKey = nextApiKey
+      }
+      if (hasApiUserId) {
+        updatePayload.clientId = nextApiUserId
+      }
+
+      await db
+        .update(courier_credentials)
+        .set(updatePayload)
+        .where(eq(courier_credentials.provider, 'expressfly'))
+    } else {
+      await db.insert(courier_credentials).values({
+        provider: 'expressfly',
+        apiBase: nextApiBase || '',
+        apiKey: hasApiKey ? nextApiKey : '',
+        clientId: hasApiUserId ? nextApiUserId : '',
+      })
+    }
+
+    const [saved] = await db
+      .select({
+        apiBase: courier_credentials.apiBase,
+        apiKey: courier_credentials.apiKey,
+        clientId: courier_credentials.clientId,
+      })
+      .from(courier_credentials)
+      .where(eq(courier_credentials.provider, 'expressfly'))
+      .limit(1)
+
+    res.json({
+      success: true,
+      message: 'Expressfly credentials updated successfully',
+      data: {
+        provider: 'expressfly',
+        apiBase: saved?.apiBase || '',
+        hasApiKey: Boolean((saved?.apiKey || '').trim()),
+        apiKeyMasked: maskCredential(saved?.apiKey),
+        hasApiUserId: Boolean((saved?.clientId || '').trim()),
+        apiUserIdMasked: maskCredential(saved?.clientId),
+      },
+    })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ success: false, message: 'Failed to update Expressfly credentials' })
   }
 }
 
