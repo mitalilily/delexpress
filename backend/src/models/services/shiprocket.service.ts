@@ -64,6 +64,7 @@ import {
   normalizeB2CShippingMode,
 } from './b2cRateCard.service'
 import { DelhiveryService } from './couriers/delhivery.service'
+import { ExpressflyService } from './couriers/expressfly.service'
 import { extractDelhiveryTrackingUpdate } from './couriers/delhiveryTracking.utils'
 import { EkartService } from './couriers/ekart.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
@@ -1073,7 +1074,7 @@ export const fetchAvailableCouriersWithRates = async (
 
     // Build registry of enabled couriers by service provider
     // Filter by business type: check if business_type JSONB array contains 'b2c'
-    const SUPPORTED_PROVIDERS = ['delhivery', 'ekart', 'xpressbees']
+    const SUPPORTED_PROVIDERS = ['delhivery', 'ekart', 'xpressbees', 'expressfly']
     const systemCourierRows = await db
       .select({
         id: couriers.id,
@@ -3534,14 +3535,18 @@ export const createB2CShipmentService = async (
   try {
     // 1️⃣ CREATE SHIPMENT
     const requestedIntegrationType = String(params.integration_type || '').toLowerCase()
-    const allowedIntegrationTypes = ['delhivery', 'ekart', 'xpressbees']
+    const allowedIntegrationTypes = ['delhivery', 'ekart', 'xpressbees', 'expressfly']
     if (!requestedIntegrationType || !allowedIntegrationTypes.includes(requestedIntegrationType)) {
       throw new Error(
-        `Invalid integration_type: ${params.integration_type}. Supported values: delhivery, ekart, xpressbees.`,
+        `Invalid integration_type: ${params.integration_type}. Supported values: delhivery, ekart, xpressbees, expressfly.`,
       )
     }
 
-    const integrationType = requestedIntegrationType as 'delhivery' | 'ekart' | 'xpressbees'
+    const integrationType = requestedIntegrationType as
+      | 'delhivery'
+      | 'ekart'
+      | 'xpressbees'
+      | 'expressfly'
     if (integrationType === 'ekart' && params.pickup) {
       const ekartPickupAlias = buildEkartWarehouseAliasFromPickup({
         warehouse_name: params.pickup.warehouse_name,
@@ -3561,9 +3566,11 @@ export const createB2CShipmentService = async (
     const providerName =
       integrationType === 'delhivery'
         ? 'Delhivery'
-        : integrationType === 'ekart'
-          ? 'Ekart Logistics'
-          : 'Xpressbees'
+      : integrationType === 'ekart'
+        ? 'Ekart Logistics'
+        : integrationType === 'xpressbees'
+          ? 'Xpressbees'
+          : 'Expressfly Logistics'
 
     let manifestFailure: DelhiveryManifestError | null = null
     let shipmentSuccessPackage: any = null
@@ -3861,6 +3868,75 @@ export const createB2CShipmentService = async (
             : null,
         label: xpressbeesPackage?.label ?? undefined,
         manifest: xpressbeesPackage?.manifest ?? undefined,
+        courier_cost: providerCourierCost,
+        sort_code: providerSortCode,
+      }
+    } else if (integrationType === 'expressfly') {
+      console.log('→ Using Expressfly booking API...')
+
+      const expressfly = new ExpressflyService()
+      shipmentData = await expressfly.bookShipment({
+        order_number: params.order_number,
+        payment_type: params.payment_type,
+        order_date: params.order_date,
+        order_amount: params.order_amount,
+        shipping_charges: params.shipping_charges,
+        other_charges: params.other_charges,
+        freight_charges: params.freight_charges,
+        courier_cost: params.courier_cost,
+        consignee: params.consignee,
+        pickup: params.pickup,
+        order_items: params.order_items as any,
+        pickup_location_id: params.pickup_location_id,
+        integration_type: params.integration_type,
+        shippingProviderCode: (params as any).shippingProviderCode,
+        shippingCourier: (params as any).shippingCourier,
+      } as any)
+
+      const expressflyPackage = shipmentData?.raw || shipmentData
+      const expressflyWaybill =
+        expressflyPackage?.trackingNumber ||
+        expressflyPackage?.awb_number ||
+        expressflyPackage?.waybill ||
+        null
+
+      if (!shipmentData?.successful && shipmentData?.status !== true) {
+        console.error('❌ Invalid Expressfly shipment:', shipmentData)
+        throw new HttpError(500, 'Expressfly shipment creation failed')
+      }
+
+      if (!expressflyWaybill && !shipmentData?.shippingPackageCode) {
+        console.error('❌ Missing Expressfly booking identifiers:', shipmentData)
+        throw new HttpError(500, 'Expressfly did not return a tracking or package number')
+      }
+
+      shipmentSuccessPackage = {
+        waybill: expressflyWaybill ?? shipmentData?.shippingPackageCode ?? null,
+        label: expressflyPackage?.label ?? expressflyPackage?.shippingLabelLink ?? null,
+        manifest: expressflyPackage?.manifest ?? null,
+        courier_name: expressflyPackage?.shippingProviderName ?? 'Expressfly Logistics',
+        courier_id: params.courier_id ?? null,
+        status: shipmentData?.status ?? shipmentData?.successful ?? null,
+        sort_code: expressflyPackage?.shippingProviderCode ?? null,
+      }
+
+      providerCourierCost = params?.courier_cost ?? null
+      providerSortCode = expressflyPackage?.shippingProviderCode ?? null
+
+      shipmentMeta = {
+        shipment_id:
+          expressflyPackage?.invoiceCode ??
+          expressflyPackage?.shippingPackageCode ??
+          expressflyWaybill ??
+          undefined,
+        awb_number: expressflyWaybill ?? shipmentData?.shippingPackageCode ?? undefined,
+        courier_name: expressflyPackage?.shippingProviderName ?? 'Expressfly Logistics',
+        courier_id: params.courier_id ? Number(params.courier_id) : null,
+        label:
+          expressflyPackage?.label ??
+          expressflyPackage?.shippingLabelLink ??
+          undefined,
+        manifest: expressflyPackage?.manifest ?? undefined,
         courier_cost: providerCourierCost,
         sort_code: providerSortCode,
       }

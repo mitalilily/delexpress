@@ -3,7 +3,7 @@ import { db } from '../client'
 import { courierCredentials } from '../schema/courierCredentials'
 
 export type BusinessType = 'b2b' | 'b2c'
-export type ServiceProviderId = 'delhivery' | 'shipway' | 'xpressbees' | 'ekart'
+export type ServiceProviderId = 'delhivery' | 'shipway' | 'xpressbees' | 'ekart' | 'expressfly'
 
 export type DelhiveryConfig = {
   apiKey?: string
@@ -31,6 +31,15 @@ export type EkartConfig = {
   baseAuth?: string
 }
 
+export type ExpressflyConfig = {
+  apiBase?: string
+  apiUserId?: string
+  apiKey?: string
+  facilityCode?: string
+  shippingProviderCode?: string
+  shippingCourier?: string
+}
+
 export type SmartshipConfig = {
   username?: string
   password?: string
@@ -55,6 +64,7 @@ export type CourierConfig =
   | ShipwayConfig
   | XpressbeesConfig
   | EkartConfig
+  | ExpressflyConfig
 
 export interface CourierCredentialsUpsertPayload {
   serviceProvider: ServiceProviderId
@@ -82,7 +92,13 @@ export interface CourierCredentialsMeta {
   }
 }
 
-const KNOWN_PROVIDERS: ServiceProviderId[] = ['delhivery', 'shipway', 'xpressbees', 'ekart']
+const KNOWN_PROVIDERS: ServiceProviderId[] = [
+  'delhivery',
+  'shipway',
+  'xpressbees',
+  'ekart',
+  'expressfly',
+]
 
 const hasEnvForProviderAndType = (provider: ServiceProviderId, _type: BusinessType): boolean => {
   if (provider === 'delhivery') {
@@ -104,6 +120,14 @@ const hasEnvForProviderAndType = (provider: ServiceProviderId, _type: BusinessTy
       process.env.EKART_PASSWORD ||
       process.env.EKART_BASE_API ||
       process.env.EKART_BASE_AUTH
+    )
+  }
+  if (provider === 'expressfly') {
+    return !!(
+      process.env.EXPRESSFLY_API_USER_ID ||
+      process.env.EXPRESSFLY_API_KEY ||
+      process.env.EXPRESSFLY_FACILITY_CODE ||
+      process.env.EXPRESSFLY_BASE_API
     )
   }
   return false
@@ -142,6 +166,18 @@ const buildConfigFromRow = (provider: ServiceProviderId, row: typeof courierCred
     const cfg: ShipwayConfig = {
       username: normalize(row.username),
       password: normalize(row.password),
+    }
+    return cfg
+  }
+
+  if (provider === 'expressfly') {
+    const cfg: ExpressflyConfig = {
+      apiBase: normalize(row.apiBase),
+      apiUserId: normalize(row.clientId || row.username),
+      apiKey: normalize(row.apiKey || row.password),
+      facilityCode: normalize(row.clientName),
+      shippingProviderCode: normalize(row.webhookSecret),
+      shippingCourier: normalize(row.clientName),
     }
     return cfg
   }
@@ -230,7 +266,11 @@ export const listCourierCredentialsMeta = async (): Promise<CourierCredentialsMe
 
   return KNOWN_PROVIDERS.map((provider) => {
     const row = byProvider.get(provider)
-    const configured = !!row && [row.apiBase, row.clientName, row.apiKey, row.clientId, row.username, row.password].some((v) => normalize(v).length > 0)
+    const configured =
+      !!row &&
+      [row.apiBase, row.clientName, row.apiKey, row.clientId, row.username, row.password].some(
+        (v) => normalize(v).length > 0,
+      )
 
     return {
       serviceProvider: provider,

@@ -303,11 +303,11 @@ export const cancelOrderController = async (req: any, res: Response) => {
 
     let cancellationResult: any = null
     const provider = String(order.integration_type || '').toLowerCase()
-    if (!['delhivery', 'ekart', 'xpressbees'].includes(provider)) {
+    if (!['delhivery', 'ekart', 'xpressbees', 'expressfly'].includes(provider)) {
       return res.status(400).json({
         success: false,
         error: 'Unsupported provider',
-        message: `Only Delhivery, Ekart and Xpressbees are supported for cancellation. Found: ${order.integration_type}`,
+        message: `Only Delhivery, Ekart, Xpressbees and Expressfly are supported for cancellation. Found: ${order.integration_type}`,
       })
     }
 

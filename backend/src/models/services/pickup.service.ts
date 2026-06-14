@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../client'
 import { b2c_orders } from '../schema/b2cOrders'
+import { ExpressflyService } from './couriers/expressfly.service'
 import { DelhiveryService } from './couriers/delhivery.service'
 import { EkartService } from './couriers/ekart.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
@@ -26,9 +27,9 @@ export async function cancelOrderShipment(orderId: string) {
   })
 
   const integration = (order.integration_type || '').toLowerCase()
-  if (!['delhivery', 'ekart', 'xpressbees'].includes(integration)) {
+  if (!['delhivery', 'ekart', 'xpressbees', 'expressfly'].includes(integration)) {
     console.error('❌ Unsupported integration type:', { orderId, integration })
-    throw new Error('Only Delhivery, Ekart and Xpressbees are supported for cancellation')
+    throw new Error('Only Delhivery, Ekart, Expressfly and Xpressbees are supported for cancellation')
   }
 
   if (!order.awb_number) {
@@ -48,6 +49,9 @@ export async function cancelOrderShipment(orderId: string) {
     cancellationResult = await svc.cancelShipment(order.awb_number)
   } else if (integration === 'ekart') {
     const svc = new EkartService()
+    cancellationResult = await svc.cancelShipment(order.awb_number)
+  } else if (integration === 'expressfly') {
+    const svc = new ExpressflyService()
     cancellationResult = await svc.cancelShipment(order.awb_number)
   } else {
     const svc = new XpressbeesService()
