@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
+import { execFile } from 'child_process'
 import { HttpError } from '../../../utils/classes'
 import { db } from '../../client'
 import { courier_credentials } from '../../schema/courierCredentials'
@@ -101,6 +102,23 @@ type ExpressflyOrderListParams = {
   search?: string
 }
 
+type ExpressflySingleOrderResponse = {
+  status?: string | number | boolean
+  message?: string
+  data?: {
+    order_info?: Record<string, any>
+    pickup_info?: Record<string, any>
+    consignee_info?: Record<string, any>
+    courier_info?: Record<string, any>
+    product_info?: Record<string, any>
+    weight_info?: Record<string, any>
+    payment_info?: Record<string, any>
+    status_info?: Record<string, any>
+    [key: string]: any
+  }
+  raw?: any
+}
+
 const DEFAULT_BASE_API = 'https://tech.expressfly.in/api'
 const DEFAULT_AUTH_PATH = '/unicommerce/authToken'
 const DEFAULT_PROFILE_PATH = '/auth/get-profile'
@@ -117,6 +135,30 @@ const mask = (value?: string | null) => {
   if (!raw) return ''
   return `${raw.slice(0, 4)}${'*'.repeat(Math.max(raw.length - 8, 0))}${raw.slice(-4)}`
 }
+
+const execFileAsync = (
+  file: string,
+  args: string[],
+  options: { encoding: BufferEncoding; maxBuffer: number },
+) =>
+  new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+    execFile(file, args, options, (error, stdout, stderr) => {
+      if (error && !stdout && !stderr) {
+        reject(error)
+        return
+      }
+
+      if (error && (error as any).code === 'ENOENT') {
+        reject(error)
+        return
+      }
+
+      resolve({
+        stdout: typeof stdout === 'string' ? stdout : String(stdout || ''),
+        stderr: typeof stderr === 'string' ? stderr : String(stderr || ''),
+      })
+    })
+  })
 
 export class ExpressflyService {
   private static cachedConfig: ExpressflyConfig | null | undefined
@@ -140,6 +182,8 @@ export class ExpressflyService {
   private authScheme = (process.env.EXPRESSFLY_AUTH_SCHEME || 'raw').toLowerCase()
   private token: string | null = null
   private tokenExpiry = 0
+  private lookupToken: string | null = null
+  private lookupTokenExpiry = 0
   private profileCache: any = null
 
   private log(prefix: string, details: any) {
@@ -204,6 +248,30 @@ export class ExpressflyService {
       },
       validateStatus: (status) => status >= 200 && status < 500,
     })
+  }
+
+  private async requestJsonAuthToken() {
+    const url = this.buildUrl(this.authPath)
+    this.log('Authenticating order lookup token', {
+      url,
+      apiUserId: mask(this.apiUserId),
+    })
+
+    return axios.post(
+      url,
+      {
+        username: this.apiUserId,
+        password: this.apiKey,
+      },
+      {
+        timeout: 30000,
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        validateStatus: (status) => status >= 200 && status < 500,
+      },
+    )
   }
 
   private createHttpClient(token: string): AxiosInstance {
@@ -404,6 +472,43 @@ export class ExpressflyService {
     return token
   }
 
+  async getLookupAccessToken(forceRefresh = false): Promise<string> {
+    await this.ensureConfigLoaded()
+
+    if (!forceRefresh && this.lookupToken && Date.now() < this.lookupTokenExpiry) {
+      return this.lookupToken
+    }
+
+    if (!this.apiUserId || !this.apiKey) {
+      throw new HttpError(
+        400,
+        'Expressfly API credentials are missing. Save API User ID and API Key in courier credentials first.',
+      )
+    }
+
+    const response = await this.requestJsonAuthToken()
+    if (!response || response.status >= 400) {
+      throw new HttpError(
+        response?.status || 502,
+        this.extractErrorMessage({ response }, 'Expressfly order lookup authentication failed'),
+      )
+    }
+
+    const token = this.extractToken(response.data)
+    if (!token) {
+      throw new HttpError(502, 'Expressfly order lookup auth response did not include a token')
+    }
+
+    this.lookupToken = token
+    this.lookupTokenExpiry = Date.now() + 45 * 60 * 1000
+    this.log('Order lookup authentication succeeded', {
+      status: response.status,
+      tokenPreview: mask(token),
+    })
+
+    return token
+  }
+
   async getProfile(forceRefresh = false) {
     const token = await this.getAccessToken(forceRefresh)
     const response = await this.requestProfile(token)
@@ -526,6 +631,88 @@ export class ExpressflyService {
         orders,
         total,
       },
+      raw: response.data,
+    }
+  }
+
+  async getOrder(orderId: string): Promise<ExpressflySingleOrderResponse> {
+    const token = await this.getLookupAccessToken()
+    const normalizedOrderId = normalize(orderId)
+
+    if (!normalizedOrderId) {
+      throw new HttpError(400, 'Expressfly order id is required')
+    }
+
+    const url = `${this.ordersPath}/${encodeURIComponent(normalizedOrderId)}`
+    this.log('Fetching single order', {
+      url: this.buildUrl(url),
+      orderId: normalizedOrderId,
+    })
+
+    let response: {
+      status: number
+      data: any
+    } | null = null
+
+    try {
+      const curlBinary = process.platform === 'win32' ? 'curl.exe' : 'curl'
+      const curlUrl = this.buildUrl(url)
+      const curlArgs = [
+        '--silent',
+        '--show-error',
+        '--http1.1',
+        '-H',
+        `Authorization: ${token}`,
+        '-H',
+        'Accept: application/json',
+        '-w',
+        '\n%{http_code}',
+        '-o',
+        '-',
+        curlUrl,
+      ]
+
+      const curlResult = await execFileAsync(curlBinary, curlArgs, {
+        encoding: 'utf8',
+        maxBuffer: 10 * 1024 * 1024,
+      })
+
+      const output = String(curlResult.stdout || '').replace(/\r\n/g, '\n')
+      const lastNewline = output.lastIndexOf('\n')
+      const responseBody = lastNewline >= 0 ? output.slice(0, lastNewline) : output
+      const statusText = lastNewline >= 0 ? output.slice(lastNewline + 1).trim() : ''
+      const parsedBody = responseBody ? JSON.parse(responseBody) : {}
+
+      response = {
+        status: Number(statusText) || 0,
+        data: parsedBody,
+      }
+    } catch (curlError: any) {
+      this.log('Curl lookup failed, falling back to axios', {
+        orderId: normalizedOrderId,
+        message: curlError?.message || String(curlError),
+      })
+      const http = this.createHttpClient(token)
+      response = await http.get(url)
+    }
+
+    if (!response) {
+      throw new HttpError(502, 'Expressfly order lookup failed')
+    }
+
+    if (response.status >= 400) {
+      throw new HttpError(
+        response.status,
+        this.extractErrorMessage({ response }, 'Expressfly order lookup failed'),
+      )
+    }
+
+    const data = response.data?.data ?? response.data
+
+    return {
+      status: response.data?.status ?? response.status,
+      message: response.data?.message || 'Order fetched successfully.',
+      data,
       raw: response.data,
     }
   }
