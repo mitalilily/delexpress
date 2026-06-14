@@ -88,9 +88,22 @@ type ExpressflyShipmentParams = {
   shippingCourier?: string
 }
 
+type ExpressflyOrderListParams = {
+  offset: number
+  limit: number
+  sortBy?: string
+  sortMode?: 'asc' | 'desc'
+  order_status?: string
+  date_from?: string
+  date_to?: string
+  shipment_type?: boolean
+  search?: string
+}
+
 const DEFAULT_BASE_API = 'https://tech.expressfly.in/api'
 const DEFAULT_AUTH_PATH = '/unicommerce/authToken'
 const DEFAULT_PROFILE_PATH = '/auth/get-profile'
+const DEFAULT_ORDERS_PATH = '/orders'
 const DEFAULT_SALE_ORDER_PATH = '/services/rest/v1/oms/saleOrder/create'
 const DEFAULT_SHIPPING_PACKAGE_PATH = '/services/rest/v1/oms/shippingPackage/create'
 const DEFAULT_BOOKING_PATH = '/services/rest/v1/oms/shippingPackage/createInvoiceAndGenerateLabel'
@@ -109,6 +122,7 @@ export class ExpressflyService {
   private baseApi = process.env.EXPRESSFLY_BASE_API || DEFAULT_BASE_API
   private authPath = process.env.EXPRESSFLY_AUTH_PATH || DEFAULT_AUTH_PATH
   private profilePath = process.env.EXPRESSFLY_PROFILE_PATH || DEFAULT_PROFILE_PATH
+  private ordersPath = process.env.EXPRESSFLY_ORDERS_PATH || DEFAULT_ORDERS_PATH
   private saleOrderPath = process.env.EXPRESSFLY_SALE_ORDER_PATH || DEFAULT_SALE_ORDER_PATH
   private shippingPackagePath =
     process.env.EXPRESSFLY_SHIPPING_PACKAGE_PATH || DEFAULT_SHIPPING_PACKAGE_PATH
@@ -388,6 +402,53 @@ export class ExpressflyService {
     })
 
     return profile
+  }
+
+  async getOrders(params: ExpressflyOrderListParams) {
+    const token = await this.getAccessToken()
+    const http = this.createHttpClient(token)
+
+    const query: Record<string, string | number | boolean> = {
+      offset: Math.max(0, Number(params.offset) || 0),
+      limit: Math.max(1, Number(params.limit) || 1),
+    }
+
+    if (params.sortBy) query.sortBy = params.sortBy
+    if (params.sortMode) query.sortMode = params.sortMode
+    if (params.order_status) query.order_status = params.order_status
+    if (params.date_from) query.date_from = params.date_from
+    if (params.date_to) query.date_to = params.date_to
+    if (typeof params.shipment_type === 'boolean') query.shipment_type = params.shipment_type
+    if (params.search) query.search = params.search
+
+    const url = this.ordersPath
+    this.log('Fetching orders', {
+      url: this.buildUrl(url),
+      query,
+    })
+
+    const response = await http.get(url, { params: query })
+
+    if (response.status >= 400) {
+      throw new HttpError(
+        response.status,
+        this.extractErrorMessage({ response }, 'Expressfly order list failed'),
+      )
+    }
+
+    const data = response.data?.data ?? response.data
+    const orders = Array.isArray(data?.orders) ? data.orders : []
+    const total = Number(data?.total ?? orders.length) || 0
+
+    return {
+      status: response.data?.status ?? response.status,
+      message: response.data?.message || 'Expressfly orders fetched successfully',
+      data: {
+        orders,
+        total,
+      },
+      raw: response.data,
+    }
   }
 
   private toShippingAddress(address: ExpressflyShipmentParams['consignee']) {

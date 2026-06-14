@@ -5,6 +5,7 @@ import {
   deleteShippingRateController,
   fetchAvailableCouriersForAdmin,
   getAllCouriersController,
+  getExpressflyOrdersController,
   getShippingRatesController,
   importShippingRatesController,
   updateDelhiveryCredentialsController,
@@ -49,6 +50,7 @@ router.put(
   isAdminMiddleware,
   updateExpressflyCredentialsController,
 )
+router.get('/expressfly/orders', requireAuth, isAdminMiddleware, getExpressflyOrdersController)
 router.put(
   '/credentials/ekart',
   requireAuth,

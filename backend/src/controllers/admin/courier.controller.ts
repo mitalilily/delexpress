@@ -10,6 +10,7 @@ import {
   updateShippingRate,
   upsertShippingRate,
 } from '../../models/services/courierIntegration.service'
+import { ExpressflyService } from '../../models/services/couriers/expressfly.service'
 import { fetchAvailableCouriersWithRatesAdmin } from '../../models/services/shiprocket.service'
 import { courier_credentials } from '../../models/schema/courierCredentials'
 import { couriers } from '../../models/schema/couriers'
@@ -789,6 +790,63 @@ export const updateExpressflyCredentialsController = async (req: Request, res: R
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false, message: 'Failed to update Expressfly credentials' })
+  }
+}
+
+export const getExpressflyOrdersController = async (req: Request, res: Response) => {
+  try {
+    const offset = Number(req.query.offset ?? 0)
+    const limit = Number(req.query.limit ?? 50)
+    const sortBy = typeof req.query.sortBy === 'string' ? req.query.sortBy : undefined
+    const sortMode =
+      req.query.sortMode === 'asc' || req.query.sortMode === 'desc'
+        ? req.query.sortMode
+        : undefined
+    const order_status =
+      typeof req.query.order_status === 'string' ? req.query.order_status : undefined
+    const date_from = typeof req.query.date_from === 'string' ? req.query.date_from : undefined
+    const date_to = typeof req.query.date_to === 'string' ? req.query.date_to : undefined
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined
+    const shipment_type =
+      req.query.shipment_type === 'true'
+        ? true
+        : req.query.shipment_type === 'false'
+          ? false
+          : undefined
+
+    if (!Number.isFinite(offset) || offset < 0) {
+      return res.status(400).json({ success: false, message: 'offset must be a non-negative number' })
+    }
+
+    if (!Number.isFinite(limit) || limit < 1) {
+      return res.status(400).json({ success: false, message: 'limit must be a positive number' })
+    }
+
+    const service = new ExpressflyService()
+    const result = await service.getOrders({
+      offset,
+      limit,
+      sortBy,
+      sortMode,
+      order_status,
+      date_from,
+      date_to,
+      search,
+      shipment_type,
+    })
+
+    return res.json({
+      success: true,
+      message: result.message,
+      data: result.data,
+      status: result.status,
+    })
+  } catch (err: any) {
+    console.error('Error fetching Expressfly orders:', err)
+    return res.status(err?.status || 500).json({
+      success: false,
+      message: err?.message || 'Failed to fetch Expressfly orders',
+    })
   }
 }
 
