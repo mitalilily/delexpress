@@ -7,6 +7,7 @@ import { courierSummary } from '../schema/courierSummary'
 import { shippingRates } from '../schema/shippingRates'
 import { userPlans } from '../schema/userPlans'
 import { zones } from '../schema/zones'
+import { SHADOWFAX_COURIER_ID, buildShadowfaxCourierRow } from './couriers/shadowfax.catalog'
 import {
   fetchShippingRateSlabs,
   normalizeB2CShippingMode,
@@ -44,6 +45,47 @@ export interface CourierFilters {
 }
 
 const normalizeProvider = (value?: string | null) => String(value || '').trim().toLowerCase()
+
+const shadowfaxCourierRow = () => {
+  const courier = buildShadowfaxCourierRow()
+  return {
+    id: courier.id,
+    name: courier.name,
+    serviceProvider: courier.serviceProvider,
+    isEnabled: courier.isEnabled,
+    createdAt: courier.createdAt,
+  }
+}
+
+const matchesShadowfaxCourierFilters = (filters: CourierFilters = {}) => {
+  if (filters.name && !'shadowfax'.includes(filters.name.trim().toLowerCase())) {
+    return false
+  }
+
+  return true
+}
+
+const compareCourierRows = (a: any, b: any, sortBy?: GetAllCouriersPaginatedParams['sortBy']) => {
+  const aName = String(a?.name || '').toLowerCase()
+  const bName = String(b?.name || '').toLowerCase()
+  const aId = Number(a?.id || 0)
+  const bId = Number(b?.id || 0)
+  const aCreatedAt = a?.createdAt ? new Date(a.createdAt).getTime() : 0
+  const bCreatedAt = b?.createdAt ? new Date(b.createdAt).getTime() : 0
+
+  switch (sortBy) {
+    case 'latest':
+      return bCreatedAt - aCreatedAt || bId - aId
+    case 'oldest':
+      return aCreatedAt - bCreatedAt || aId - bId
+    case 'za':
+      return bName.localeCompare(aName) || bId - aId
+    case 'az':
+      return aName.localeCompare(bName) || aId - bId
+    default:
+      return aId - bId
+  }
+}
 
 const stableNumericIdFromString = (value: string) => {
   let hash = 2166136261
@@ -107,14 +149,13 @@ export const getAllCouriersPaginated = async ({
   sortBy,
 }: GetAllCouriersPaginatedParams) => {
   const whereClause = buildCourierWhereClause(filters)
+  const courierRows = await db.select().from(couriers).where(whereClause)
+  const normalizedRows = matchesShadowfaxCourierFilters(filters) &&
+    !courierRows.some((row) => Number(row.id) === SHADOWFAX_COURIER_ID)
+      ? [...courierRows, shadowfaxCourierRow()]
+      : courierRows
 
-  return await db
-    .select()
-    .from(couriers)
-    .where(whereClause)
-    .orderBy(getSortClause(sortBy))
-    .limit(limit)
-    .offset(offset)
+  return normalizedRows.sort((a, b) => compareCourierRows(a, b, sortBy)).slice(offset, offset + limit)
 }
 
 // =========================
@@ -128,7 +169,18 @@ export const getCourierCount = async (filters: CourierFilters = {}) => {
     .from(couriers)
     .where(whereClause)
 
-  return Number(result?.count ?? 0)
+  const shadowfaxNeedsCount = matchesShadowfaxCourierFilters(filters)
+  if (!shadowfaxNeedsCount) {
+    return Number(result?.count ?? 0)
+  }
+
+  const [shadowfaxExists] = await db
+    .select({ id: couriers.id })
+    .from(couriers)
+    .where(whereClause ? and(whereClause, eq(couriers.id, SHADOWFAX_COURIER_ID)) : eq(couriers.id, SHADOWFAX_COURIER_ID))
+    .limit(1)
+
+  return Number(result?.count ?? 0) + (shadowfaxExists ? 0 : 1)
 }
 
 // =========================
@@ -136,6 +188,14 @@ export const getCourierCount = async (filters: CourierFilters = {}) => {
 // =========================
 export const getCourierById = async (id: number) => {
   const [courier] = await db.select().from(couriers).where(eq(couriers.id, id))
+
+  if (courier) {
+    return courier
+  }
+
+  if (Number(id) === SHADOWFAX_COURIER_ID) {
+    return shadowfaxCourierRow()
+  }
 
   return courier
 }

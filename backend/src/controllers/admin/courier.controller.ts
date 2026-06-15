@@ -16,11 +16,51 @@ import { fetchAvailableCouriersWithRatesAdmin } from '../../models/services/ship
 import { courier_credentials } from '../../models/schema/courierCredentials'
 import { couriers } from '../../models/schema/couriers'
 import { getAllZones } from '../../models/services/zone.service'
+import { SHADOWFAX_COURIER_ID, buildShadowfaxCourierRow } from '../../models/services/couriers/shadowfax.catalog'
 
 const maskCredential = (value?: string | null) => {
   const raw = (value || '').trim()
   if (!raw) return ''
   return `${raw.slice(0, 4)}${'*'.repeat(Math.max(raw.length - 8, 0))}${raw.slice(-4)}`
+}
+
+const buildShadowfaxCourierRecord = () => {
+  const courier = buildShadowfaxCourierRow()
+  return {
+    id: courier.id,
+    name: courier.name,
+    serviceProvider: courier.serviceProvider,
+    isEnabled: courier.isEnabled,
+    createdAt: courier.createdAt,
+  }
+}
+
+const appendShadowfaxCourierIfMissing = (rows: any[], opts?: {
+  search?: string
+  serviceProvider?: string
+  businessType?: string
+}) => {
+  const normalizedSearch = String(opts?.search || '').trim().toLowerCase()
+  const normalizedProvider = String(opts?.serviceProvider || '').trim().toLowerCase()
+  const normalizedBusinessType = String(opts?.businessType || '').trim().toLowerCase()
+
+  if (normalizedSearch && !'shadowfax'.includes(normalizedSearch) && !String(SHADOWFAX_COURIER_ID).includes(normalizedSearch)) {
+    return rows
+  }
+
+  if (normalizedProvider && normalizedProvider !== 'shadowfax') {
+    return rows
+  }
+
+  if (normalizedBusinessType && normalizedBusinessType !== 'b2c' && normalizedBusinessType !== 'b2b') {
+    return rows
+  }
+
+  if (rows.some((row) => Number(row.id) === SHADOWFAX_COURIER_ID)) {
+    return rows
+  }
+
+  return [...rows, buildShadowfaxCourierRecord()]
 }
 
 export interface ShippingRateFilters {
@@ -123,7 +163,11 @@ export const getAllCouriersController = async (req: Request, res: Response) => {
       .from(couriers)
       .orderBy(desc(couriers.createdAt))
 
-    res.json({ success: true, data: courierList })
+    const mergedCourierList = appendShadowfaxCourierIfMissing(courierList).sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
+    )
+
+    res.json({ success: true, data: mergedCourierList })
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false })
@@ -175,7 +219,13 @@ export const getAllCouriersListController = async (req: Request, res: Response) 
       .where(whereCondition)
       .orderBy(desc(couriers.createdAt))
 
-    res.json({ success: true, data: courierList })
+    const mergedCourierList = appendShadowfaxCourierIfMissing(courierList, {
+      search: typeof search === 'string' ? search : undefined,
+      serviceProvider: typeof serviceProvider === 'string' ? serviceProvider : undefined,
+      businessType: typeof businessType === 'string' ? businessType : undefined,
+    }).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+
+    res.json({ success: true, data: mergedCourierList })
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false, message: 'Failed to fetch couriers' })

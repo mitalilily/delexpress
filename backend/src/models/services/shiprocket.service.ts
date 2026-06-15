@@ -63,6 +63,12 @@ import {
   formatCourierSlabDisplayName,
   normalizeB2CShippingMode,
 } from './b2cRateCard.service'
+import {
+  SHADOWFAX_COURIER_ID,
+  SHADOWFAX_PROVIDER,
+  buildShadowfaxCourierRow,
+  buildShadowfaxResolvedRateCards,
+} from './couriers/shadowfax.catalog'
 import { DelhiveryService } from './couriers/delhivery.service'
 import { ExpressflyService } from './couriers/expressfly.service'
 import { extractDelhiveryTrackingUpdate } from './couriers/delhiveryTracking.utils'
@@ -1077,7 +1083,7 @@ export const fetchAvailableCouriersWithRates = async (
     // Build registry of enabled couriers by service provider
     // Filter by business type: check if business_type JSONB array contains 'b2c'
     const SUPPORTED_PROVIDERS = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax']
-    const systemCourierRows = await db
+    let systemCourierRows = await db
       .select({
         id: couriers.id,
         serviceProvider: couriers.serviceProvider,
@@ -1086,6 +1092,18 @@ export const fetchAvailableCouriersWithRates = async (
       })
       .from(couriers)
       .where(and(eq(couriers.isEnabled, true), sql`${couriers.businessType} @> '["b2c"]'::jsonb`))
+    if (!systemCourierRows.some((row) => normalizeProviderKey(row.serviceProvider) === SHADOWFAX_PROVIDER)) {
+      const shadowfaxCourier = buildShadowfaxCourierRow()
+      systemCourierRows = [
+        ...systemCourierRows,
+        {
+          id: shadowfaxCourier.id,
+          serviceProvider: shadowfaxCourier.serviceProvider,
+          name: shadowfaxCourier.name,
+          createdAt: shadowfaxCourier.createdAt,
+        },
+      ]
+    }
     const systemCourierById = new Map(systemCourierRows.map((row) => [Number(row.id), row]))
 
     const normalizeProviderKey = (value?: string | null) => {
@@ -1582,6 +1600,7 @@ export const fetchAvailableCouriersWithRates = async (
     // ✅ Local rate & zone logic - Fetch for ALL service providers
     let localRates: any[] = []
     let approxZone: { id: string; code: string; name?: string } | null = null
+    const isReverseShipment = params.isReverse === true || params.payment_type === 'reverse'
 
     if (params.shipment_type === 'b2c') {
       const originPincode = params.origin?.toString()
@@ -1618,6 +1637,23 @@ export const fetchAvailableCouriersWithRates = async (
         ]
       }
 
+      const mergeShadowfaxFallbackRates = (rates: any[], fallbackPlanId: string) => {
+        const shadowfaxRates = buildShadowfaxResolvedRateCards({
+          planId: fallbackPlanId,
+          zoneId: zoneRow.id,
+          courierId: SHADOWFAX_COURIER_ID,
+          type: isReverseShipment ? 'rto' : 'forward',
+        })
+        const mergedRates = mergeMissingRateCards(rates, shadowfaxRates)
+        if (mergedRates.length > rates.length) {
+          console.log('[RateCalculator] Added Shadowfax fallback B2C rate cards', {
+            zone: approxZone,
+            added: mergedRates.length - rates.length,
+          })
+        }
+        return mergedRates
+      }
+
       const fetchPlanRateCardsWithFallback = async (planId: string) => {
         const zoneRates = await fetchResolvedB2CRateCards({
           planId,
@@ -1646,13 +1682,13 @@ export const fetchAvailableCouriersWithRates = async (
 
         const currentZoneLabel = `${zoneRow.code || ''} ${zoneRow.name || ''}`.toLowerCase()
         if (currentZoneLabel.includes('roi') || currentZoneLabel.includes('rest of india')) {
-          return addLegacyFallbackRates(zoneRates)
+          return mergeShadowfaxFallbackRates(await addLegacyFallbackRates(zoneRates), planId)
         }
 
         try {
           const roiZone = await fetchZoneIdByKey('ROI')
           if (!roiZone?.id || roiZone.id === zoneRow.id) {
-            return addLegacyFallbackRates(zoneRates)
+            return mergeShadowfaxFallbackRates(await addLegacyFallbackRates(zoneRates), planId)
           }
 
           const roiRates = await fetchResolvedB2CRateCards({
@@ -1667,13 +1703,13 @@ export const fetchAvailableCouriersWithRates = async (
               added: mergedRates.length - zoneRates.length,
             })
           }
-          return addLegacyFallbackRates(mergedRates)
+          return mergeShadowfaxFallbackRates(await addLegacyFallbackRates(mergedRates), planId)
         } catch (fallbackErr: any) {
           console.warn('[RateCalculator] ROI fallback rate lookup skipped', {
             zone: approxZone,
             message: fallbackErr?.message || fallbackErr,
           })
-          return addLegacyFallbackRates(zoneRates)
+          return mergeShadowfaxFallbackRates(await addLegacyFallbackRates(zoneRates), planId)
         }
       }
 
@@ -1713,6 +1749,17 @@ export const fetchAvailableCouriersWithRates = async (
         if (fallbackPlan?.id && fallbackPlan.id !== activePlanId) {
           localRates = await fetchPlanRateCardsWithFallback(fallbackPlan.id)
         }
+      }
+
+      if (!localRates.length) {
+        const fallbackPlanId =
+          activePlanId || effectivePlanFallbackName || 'shadowfax-default-plan'
+        localRates = buildShadowfaxResolvedRateCards({
+          planId: fallbackPlanId,
+          zoneId: zoneRow.id,
+          courierId: SHADOWFAX_COURIER_ID,
+          type: isReverseShipment ? 'rto' : 'forward',
+        })
       }
     }
 
@@ -1757,8 +1804,6 @@ export const fetchAvailableCouriersWithRates = async (
     // 🔹 Merge local rates with couriers
     // Match couriers with local rates by courier_id
     // Include ALL couriers (even if they don't have local rates) - they have service provider response data
-    const isReverseShipment = params.isReverse === true || params.payment_type === 'reverse'
-
     const buildServiceabilityRateOptions = (rateCard: any) => {
       const computed = computeB2CRateCardCharge({
         actual_weight_g: serviceabilityWeightG,
