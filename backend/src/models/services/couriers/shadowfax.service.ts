@@ -9,6 +9,7 @@ export const DEFAULT_SHADOWFAX_STAGING_BASE_API = 'https://dale.staging.shadowfa
 export const DEFAULT_SHADOWFAX_BASE_API = 'https://dale.shadowfax.in/api'
 export const DEFAULT_SHADOWFAX_SERVICEABILITY_PATH = '/v1/clients/serviceability/'
 export const DEFAULT_SHADOWFAX_ORDER_PATH = '/v3/clients/orders/'
+export const DEFAULT_SHADOWFAX_ORDER_UPDATE_PATH = '/v3/clients/order_update/'
 export const DEFAULT_SHADOWFAX_AWB_PATH = '/v3/clients/generate_marketplace_awb/'
 export const DEFAULT_SHADOWFAX_TRACK_PATH = '/v4/clients/orders'
 
@@ -146,6 +147,46 @@ export type ShadowfaxBulkOrderDetailsResult = {
   count: number
   awbNumbers: string[]
   orders: ShadowfaxOrderDetailsResult[]
+  raw: any
+}
+
+export type ShadowfaxOrderUpdateSection = {
+  contact?: string | null
+  latitude?: string | null
+  longitude?: string | null
+  alternate_contact?: string | null
+  customer_address?: string | null
+  return_address?: string | null
+  pincode?: number | string | null
+  email?: string | null
+  capture_delivery_image?: boolean | null
+}
+
+export type ShadowfaxOrderUpdateOrderDetails = {
+  cod_amount?: number | string | null
+  eway_bill_number?: string | null
+  invoice_number?: string | null
+  return_eway_bill_number?: string | null
+  actual_weight?: number | string | null
+  volumetric_weight?: number | string | null
+}
+
+export type ShadowfaxOrderUpdateParams = {
+  awbNumber: string
+  delivery_details?: ShadowfaxOrderUpdateSection | null
+  pickup_details?: ShadowfaxOrderUpdateSection | null
+  return_details?: ShadowfaxOrderUpdateSection | null
+  order_details?: ShadowfaxOrderUpdateOrderDetails | null
+  status_update?: {
+    status?: string | null
+  } | null
+}
+
+export type ShadowfaxOrderUpdateResult = {
+  successful: boolean
+  status: string | null
+  message: string
+  awbNumber: string | null
   raw: any
 }
 
@@ -372,6 +413,76 @@ export class ShadowfaxService {
       message: normalize(raw?.message) || 'Shadowfax AWBs generated successfully',
       count: requestedCount,
       awbNumbers,
+      raw,
+    }
+  }
+
+  async updateOrderDetails(params: ShadowfaxOrderUpdateParams): Promise<ShadowfaxOrderUpdateResult> {
+    const normalizedAwb = normalize(params.awbNumber)
+    if (!normalizedAwb) {
+      throw new HttpError(400, 'AWB number is required for Shadowfax order updates.')
+    }
+
+    const buildAddressSection = (
+      input: ShadowfaxOrderUpdateSection | null | undefined,
+      key: 'customer_address' | 'return_address',
+    ) => ({
+      contact: input?.contact ?? null,
+      latitude: input?.latitude ?? null,
+      longitude: input?.longitude ?? null,
+      alternate_contact: input?.alternate_contact ?? null,
+      [key]: input?.[key] ?? null,
+      pincode:
+        input?.pincode === undefined || input?.pincode === ''
+          ? null
+          : Number.isFinite(Number(input?.pincode))
+            ? Number(input?.pincode)
+            : input?.pincode,
+      email: input?.email ?? null,
+      capture_delivery_image: input?.capture_delivery_image ?? null,
+    })
+
+    const body = {
+      awb_number: normalizedAwb,
+      delivery_details: buildAddressSection(params.delivery_details, 'customer_address'),
+      pickup_details: buildAddressSection(params.pickup_details, 'customer_address'),
+      return_details: buildAddressSection(params.return_details, 'return_address'),
+      order_details: {
+        cod_amount:
+          params.order_details?.cod_amount === undefined || params.order_details?.cod_amount === ''
+            ? null
+            : Number.isFinite(Number(params.order_details?.cod_amount))
+              ? Number(params.order_details?.cod_amount)
+              : params.order_details?.cod_amount,
+        eway_bill_number: params.order_details?.eway_bill_number ?? null,
+        invoice_number: params.order_details?.invoice_number ?? null,
+        return_eway_bill_number: params.order_details?.return_eway_bill_number ?? null,
+        actual_weight:
+          params.order_details?.actual_weight === undefined || params.order_details?.actual_weight === ''
+            ? null
+            : Number.isFinite(Number(params.order_details?.actual_weight))
+              ? Number(params.order_details?.actual_weight)
+              : params.order_details?.actual_weight,
+        volumetric_weight:
+          params.order_details?.volumetric_weight === undefined ||
+          params.order_details?.volumetric_weight === ''
+            ? null
+            : Number.isFinite(Number(params.order_details?.volumetric_weight))
+              ? Number(params.order_details?.volumetric_weight)
+              : params.order_details?.volumetric_weight,
+      },
+      status_update: {
+        status: params.status_update?.status ?? null,
+      },
+    }
+
+    const raw = await this.request<any>('POST', DEFAULT_SHADOWFAX_ORDER_UPDATE_PATH, body)
+
+    return {
+      successful: normalize(raw?.message).toLowerCase() === 'request accepted.',
+      status: normalize(raw?.status) || 'accepted',
+      message: normalize(raw?.message) || 'Shadowfax order update accepted',
+      awbNumber: normalizedAwb,
       raw,
     }
   }

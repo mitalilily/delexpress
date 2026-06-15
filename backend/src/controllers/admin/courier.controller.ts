@@ -1531,3 +1531,47 @@ export const getShadowfaxBulkOrderDetailsController = async (req: Request, res: 
     })
   }
 }
+
+export const updateShadowfaxOrderController = async (req: Request, res: Response) => {
+  try {
+    const body = req.body || {}
+    const awbNumber =
+      typeof req.params.awbNumber === 'string'
+        ? req.params.awbNumber.trim()
+        : typeof body.awbNumber === 'string'
+          ? body.awbNumber.trim()
+          : typeof body.awb_number === 'string'
+            ? body.awb_number.trim()
+            : ''
+
+    if (!awbNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'awbNumber is required',
+      })
+    }
+
+    const service = new ShadowfaxService()
+    const result = await service.updateOrderDetails({
+      awbNumber,
+      delivery_details: body.delivery_details ?? body.deliveryDetails ?? null,
+      pickup_details: body.pickup_details ?? body.pickupDetails ?? null,
+      return_details: body.return_details ?? body.returnDetails ?? null,
+      order_details: body.order_details ?? body.orderDetails ?? null,
+      status_update: body.status_update ?? body.statusUpdate ?? null,
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      status: result.status,
+      data: result,
+    })
+  } catch (err: any) {
+    console.error('Error updating Shadowfax order:', err)
+    return res.status(err?.status || 500).json({
+      success: false,
+      message: err?.message || 'Failed to update Shadowfax order',
+    })
+  }
+}
