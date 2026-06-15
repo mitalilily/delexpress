@@ -10,6 +10,7 @@ export const DEFAULT_SHADOWFAX_BASE_API = 'https://dale.shadowfax.in/api'
 export const DEFAULT_SHADOWFAX_SERVICEABILITY_PATH = '/v1/clients/serviceability/'
 export const DEFAULT_SHADOWFAX_ORDER_PATH = '/v3/clients/orders/'
 export const DEFAULT_SHADOWFAX_ORDER_UPDATE_PATH = '/v3/clients/order_update/'
+export const DEFAULT_SHADOWFAX_ORDER_CANCEL_PATH = '/v3/clients/orders/cancel/'
 export const DEFAULT_SHADOWFAX_AWB_PATH = '/v3/clients/generate_marketplace_awb/'
 export const DEFAULT_SHADOWFAX_TRACK_PATH = '/v4/clients/orders'
 
@@ -187,6 +188,21 @@ export type ShadowfaxOrderUpdateResult = {
   status: string | null
   message: string
   awbNumber: string | null
+  raw: any
+}
+
+export type ShadowfaxCancelShipmentParams = {
+  requestId: string
+  cancelRemarks?: string
+}
+
+export type ShadowfaxCancelShipmentResult = {
+  successful: boolean
+  status: number | null
+  message: string
+  responseCode: number | null
+  responseMsg: string | null
+  requestId: string | null
   raw: any
 }
 
@@ -483,6 +499,38 @@ export class ShadowfaxService {
       status: normalize(raw?.status) || 'accepted',
       message: normalize(raw?.message) || 'Shadowfax order update accepted',
       awbNumber: normalizedAwb,
+      raw,
+    }
+  }
+
+  async cancelShipment(
+    requestId: string,
+    cancelRemarks = 'Request cancelled by customer',
+  ): Promise<ShadowfaxCancelShipmentResult> {
+    const normalizedRequestId = normalize(requestId)
+    if (!normalizedRequestId) {
+      throw new HttpError(400, 'Request ID is required for Shadowfax cancellation.')
+    }
+
+    const raw = await this.request<any>('POST', DEFAULT_SHADOWFAX_ORDER_CANCEL_PATH, {
+      request_id: normalizedRequestId,
+      cancel_remarks: normalize(cancelRemarks) || 'Request cancelled by customer',
+    })
+
+    const responseCode = Number(raw?.responseCode)
+    const responseMsg = normalize(raw?.responseMsg) || null
+
+    return {
+      successful:
+        responseCode === 200 ||
+        responseCode === 304 ||
+        /cancelled|queued/i.test(responseMsg || '') ||
+        normalize(raw?.message).toLowerCase().includes('cancel'),
+      status: Number.isFinite(responseCode) ? responseCode : null,
+      message: responseMsg || normalize(raw?.message) || 'Shadowfax cancellation accepted',
+      responseCode: Number.isFinite(responseCode) ? responseCode : null,
+      responseMsg,
+      requestId: normalizedRequestId,
       raw,
     }
   }

@@ -3,6 +3,7 @@ import { Response } from 'express'
 import { db } from '../../models/client'
 import { DelhiveryService } from '../../models/services/couriers/delhivery.service'
 import { EkartService } from '../../models/services/couriers/ekart.service'
+import { ShadowfaxService } from '../../models/services/couriers/shadowfax.service'
 import { XpressbeesService } from '../../models/services/couriers/xpressbees.service'
 import {
   createB2CShipmentService,
@@ -303,11 +304,11 @@ export const cancelOrderController = async (req: any, res: Response) => {
 
     let cancellationResult: any = null
     const provider = String(order.integration_type || '').toLowerCase()
-    if (!['delhivery', 'ekart', 'xpressbees', 'expressfly'].includes(provider)) {
+    if (!['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax'].includes(provider)) {
       return res.status(400).json({
         success: false,
         error: 'Unsupported provider',
-        message: `Only Delhivery, Ekart, Xpressbees and Expressfly are supported for cancellation. Found: ${order.integration_type}`,
+        message: `Only Delhivery, Ekart, Xpressbees, Expressfly and Shadowfax are supported for cancellation. Found: ${order.integration_type}`,
       })
     }
 
@@ -326,6 +327,9 @@ export const cancelOrderController = async (req: any, res: Response) => {
       } else if (provider === 'ekart') {
         const ekart = new EkartService()
         cancellationResult = await ekart.cancelShipment(order.awb_number)
+      } else if (provider === 'shadowfax') {
+        const shadowfax = new ShadowfaxService()
+        cancellationResult = await shadowfax.cancelShipment(order.awb_number)
       } else {
         const xpressbees = new XpressbeesService()
         cancellationResult = await xpressbees.cancelShipment(order.awb_number)
@@ -345,9 +349,14 @@ export const cancelOrderController = async (req: any, res: Response) => {
       cancellationResult?.status === true ||
       cancellationResult?.status === 'Success' ||
       cancellationResult?.status === 'success' ||
+      cancellationResult?.status === 200 ||
+      cancellationResult?.responseCode === 200 ||
+      cancellationResult?.responseCode === 304 ||
       cancellationResult?.response?.status === true ||
       (typeof cancellationResult?.remark === 'string' &&
         cancellationResult.remark.toLowerCase().includes('cancelled')) ||
+      (typeof cancellationResult?.responseMsg === 'string' &&
+        cancellationResult.responseMsg.toLowerCase().includes('cancel')) ||
       (typeof cancellationResult?.message === 'string' &&
         cancellationResult.message.toLowerCase().includes('cancelled') &&
         !cancellationResult?.error)

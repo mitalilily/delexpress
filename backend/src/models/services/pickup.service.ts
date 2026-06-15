@@ -4,6 +4,7 @@ import { b2c_orders } from '../schema/b2cOrders'
 import { ExpressflyService } from './couriers/expressfly.service'
 import { DelhiveryService } from './couriers/delhivery.service'
 import { EkartService } from './couriers/ekart.service'
+import { ShadowfaxService } from './couriers/shadowfax.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
 import { applyCancellationRefundOnce } from './webhookProcessor'
 
@@ -27,9 +28,11 @@ export async function cancelOrderShipment(orderId: string) {
   })
 
   const integration = (order.integration_type || '').toLowerCase()
-  if (!['delhivery', 'ekart', 'xpressbees', 'expressfly'].includes(integration)) {
+  if (!['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax'].includes(integration)) {
     console.error('❌ Unsupported integration type:', { orderId, integration })
-    throw new Error('Only Delhivery, Ekart, Expressfly and Xpressbees are supported for cancellation')
+    throw new Error(
+      'Only Delhivery, Ekart, Expressfly, Xpressbees and Shadowfax are supported for cancellation',
+    )
   }
 
   if (!order.awb_number) {
@@ -53,6 +56,9 @@ export async function cancelOrderShipment(orderId: string) {
   } else if (integration === 'expressfly') {
     const svc = new ExpressflyService()
     cancellationResult = await svc.cancelShipment(order.awb_number)
+  } else if (integration === 'shadowfax') {
+    const svc = new ShadowfaxService()
+    cancellationResult = await svc.cancelShipment(order.awb_number)
   } else {
     const svc = new XpressbeesService()
     cancellationResult = await svc.cancelShipment(order.awb_number)
@@ -66,9 +72,14 @@ export async function cancelOrderShipment(orderId: string) {
     cancellationResult?.status === true || // Boolean true (most common)
     cancellationResult?.status === 'Success' ||
     cancellationResult?.status === 'success' ||
+    cancellationResult?.status === 200 ||
+    cancellationResult?.responseCode === 200 ||
+    cancellationResult?.responseCode === 304 ||
     cancellationResult?.response?.status === true ||
     (cancellationResult?.remark &&
       cancellationResult.remark.toLowerCase().includes('cancelled')) || // Check remark field for cancellation confirmation
+    (typeof cancellationResult?.responseMsg === 'string' &&
+      cancellationResult.responseMsg.toLowerCase().includes('cancel')) ||
     (cancellationResult?.message &&
       cancellationResult?.message.toLowerCase().includes('success') &&
       !cancellationResult?.error) ||
@@ -83,6 +94,8 @@ export async function cancelOrderShipment(orderId: string) {
     Success: cancellationResult?.Success,
     status: cancellationResult?.status,
     statusType: typeof cancellationResult?.status,
+    responseCode: cancellationResult?.responseCode,
+    responseMsg: cancellationResult?.responseMsg,
     remark: cancellationResult?.remark,
     message: cancellationResult?.message,
     error: cancellationResult?.error,
