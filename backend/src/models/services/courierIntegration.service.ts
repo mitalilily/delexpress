@@ -43,6 +43,37 @@ export interface CourierFilters {
   name?: string
 }
 
+const normalizeProvider = (value?: string | null) => String(value || '').trim().toLowerCase()
+
+const stableNumericIdFromString = (value: string) => {
+  let hash = 2166136261
+  for (const char of value) {
+    hash ^= char.charCodeAt(0)
+    hash = Math.imul(hash, 16777619)
+  }
+
+  // Keep the generated value inside the signed Postgres integer range and avoid 0.
+  return (hash >>> 0) % 2147483646 + 1
+}
+
+export const resolveCourierId = (courierId: string | number, serviceProvider?: string) => {
+  const normalizedId = String(courierId ?? '').trim()
+  if (!normalizedId) {
+    throw new Error('Courier ID is required')
+  }
+
+  const parsed = Number(normalizedId)
+  if (Number.isInteger(parsed) && parsed > 0) {
+    return parsed
+  }
+
+  if (['expressfly', 'shadowfax'].includes(normalizeProvider(serviceProvider))) {
+    return stableNumericIdFromString(normalizedId)
+  }
+
+  throw new Error('Courier ID must be a positive numeric value')
+}
+
 export const buildCourierWhereClause = (filters: CourierFilters = {}) => {
   const conditions = []
 
@@ -620,13 +651,15 @@ export const createCourier = async (data: {
   if (!data?.serviceProvider) throw new Error('Service provider is required')
   
   // Validate service provider is one of the allowed providers
-  const allowedProviders = ['delhivery', 'ekart', 'xpressbees']
-  const normalizedProvider = (data.serviceProvider || '').toLowerCase().trim()
+  const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax']
+  const normalizedProvider = normalizeProvider(data.serviceProvider)
   if (!allowedProviders.includes(normalizedProvider)) {
     throw new Error(
       `Service provider must be one of: ${allowedProviders.join(', ')}. Received: ${data.serviceProvider}`
     )
   }
+
+  const courierId = resolveCourierId(data.courierId, normalizedProvider)
 
   console.log('data', data)
   // Check if courier already exists for this service provider
@@ -636,7 +669,7 @@ export const createCourier = async (data: {
     .from(couriers)
     .where(
       and(
-        eq(couriers.id, Number(data?.courierId)),
+        eq(couriers.id, courierId),
         eq(couriers.serviceProvider, normalizedProvider),
       ),
     )
@@ -651,7 +684,7 @@ export const createCourier = async (data: {
     .insert(couriers)
     .values({
       name: data?.courierName?.trim(),
-      id: Number(data?.courierId),
+      id: courierId,
       serviceProvider: normalizedProvider,
       businessType: businessType,
     } as any)
