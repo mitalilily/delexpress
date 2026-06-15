@@ -1078,11 +1078,17 @@ export const fetchAvailableCouriersWithRates = async (
       return undefined
     }
 
+    const normalizeProviderKey = (value?: string | null) => {
+      if (!value) return ''
+      return value.trim().toLowerCase()
+    }
+
     // const isReverseShipment = params.isReverse === true || params.payment_type === 'reverse'
 
     // Build registry of enabled couriers by service provider
     // Filter by business type: check if business_type JSONB array contains 'b2c'
     const SUPPORTED_PROVIDERS = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax']
+    const DELHIVERY_EXPRESS_SURFACE_COURIER_ID = 99
     let systemCourierRows = await db
       .select({
         id: couriers.id,
@@ -1105,11 +1111,6 @@ export const fetchAvailableCouriersWithRates = async (
       ]
     }
     const systemCourierById = new Map(systemCourierRows.map((row) => [Number(row.id), row]))
-
-    const normalizeProviderKey = (value?: string | null) => {
-      if (!value) return ''
-      return value.trim().toLowerCase()
-    }
 
     const makeCourierIdentityKey = (courier: {
       id: number | string
@@ -1329,18 +1330,18 @@ export const fetchAvailableCouriersWithRates = async (
       const destinationPincode = normalizePincode(
         params.destination ?? params.destination_pincode,
       )?.toString()
-      const orderAmountValue = Number(params.order_amount ?? params.orderAmount ?? 0)
-      const invoiceAmountAvailable = orderAmountValue > 0
+      const rawOrderAmountValue = Number(params.order_amount ?? params.orderAmount ?? 0)
+      const orderAmountValue = rawOrderAmountValue > 0 ? rawOrderAmountValue : 1
 
-      if (!invoiceAmountAvailable) {
-        console.warn('⚠️ Skipping Ekart serviceability: positive order_amount required', {
+      if (rawOrderAmountValue <= 0) {
+        console.warn('⚠️ Ekart serviceability defaulting order_amount to 1 for availability check', {
           originPincode,
           destinationPincode,
           order_amount: params.order_amount ?? params.orderAmount ?? null,
         })
       }
 
-      if (originPincode && destinationPincode && invoiceAmountAvailable) {
+      if (originPincode && destinationPincode) {
         try {
           ekartResp = await ekart.checkServiceability({
             pickupPincode: originPincode,
@@ -1413,9 +1414,21 @@ export const fetchAvailableCouriersWithRates = async (
       const destinationPincode = normalizePincode(
         params.destination ?? params.destination_pincode,
       )?.toString()
-      const orderAmountValue = Number(params.order_amount ?? params.orderAmount ?? 0)
+      const rawOrderAmountValue = Number(params.order_amount ?? params.orderAmount ?? 0)
+      const orderAmountValue = rawOrderAmountValue > 0 ? rawOrderAmountValue : 1
 
-      if (originPincode && destinationPincode && orderAmountValue > 0) {
+      if (rawOrderAmountValue <= 0) {
+        console.warn(
+          '⚠️ Xpressbees serviceability defaulting order_amount to 1 for availability check',
+          {
+            originPincode,
+            destinationPincode,
+            order_amount: params.order_amount ?? params.orderAmount ?? null,
+          },
+        )
+      }
+
+      if (originPincode && destinationPincode) {
         try {
           xpressbeesResp = await xpressbees.checkServiceability({
             origin: originPincode,
@@ -1904,12 +1917,18 @@ export const fetchAvailableCouriersWithRates = async (
     }
 
     const buildRateCardOnlyCourierOptions = () => {
-      if (!isCalculator || !localRates.length) return []
+      if (!localRates.length) return []
 
       const rateType = isReverseShipment ? 'rto' : 'forward'
 
       return localRates.flatMap((rateCard: any) => {
         if (rateCard.type !== rateType) return []
+        if (
+          normalizeProviderKey(rateCard.service_provider) === 'delhivery' &&
+          Number(rateCard.courier_id) !== DELHIVERY_EXPRESS_SURFACE_COURIER_ID
+        ) {
+          return []
+        }
 
         const courierRow = systemCourierById.get(Number(rateCard.courier_id))
         if (!courierRow) return []
@@ -1983,6 +2002,13 @@ export const fetchAvailableCouriersWithRates = async (
               !r.service_provider ||
               String(r.service_provider).toLowerCase().trim() === providerKey),
         )
+
+        if (
+          providerKey === 'delhivery' &&
+          Number(courier.id) !== DELHIVERY_EXPRESS_SURFACE_COURIER_ID
+        ) {
+          return []
+        }
 
         const matchedCourierRates = providerMode
           ? courierRates.filter((r) => normalizeB2CShippingMode(r.mode) === providerMode)
@@ -2080,49 +2106,47 @@ export const fetchAvailableCouriersWithRates = async (
     })
 
     // ✅ Final filter: Ensure all couriers have correct business_type
-    if (isCalculator) {
-      const rateCardOptions = buildRateCardOnlyCourierOptions()
-      if (rateCardOptions.length) {
-        const existingKeys = new Set(
-          combined.map((courier: any) =>
-            courier.courier_option_key ||
-            makeCourierIdentityKey({
-              id: courier.id,
-              integration_type: courier.integration_type || courier.serviceProvider || null,
-              serviceProvider: courier.serviceProvider || null,
-              max_slab_weight: courier.max_slab_weight ?? null,
-            }),
-          ),
-        )
-        const supplementalOptions = rateCardOptions.filter((courier: any) => {
-          const key =
-            courier.courier_option_key ||
-            makeCourierIdentityKey({
-              id: courier.id,
-              integration_type: courier.integration_type || courier.serviceProvider || null,
-              serviceProvider: courier.serviceProvider || null,
-              max_slab_weight: courier.max_slab_weight ?? null,
-            })
-          if (existingKeys.has(key)) return false
-          existingKeys.add(key)
-          return true
-        })
+    const rateCardOptions = buildRateCardOnlyCourierOptions()
+    if (rateCardOptions.length) {
+      const existingKeys = new Set(
+        combined.map((courier: any) =>
+          courier.courier_option_key ||
+          makeCourierIdentityKey({
+            id: courier.id,
+            integration_type: courier.integration_type || courier.serviceProvider || null,
+            serviceProvider: courier.serviceProvider || null,
+            max_slab_weight: courier.max_slab_weight ?? null,
+          }),
+        ),
+      )
+      const supplementalOptions = rateCardOptions.filter((courier: any) => {
+        const key =
+          courier.courier_option_key ||
+          makeCourierIdentityKey({
+            id: courier.id,
+            integration_type: courier.integration_type || courier.serviceProvider || null,
+            serviceProvider: courier.serviceProvider || null,
+            max_slab_weight: courier.max_slab_weight ?? null,
+          })
+        if (existingKeys.has(key)) return false
+        existingKeys.add(key)
+        return true
+      })
 
-        if (supplementalOptions.length) {
-          combined = [...combined, ...supplementalOptions]
-          console.log('[RateCalculator] Added rate-card supplemental options', {
-            origin: params.origin,
-            destination: params.destination,
-            count: supplementalOptions.length,
-          })
-        } else if (!combined.length) {
-          combined = rateCardOptions
-          console.log('[RateCalculator] Using rate-card fallback options', {
-            origin: params.origin,
-            destination: params.destination,
-            count: combined.length,
-          })
-        }
+      if (supplementalOptions.length) {
+        combined = [...combined, ...supplementalOptions]
+        console.log('[RateCalculator] Added rate-card supplemental options', {
+          origin: params.origin,
+          destination: params.destination,
+          count: supplementalOptions.length,
+        })
+      } else if (!combined.length) {
+        combined = rateCardOptions
+        console.log('[RateCalculator] Using rate-card fallback options', {
+          origin: params.origin,
+          destination: params.destination,
+          count: combined.length,
+        })
       }
     }
 
