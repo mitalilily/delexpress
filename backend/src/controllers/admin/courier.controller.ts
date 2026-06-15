@@ -35,6 +35,37 @@ const buildShadowfaxCourierRecord = () => {
   }
 }
 
+const ensureShadowfaxCourierRow = async () => {
+  const [existing] = await db
+    .select({
+      id: couriers.id,
+      serviceProvider: couriers.serviceProvider,
+    })
+    .from(couriers)
+    .where(eq(couriers.serviceProvider, 'shadowfax'))
+    .limit(1)
+
+  if (existing) {
+    return existing
+  }
+
+  const shadowfaxCourier = buildShadowfaxCourierRow()
+  const [inserted] = await db
+    .insert(couriers)
+    .values({
+      id: shadowfaxCourier.id,
+      name: shadowfaxCourier.name,
+      serviceProvider: shadowfaxCourier.serviceProvider,
+      isEnabled: shadowfaxCourier.isEnabled,
+      businessType: shadowfaxCourier.businessType,
+      createdAt: shadowfaxCourier.createdAt,
+      updatedAt: shadowfaxCourier.createdAt,
+    } as any)
+    .returning()
+
+  return inserted
+}
+
 const appendShadowfaxCourierIfMissing = (rows: any[], opts?: {
   search?: string
   serviceProvider?: string
@@ -295,6 +326,8 @@ export const updateCourierStatusController = async (req: Request, res: Response)
 
 export const getServiceProvidersController = async (req: Request, res: Response) => {
   try {
+    await ensureShadowfaxCourierRow()
+
     // Only expose the main integrated service providers in the enable/disable UI
     const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax']
 
@@ -355,6 +388,10 @@ export const updateServiceProviderStatusController = async (req: Request, res: R
         success: false,
         message: `Only these providers are supported: ${allowedProviders.join(', ')}`,
       })
+    }
+
+    if (String(serviceProvider).toLowerCase() === 'shadowfax') {
+      await ensureShadowfaxCourierRow()
     }
 
     const updated = await db
