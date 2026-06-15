@@ -369,6 +369,29 @@ export class ShadowfaxService {
     const orderType = params.orderType === 'warehouse' ? 'warehouse' : 'marketplace'
     const paymentMode = normalize(params.orderDetails.payment_mode || 'Prepaid') || 'Prepaid'
     const promisedDeliveryDate = normalize(params.orderDetails.promised_delivery_date)
+    const buildAddress = (details: Record<string, any> | null | undefined) => {
+      const parts = [
+        details?.customer_address,
+        details?.return_address,
+        details?.address_line_1,
+        details?.address_line_2,
+        details?.city,
+        details?.state,
+        details?.pincode,
+      ]
+        .map((part) =>
+          normalize(part)
+            .normalize('NFKD')
+            .replace(/[^\x20-\x7E]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .replace(/\s*,\s*/g, ', ')
+            .replace(/^[,\s]+|[,\s]+$/g, '')
+            .trim(),
+        )
+        .filter(Boolean)
+
+      return parts.length ? parts.join(', ') : null
+    }
 
     const body: Record<string, any> = {
       order_type: orderType,
@@ -400,6 +423,7 @@ export class ShadowfaxService {
       },
       pickup_details: {
         ...params.pickupDetails,
+        customer_address: buildAddress(params.pickupDetails) || undefined,
         pincode: toNumber(params.pickupDetails.pincode),
       },
       product_details: (params.productDetails || []).map((item) => ({
@@ -415,6 +439,7 @@ export class ShadowfaxService {
     const returnDetailsKey = orderType === 'warehouse' ? 'rto_details' : 'rts_details'
     body[returnDetailsKey] = {
       ...params.returnDetails,
+      return_address: buildAddress(params.returnDetails) || undefined,
       pincode: toNumber(params.returnDetails.pincode),
     }
 

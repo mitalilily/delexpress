@@ -64,10 +64,8 @@ import {
   normalizeB2CShippingMode,
 } from './b2cRateCard.service'
 import {
-  SHADOWFAX_COURIER_ID,
   SHADOWFAX_PROVIDER,
   buildShadowfaxCourierRow,
-  buildShadowfaxResolvedRateCards,
 } from './couriers/shadowfax.catalog'
 import { DelhiveryService } from './couriers/delhivery.service'
 import { ExpressflyService } from './couriers/expressfly.service'
@@ -1650,28 +1648,16 @@ export const fetchAvailableCouriersWithRates = async (
         ]
       }
 
-      const mergeShadowfaxFallbackRates = (rates: any[], fallbackPlanId: string) => {
-        const shadowfaxRates = buildShadowfaxResolvedRateCards({
-          planId: fallbackPlanId,
-          zoneId: zoneRow.id,
-          courierId: SHADOWFAX_COURIER_ID,
-          type: isReverseShipment ? 'rto' : 'forward',
-        })
-        const mergedRates = mergeMissingRateCards(rates, shadowfaxRates)
-        if (mergedRates.length > rates.length) {
-          console.log('[RateCalculator] Added Shadowfax fallback B2C rate cards', {
-            zone: approxZone,
-            added: mergedRates.length - rates.length,
-          })
-        }
-        return mergedRates
-      }
-
       const fetchPlanRateCardsWithFallback = async (planId: string) => {
         const zoneRates = await fetchResolvedB2CRateCards({
           planId,
           zoneId: zoneRow.id,
         })
+        const hasDelhiveryExpressSurfaceRateCards = zoneRates.some(
+          (rate) =>
+            normalizeProviderKey(rate.service_provider) === 'delhivery' &&
+            Number(rate.courier_id) === DELHIVERY_EXPRESS_SURFACE_COURIER_ID,
+        )
 
         const addLegacyFallbackRates = async (rates: any[]) => {
           try {
@@ -1693,15 +1679,20 @@ export const fetchAvailableCouriersWithRates = async (
           }
         }
 
+        const withLegacyFallback = await addLegacyFallbackRates(zoneRates)
+        if (hasDelhiveryExpressSurfaceRateCards) {
+          return withLegacyFallback
+        }
+
         const currentZoneLabel = `${zoneRow.code || ''} ${zoneRow.name || ''}`.toLowerCase()
         if (currentZoneLabel.includes('roi') || currentZoneLabel.includes('rest of india')) {
-          return mergeShadowfaxFallbackRates(await addLegacyFallbackRates(zoneRates), planId)
+          return withLegacyFallback
         }
 
         try {
           const roiZone = await fetchZoneIdByKey('ROI')
           if (!roiZone?.id || roiZone.id === zoneRow.id) {
-            return mergeShadowfaxFallbackRates(await addLegacyFallbackRates(zoneRates), planId)
+            return withLegacyFallback
           }
 
           const roiRates = await fetchResolvedB2CRateCards({
@@ -1716,14 +1707,27 @@ export const fetchAvailableCouriersWithRates = async (
               added: mergedRates.length - zoneRates.length,
             })
           }
-          return mergeShadowfaxFallbackRates(await addLegacyFallbackRates(mergedRates), planId)
+          return await addLegacyFallbackRates(mergedRates)
         } catch (fallbackErr: any) {
           console.warn('[RateCalculator] ROI fallback rate lookup skipped', {
             zone: approxZone,
             message: fallbackErr?.message || fallbackErr,
           })
-          return mergeShadowfaxFallbackRates(await addLegacyFallbackRates(zoneRates), planId)
+          return withLegacyFallback
         }
+      }
+
+      const resolvePlanIdByName = async (planName: string): Promise<string | null> => {
+        const normalizedName = planName.trim().toLowerCase()
+        if (!normalizedName) return null
+
+        const [planRow] = await db
+          .select({ id: plans.id })
+          .from(plans)
+          .where(sql`lower(${plans.name}) = ${normalizedName}`)
+          .limit(1)
+
+        return planRow?.id ?? null
       }
 
       let activePlanId: string | null | undefined = planIdOverride ?? null
@@ -1752,27 +1756,37 @@ export const fetchAvailableCouriersWithRates = async (
       }
 
       if (!localRates.length && effectivePlanFallbackName) {
-        const normalizedFallback = effectivePlanFallbackName.toLowerCase()
-        const [fallbackPlan] = await db
-          .select({ id: plans.id })
-          .from(plans)
-          .where(sql`lower(${plans.name}) = ${normalizedFallback}`)
-          .limit(1)
+        const fallbackPlanId = await resolvePlanIdByName(effectivePlanFallbackName)
 
-        if (fallbackPlan?.id && fallbackPlan.id !== activePlanId) {
-          localRates = await fetchPlanRateCardsWithFallback(fallbackPlan.id)
+        if (fallbackPlanId && fallbackPlanId !== activePlanId) {
+          localRates = await fetchPlanRateCardsWithFallback(fallbackPlanId)
         }
       }
 
-      if (!localRates.length) {
-        const fallbackPlanId =
-          activePlanId || effectivePlanFallbackName || 'shadowfax-default-plan'
-        localRates = buildShadowfaxResolvedRateCards({
-          planId: fallbackPlanId,
-          zoneId: zoneRow.id,
-          courierId: SHADOWFAX_COURIER_ID,
-          type: isReverseShipment ? 'rto' : 'forward',
-        })
+      const localRateProviderKeys = new Set(
+        localRates.map((rateCard: any) => normalizeProviderKey(rateCard.service_provider)),
+      )
+      const missingServiceableProviders = Array.from(serviceableProviders.keys()).filter(
+        (providerKey) => providerKey && !localRateProviderKeys.has(providerKey),
+      )
+
+      if (missingServiceableProviders.length) {
+        const fallbackPlanId = await resolvePlanIdByName('Basic')
+        if (fallbackPlanId && fallbackPlanId !== activePlanId) {
+          const fallbackRates = await fetchPlanRateCardsWithFallback(fallbackPlanId)
+          const mergedRates = mergeMissingRateCards(localRates, fallbackRates)
+          if (mergedRates.length > localRates.length) {
+            console.log(
+              '[RateCalculator] Added Basic fallback B2C rate cards for missing serviceable providers',
+              {
+                zone: approxZone,
+                missingServiceableProviders,
+                added: mergedRates.length - localRates.length,
+              },
+            )
+            localRates = mergedRates
+          }
+        }
       }
     }
 
@@ -2010,8 +2024,16 @@ export const fetchAvailableCouriersWithRates = async (
           return []
         }
 
-        const matchedCourierRates = providerMode
-          ? courierRates.filter((r) => normalizeB2CShippingMode(r.mode) === providerMode)
+        const modeCandidates = providerMode
+          ? [
+              providerMode,
+              // Shadowfax surfaces its B2C lane as "standard" in serviceability,
+              // but the rate cards are stored as "surface" in the plan tables.
+              providerKey === 'shadowfax' && providerMode === 'standard' ? 'surface' : '',
+            ].filter((mode): mode is string => Boolean(mode))
+          : []
+        const matchedCourierRates = modeCandidates.length
+          ? courierRates.filter((r) => modeCandidates.includes(normalizeB2CShippingMode(r.mode)))
           : courierRates
         const blankModeCourierRates = courierRates.filter((r) => !normalizeB2CShippingMode(r.mode))
         const effectiveCourierRates = providerMode
@@ -4096,6 +4118,14 @@ export const createB2CShipmentService = async (
       const shadowfax = new ShadowfaxService()
       // Shadowfax is being run in warehouse mode across the site.
       const shadowfaxFlow = 'warehouse'
+      const courierSafeText = (value: unknown, fallback = '') => {
+        const cleaned = String(value ?? '')
+          .normalize('NFKD')
+          .replace(/[^\x20-\x7E]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+        return sanitizeString(cleaned, fallback)
+      }
       const paymentMode =
         params.payment_type === 'cod'
           ? 'COD'
@@ -4113,6 +4143,138 @@ export const createB2CShipmentService = async (
         (params as any)?.promised_delivery_date ||
         (params as any)?.pickup_date ||
         params.order_date?.toISOString?.()
+      const shadowfaxPickup = {
+        warehouse_name:
+          courierSafeText(
+            pickup?.warehouse_name ||
+              resolvedPickupWarehouse?.addressNickname ||
+              resolvedPickupWarehouse?.contactName ||
+              pickup?.name ||
+              'Pickup',
+            'Pickup',
+          ) || 'Pickup',
+        name:
+          courierSafeText(
+            pickup?.name ||
+              resolvedPickupWarehouse?.contactName ||
+              pickup?.warehouse_name ||
+              resolvedPickupWarehouse?.addressNickname ||
+              'Pickup',
+            'Pickup',
+          ) || 'Pickup',
+        contact:
+          courierSafeText(
+            pickup?.phone || pickup?.contact || resolvedPickupWarehouse?.contactPhone || '',
+            '',
+          ) || '',
+        address_line_1:
+          courierSafeText(
+            pickup?.address || pickup?.address_line_1 || resolvedPickupWarehouse?.addressLine1 || '',
+            '',
+          ) || '',
+        address_line_2:
+          courierSafeText(
+            pickup?.address_2 || pickup?.address_line_2 || resolvedPickupWarehouse?.addressLine2 || '',
+            '',
+          ) || '',
+        city:
+          courierSafeText(pickup?.city || resolvedPickupWarehouse?.city || '', '') || '',
+        state:
+          courierSafeText(pickup?.state || resolvedPickupWarehouse?.state || '', '') || '',
+        pincode: courierSafeText(pickup?.pincode || resolvedPickupWarehouse?.pincode || '', '') || '',
+        latitude: pickup?.latitude,
+        longitude: pickup?.longitude,
+        email: courierSafeText(pickup?.email || '', '') || undefined,
+        unique_code:
+          courierSafeText(
+            pickup?.unique_code ||
+              resolvedPickupWarehouse?.pickupId ||
+              pickup?.warehouse_name ||
+              pickup?.name ||
+              '',
+            '',
+          ) || undefined,
+      }
+      const shadowfaxReturn = {
+        warehouse_name:
+          courierSafeText(
+            fallbackReturn?.warehouse_name ||
+              fallbackReturn?.name ||
+              resolvedPickupWarehouse?.addressNickname ||
+              resolvedPickupWarehouse?.contactName ||
+              pickup?.warehouse_name ||
+              'Return',
+            'Return',
+          ) || 'Return',
+        name:
+          courierSafeText(
+            fallbackReturn?.name ||
+              fallbackReturn?.warehouse_name ||
+              resolvedPickupWarehouse?.contactName ||
+              pickup?.name ||
+              'Return',
+            'Return',
+          ) || 'Return',
+        contact:
+          courierSafeText(
+            fallbackReturn?.phone ||
+              fallbackReturn?.contact ||
+              pickup?.phone ||
+              pickup?.contact ||
+              resolvedPickupWarehouse?.contactPhone ||
+              '',
+            '',
+          ) || '',
+        address_line_1:
+          courierSafeText(
+            fallbackReturn?.address ||
+              fallbackReturn?.address_line_1 ||
+              pickup?.address ||
+              pickup?.address_line_1 ||
+              resolvedPickupWarehouse?.addressLine1 ||
+              '',
+            '',
+          ) || '',
+        address_line_2:
+          courierSafeText(
+            fallbackReturn?.address_2 ||
+              fallbackReturn?.address_line_2 ||
+              pickup?.address_2 ||
+              pickup?.address_line_2 ||
+              resolvedPickupWarehouse?.addressLine2 ||
+              '',
+            '',
+          ) || '',
+        city:
+          courierSafeText(
+            fallbackReturn?.city || pickup?.city || resolvedPickupWarehouse?.city || '',
+            '',
+          ) || '',
+        state:
+          courierSafeText(
+            fallbackReturn?.state || pickup?.state || resolvedPickupWarehouse?.state || '',
+            '',
+          ) || '',
+        pincode:
+          courierSafeText(
+            fallbackReturn?.pincode || pickup?.pincode || resolvedPickupWarehouse?.pincode || '',
+            '',
+          ) || '',
+        latitude: fallbackReturn?.latitude || pickup?.latitude,
+        longitude: fallbackReturn?.longitude || pickup?.longitude,
+        email: courierSafeText(fallbackReturn?.email || pickup?.email || '', '') || undefined,
+        unique_code:
+          courierSafeText(
+            fallbackReturn?.unique_code ||
+              fallbackReturn?.warehouse_name ||
+              fallbackReturn?.name ||
+              pickup?.unique_code ||
+              pickup?.warehouse_name ||
+              resolvedPickupWarehouse?.pickupId ||
+              '',
+            '',
+          ) || undefined,
+      }
 
       shipmentData = await shadowfax.createOrder({
         orderType: shadowfaxFlow,
@@ -4157,36 +4319,19 @@ export const createB2CShipmentService = async (
           longitude: consignee?.longitude,
           email: consignee?.email,
         },
-        pickupDetails: {
-          name: pickup?.warehouse_name || pickup?.name || 'Pickup',
-          contact: pickup?.phone || pickup?.contact || '',
-          address_line_1: pickup?.address || pickup?.address_line_1 || '',
-          address_line_2: pickup?.address_2 || pickup?.address_line_2 || '',
-          city: pickup?.city || '',
-          state: pickup?.state || '',
-          pincode: pickup?.pincode || '',
-          latitude: pickup?.latitude,
-          longitude: pickup?.longitude,
-          unique_code: pickup?.unique_code || pickup?.warehouse_name || pickup?.name || undefined,
-        },
+        pickupDetails: shadowfaxPickup,
         returnDetails: {
-          name: fallbackReturn?.name || fallbackReturn?.warehouse_name || 'Return',
-          contact: fallbackReturn?.phone || fallbackReturn?.contact || pickup?.phone || pickup?.contact || '',
-          address_line_1: fallbackReturn?.address || fallbackReturn?.address_line_1 || pickup?.address || pickup?.address_line_1 || '',
-          address_line_2: fallbackReturn?.address_2 || fallbackReturn?.address_line_2 || pickup?.address_2 || pickup?.address_line_2 || '',
-          city: fallbackReturn?.city || pickup?.city || '',
-          state: fallbackReturn?.state || pickup?.state || '',
-          pincode: fallbackReturn?.pincode || pickup?.pincode || '',
-          latitude: fallbackReturn?.latitude || pickup?.latitude,
-          longitude: fallbackReturn?.longitude || pickup?.longitude,
-          unique_code:
-            fallbackReturn?.unique_code ||
-            fallbackReturn?.warehouse_name ||
-            fallbackReturn?.name ||
-            pickup?.unique_code ||
-            pickup?.warehouse_name ||
-            undefined,
-          email: fallbackReturn?.email || pickup?.email || undefined,
+          name: shadowfaxReturn.name,
+          contact: shadowfaxReturn.contact,
+          address_line_1: shadowfaxReturn.address_line_1,
+          address_line_2: shadowfaxReturn.address_line_2,
+          city: shadowfaxReturn.city,
+          state: shadowfaxReturn.state,
+          pincode: shadowfaxReturn.pincode,
+          latitude: shadowfaxReturn.latitude,
+          longitude: shadowfaxReturn.longitude,
+          unique_code: shadowfaxReturn.unique_code,
+          email: shadowfaxReturn.email,
         },
         productDetails: orderItems.map((item: any) => ({
           hsn_code: sanitizeString(item?.hsn || item?.hsnCode) || undefined,
@@ -4236,7 +4381,7 @@ export const createB2CShipmentService = async (
                   requires_extra_care: Boolean((params as any).dangerous_good || (params as any).fragile_shipment),
                   type_extra_care: sanitizeString((params as any).category_of_goods || ''),
                   quantity: Number(item?.qty ?? item?.quantity ?? 1) || 1,
-                },
+          },
         })),
       })
 
