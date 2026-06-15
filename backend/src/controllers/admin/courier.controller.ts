@@ -245,7 +245,7 @@ export const updateCourierStatusController = async (req: Request, res: Response)
 export const getServiceProvidersController = async (req: Request, res: Response) => {
   try {
     // Only expose the main integrated service providers in the enable/disable UI
-    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'expressfly']
+    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax']
 
     const rows = await db
       .select({
@@ -291,7 +291,7 @@ export const updateServiceProviderStatusController = async (req: Request, res: R
   const { isEnabled } = req.body
 
   try {
-    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'expressfly']
+    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax']
 
     if (!serviceProvider || typeof isEnabled !== 'boolean') {
       return res.status(400).json({
@@ -353,6 +353,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
           'ekart',
           'xpressbees',
           'expressfly',
+          'shadowfax',
         ]),
       )
 
@@ -393,6 +394,13 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         apiUserIdMasked: '',
         hasApiKey: false,
         hasApiUserId: false,
+      },
+      shadowfax: {
+        provider: 'shadowfax',
+        apiBase: '',
+        apiKey: '',
+        apiKeyMasked: '',
+        hasApiKey: false,
       },
     }
 
@@ -450,6 +458,14 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
           apiUserIdMasked: maskCredential(apiUserId),
           hasApiKey: Boolean(apiKey.trim()),
           hasApiUserId: Boolean(apiUserId.trim()),
+        }
+      } else if (provider === 'shadowfax') {
+        const apiKey = row.apiKey || ''
+        acc.shadowfax = {
+          provider: 'shadowfax',
+          apiBase: row.apiBase || '',
+          apiKeyMasked: maskCredential(apiKey),
+          hasApiKey: Boolean(apiKey.trim()),
         }
       }
       return acc
@@ -790,6 +806,68 @@ export const updateExpressflyCredentialsController = async (req: Request, res: R
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false, message: 'Failed to update Expressfly credentials' })
+  }
+}
+
+export const updateShadowfaxCredentialsController = async (req: Request, res: Response) => {
+  const { apiBase, apiKey } = req.body || {}
+
+  try {
+    const nextApiBase = typeof apiBase === 'string' ? apiBase.trim() : undefined
+    const nextApiKey = typeof apiKey === 'string' ? apiKey.trim() : undefined
+    const hasApiKey = typeof nextApiKey === 'string' && nextApiKey.length > 0
+
+    const [existing] = await db
+      .select({ id: courier_credentials.id })
+      .from(courier_credentials)
+      .where(eq(courier_credentials.provider, 'shadowfax'))
+      .limit(1)
+
+    if (existing) {
+      const updatePayload: Record<string, any> = {
+        updatedAt: new Date(),
+      }
+      if (nextApiBase !== undefined) {
+        updatePayload.apiBase = nextApiBase
+      }
+      if (hasApiKey) {
+        updatePayload.apiKey = nextApiKey
+      }
+
+      await db
+        .update(courier_credentials)
+        .set(updatePayload)
+        .where(eq(courier_credentials.provider, 'shadowfax'))
+    } else {
+      await db.insert(courier_credentials).values({
+        provider: 'shadowfax',
+        apiBase: nextApiBase || '',
+        clientName: '',
+        apiKey: hasApiKey ? nextApiKey : '',
+      })
+    }
+
+    const [saved] = await db
+      .select({
+        apiBase: courier_credentials.apiBase,
+        apiKey: courier_credentials.apiKey,
+      })
+      .from(courier_credentials)
+      .where(eq(courier_credentials.provider, 'shadowfax'))
+      .limit(1)
+
+    res.json({
+      success: true,
+      message: 'Shadowfax credentials updated successfully',
+      data: {
+        provider: 'shadowfax',
+        apiBase: saved?.apiBase || '',
+        hasApiKey: Boolean((saved?.apiKey || '').trim()),
+      },
+    })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ success: false, message: 'Failed to update Shadowfax credentials' })
   }
 }
 

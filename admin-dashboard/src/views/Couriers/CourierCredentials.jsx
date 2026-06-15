@@ -17,6 +17,7 @@ import {
   useUpdateDelhiveryCredentials,
   useUpdateExpressflyCredentials,
   useUpdateEkartCredentials,
+  useUpdateShadowfaxCredentials,
   useUpdateXpressbeesCredentials,
 } from 'hooks/useCouriers'
 
@@ -26,6 +27,7 @@ const CourierCredentials = () => {
   const updateDelhivery = useUpdateDelhiveryCredentials()
   const updateExpressfly = useUpdateExpressflyCredentials()
   const updateEkart = useUpdateEkartCredentials()
+  const updateShadowfax = useUpdateShadowfaxCredentials()
   const updateXpressbees = useUpdateXpressbeesCredentials()
 
   const [form, setForm] = useState({
@@ -43,6 +45,10 @@ const CourierCredentials = () => {
   const [expressflyForm, setExpressflyForm] = useState({
     apiKey: '',
     apiUserId: '',
+  })
+  const [shadowfaxForm, setShadowfaxForm] = useState({
+    apiBase: '',
+    apiKey: '',
   })
   const [xpressbeesForm, setXpressbeesForm] = useState({
     apiBase: '',
@@ -77,6 +83,12 @@ const CourierCredentials = () => {
         apiUserId: data.expressfly.apiUserId || '',
       })
     }
+    if (data?.shadowfax) {
+      setShadowfaxForm({
+        apiBase: data.shadowfax.apiBase || '',
+        apiKey: '',
+      })
+    }
     if (data?.xpressbees) {
       setXpressbeesForm({
         apiBase: data.xpressbees.apiBase || '',
@@ -104,6 +116,28 @@ const CourierCredentials = () => {
         onError: (err) => {
           toast({
             title: 'Failed to update Expressfly credentials',
+            description: err?.message,
+            status: 'error',
+          })
+        },
+      },
+    )
+  }
+
+  const handleSaveShadowfax = () => {
+    updateShadowfax.mutate(
+      {
+        ...(shadowfaxForm.apiBase ? { apiBase: shadowfaxForm.apiBase } : {}),
+        ...(shadowfaxForm.apiKey ? { apiKey: shadowfaxForm.apiKey } : {}),
+      },
+      {
+        onSuccess: () => {
+          toast({ title: 'Shadowfax credentials updated', status: 'success' })
+          setShadowfaxForm((prev) => ({ ...prev, apiKey: '' }))
+        },
+        onError: (err) => {
+          toast({
+            title: 'Failed to update Shadowfax credentials',
             description: err?.message,
             status: 'error',
           })
@@ -335,6 +369,63 @@ const CourierCredentials = () => {
               alignSelf="flex-start"
             >
               Save Expressfly Credentials
+            </Button>
+          </VStack>
+        </Box>
+
+        <Box borderWidth="1px" borderRadius="lg" p={5} minW="320px" flex="1" maxW="520px">
+          <VStack spacing={4} align="stretch">
+            <Flex justify="space-between" align="center">
+              <Text fontWeight="semibold">Shadowfax</Text>
+              <Badge colorScheme={data?.shadowfax?.hasApiKey ? 'green' : 'orange'}>
+                {data?.shadowfax?.hasApiKey ? 'API key set' : 'Missing API key'}
+              </Badge>
+            </Flex>
+
+            <FormControl>
+              <FormLabel>API Base URL</FormLabel>
+              <Input
+                value={shadowfaxForm.apiBase}
+                onChange={(e) =>
+                  setShadowfaxForm((prev) => ({ ...prev, apiBase: e.target.value }))
+                }
+                placeholder="Enter Shadowfax API base URL"
+              />
+              {!!data?.shadowfax?.apiBase && (
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Current API base: {data.shadowfax.apiBase}
+                </Text>
+              )}
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>API Key</FormLabel>
+              <Input
+                type="password"
+                value={shadowfaxForm.apiKey}
+                onChange={(e) =>
+                  setShadowfaxForm((prev) => ({ ...prev, apiKey: e.target.value }))
+                }
+                placeholder={data?.shadowfax?.apiKeyMasked || 'Enter Shadowfax API key'}
+              />
+              {!!data?.shadowfax?.apiKeyMasked && (
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Current API key: {data.shadowfax.apiKeyMasked}
+                </Text>
+              )}
+            </FormControl>
+
+            <Text fontSize="xs" color="gray.500">
+              Leave the API key blank to keep the saved secret.
+            </Text>
+
+            <Button
+              colorScheme="blue"
+              onClick={handleSaveShadowfax}
+              isLoading={updateShadowfax.isPending}
+              alignSelf="flex-start"
+            >
+              Save Shadowfax Credentials
             </Button>
           </VStack>
         </Box>

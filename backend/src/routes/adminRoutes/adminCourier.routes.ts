@@ -18,6 +18,7 @@ import {
   updateDelhiveryCredentialsController,
   updateExpressflyCredentialsController,
   updateEkartCredentialsController,
+  updateShadowfaxCredentialsController,
   updateXpressbeesCredentialsController,
   updateShippingRateController,
 } from '../../controllers/admin/courier.controller'
@@ -56,6 +57,12 @@ router.put(
   requireAuth,
   isAdminMiddleware,
   updateExpressflyCredentialsController,
+)
+router.put(
+  '/credentials/shadowfax',
+  requireAuth,
+  isAdminMiddleware,
+  updateShadowfaxCredentialsController,
 )
 router.get('/expressfly/orders', requireAuth, isAdminMiddleware, getExpressflyOrdersController)
 router.get('/expressfly/orders/:orderId', requireAuth, isAdminMiddleware, getExpressflyOrderController)

@@ -306,6 +306,7 @@ const Couriers = () => {
             <option value="delhivery">Delhivery</option>
             <option value="ekart">Ekart</option>
             <option value="xpressbees">Xpressbees</option>
+            <option value="shadowfax">Shadowfax</option>
           </Select>
           {(filters.search || filters.serviceProvider) && (
             <Button
@@ -466,6 +467,7 @@ const Couriers = () => {
             <option value="delhivery">Delhivery</option>
             <option value="ekart">Ekart</option>
             <option value="xpressbees">Xpressbees</option>
+            <option value="shadowfax">Shadowfax</option>
           </Select>
 
           <FormControl>

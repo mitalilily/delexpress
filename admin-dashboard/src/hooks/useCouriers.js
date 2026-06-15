@@ -14,6 +14,7 @@ import {
   updateExpressflyCredentials,
   updateEkartCredentials,
   updateXpressbeesCredentials,
+  updateShadowfaxCredentials,
   updateCourierStatus,
   updateServiceProviderStatus,
   updateShippingRate,
@@ -154,6 +155,17 @@ export const useUpdateExpressflyCredentials = () => {
 
   return useMutation({
     mutationFn: updateExpressflyCredentials,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['courierCredentials'])
+    },
+  })
+}
+
+export const useUpdateShadowfaxCredentials = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: updateShadowfaxCredentials,
     onSuccess: () => {
       queryClient.invalidateQueries(['courierCredentials'])
     },

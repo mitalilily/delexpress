@@ -4,6 +4,7 @@ const COURIER_PROVIDER_LABELS = {
   delhivery: 'Delhivery',
   ekart: 'Ekart Logistics',
   xpressbees: 'Xpressbees',
+  shadowfax: 'Shadowfax',
   couriercart: 'CourierCart',
 }
 

@@ -3,7 +3,13 @@ import { db } from '../client'
 import { courierCredentials } from '../schema/courierCredentials'
 
 export type BusinessType = 'b2b' | 'b2c'
-export type ServiceProviderId = 'delhivery' | 'shipway' | 'xpressbees' | 'ekart' | 'expressfly'
+export type ServiceProviderId =
+  | 'delhivery'
+  | 'shipway'
+  | 'xpressbees'
+  | 'ekart'
+  | 'expressfly'
+  | 'shadowfax'
 
 export type DelhiveryConfig = {
   apiKey?: string
@@ -40,6 +46,11 @@ export type ExpressflyConfig = {
   shippingCourier?: string
 }
 
+export type ShadowfaxConfig = {
+  apiBase?: string
+  apiKey?: string
+}
+
 export type SmartshipConfig = {
   username?: string
   password?: string
@@ -65,6 +76,7 @@ export type CourierConfig =
   | XpressbeesConfig
   | EkartConfig
   | ExpressflyConfig
+  | ShadowfaxConfig
 
 export interface CourierCredentialsUpsertPayload {
   serviceProvider: ServiceProviderId
@@ -98,6 +110,7 @@ const KNOWN_PROVIDERS: ServiceProviderId[] = [
   'xpressbees',
   'ekart',
   'expressfly',
+  'shadowfax',
 ]
 
 const hasEnvForProviderAndType = (provider: ServiceProviderId, _type: BusinessType): boolean => {
@@ -129,6 +142,9 @@ const hasEnvForProviderAndType = (provider: ServiceProviderId, _type: BusinessTy
       process.env.EXPRESSFLY_FACILITY_CODE ||
       process.env.EXPRESSFLY_BASE_API
     )
+  }
+  if (provider === 'shadowfax') {
+    return !!(process.env.SHADOWFAX_API_KEY || process.env.SHADOWFAX_API_BASE)
   }
   return false
 }
@@ -191,6 +207,14 @@ const buildConfigFromRow = (provider: ServiceProviderId, row: typeof courierCred
       facilityCode: normalize(row.clientName),
       shippingProviderCode: normalize(row.webhookSecret),
       shippingCourier: normalize(row.clientName),
+    }
+    return cfg
+  }
+
+  if (provider === 'shadowfax') {
+    const cfg: ShadowfaxConfig = {
+      apiBase: normalize(row.apiBase),
+      apiKey: normalize(row.apiKey || row.password),
     }
     return cfg
   }

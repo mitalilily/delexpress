@@ -1242,6 +1242,7 @@ export default function AdminCodRemittancePage() {
                   <option value="delhivery">Delhivery</option>
                   <option value="ekart">Ekart</option>
                   <option value="xpressbees">Xpressbees</option>
+                  <option value="shadowfax">Shadowfax</option>
                 </Select>
               </FormControl>
 
