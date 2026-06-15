@@ -83,6 +83,7 @@ const orderFilterOptions = [
       { value: 'shipment_created', label: 'Shipment Created' },
       { value: 'in_transit', label: 'In Transit' },
       { value: 'out_for_delivery', label: 'Out for Delivery' },
+      { value: 'on_hold', label: 'On Hold' },
       { value: 'delivered', label: 'Delivered' },
       { value: 'cancellation_requested', label: 'Cancellation Requested' },
       { value: 'cancelled', label: 'Cancelled' },

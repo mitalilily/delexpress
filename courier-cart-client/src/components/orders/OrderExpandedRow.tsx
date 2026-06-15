@@ -41,6 +41,7 @@ export const OrderExpandedRow = ({ row, type = 'b2c' }: OrderExpandedRowProps) =
       'pickup_initiated',
       'in_transit',
       'out_for_delivery',
+      'on_hold',
       'delivered',
       'ndr',
       'undelivered',

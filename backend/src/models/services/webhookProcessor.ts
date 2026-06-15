@@ -21,6 +21,7 @@ import {
 } from './couriers/delhiveryTracking.utils'
 import {
   extractShadowfaxTrackingUpdate,
+  mapShadowfaxStatusToInternal,
 } from './couriers/shadowfaxTracking.utils'
 import {
   detectDelhiveryDocumentType,
@@ -2029,15 +2030,35 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
     return { success: false, reason: 'missing_awb' }
   }
 
-  let order
-  if (awb) {
-    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.awb_number, String(awb)))
+  const findOrderOnTable = async (table: typeof b2c_orders | typeof b2b_orders) => {
+    let foundOrder
+    if (awb) {
+      ;[foundOrder] = await tx.select().from(table).where(eq(table.awb_number, String(awb)))
+    }
+    if (!foundOrder && referenceNo) {
+      ;[foundOrder] = await tx.select().from(table).where(eq(table.order_number, String(referenceNo)))
+    }
+    if (!foundOrder && referenceNo) {
+      ;[foundOrder] = await tx.select().from(table).where(eq(table.order_id, String(referenceNo)))
+    }
+    return foundOrder || null
   }
-  if (!order && referenceNo) {
-    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.order_number, String(referenceNo)))
-  }
-  if (!order && referenceNo) {
-    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.order_id, String(referenceNo)))
+
+  const candidateTables =
+    event.flow === 'warehouse'
+      ? [b2b_orders, b2c_orders]
+      : event.flow === 'marketplace'
+        ? [b2c_orders, b2b_orders]
+        : [b2c_orders, b2b_orders]
+
+  let order: any = null
+  let orderTable: typeof b2c_orders | typeof b2b_orders | null = null
+  for (const table of candidateTables) {
+    order = await findOrderOnTable(table)
+    if (order) {
+      orderTable = table
+      break
+    }
   }
 
   if (!order) {
@@ -2047,10 +2068,13 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
     return { success: false, reason: 'order_not_found' }
   }
 
-  const internalStatus = event.internalStatus
+  const isB2B = orderTable === b2b_orders
+  const resolvedFlow = event.flow !== 'unknown' ? event.flow : isB2B ? 'warehouse' : 'marketplace'
+  const internalStatus = mapShadowfaxStatusToInternal(event.statusId, event.statusText, resolvedFlow)
   const statusLower = internalStatus.toLowerCase()
   const statusText = event.statusId || event.statusText || internalStatus
   const deliveryMessage = event.remark || event.description || statusText
+  const orderKind = isB2B ? 'b2b' : 'b2c'
 
   const updateData: any = {
     order_status: internalStatus,
@@ -2060,10 +2084,13 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
   }
 
   await tx.transaction(async (innerTx) => {
-    await innerTx.update(b2c_orders).set(updateData).where(eq(b2c_orders.id, order.id))
-    await syncShopifyStatusForLocalOrder({ ...order, ...updateData }, innerTx).catch((err) => {
-      console.warn('⚠️ Failed Shopify status sync for Shadowfax webhook:', err)
-    })
+    await innerTx.update(orderTable!).set(updateData).where(eq(orderTable!.id, order.id))
+
+    if (!isB2B) {
+      await syncShopifyStatusForLocalOrder({ ...order, ...updateData }, innerTx).catch((err) => {
+        console.warn('⚠️ Failed Shopify status sync for Shadowfax webhook:', err)
+      })
+    }
 
     try {
       await logTrackingEvent({
@@ -2080,7 +2107,22 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
       console.error('❌ Failed to log Shadowfax tracking event:', err)
     }
 
+    await sendWebhookEvent(order.user_id, 'tracking.updated', {
+      awb_number: awb || order.awb_number,
+      order_id: order.id,
+      order_number: order.order_number,
+      status: internalStatus,
+      previous_status: order.order_status || null,
+      raw_status: event.statusId || event.statusText || internalStatus,
+      delivery_location: event.location,
+      delivery_message: deliveryMessage,
+      courier_partner: order.courier_partner || 'Shadowfax',
+      order_type: orderKind,
+      courier_flow: resolvedFlow,
+    })
+
     if (
+      !isB2B &&
       ['booked', 'pickup_initiated', 'shipment_created', 'in_transit', 'out_for_delivery', 'delivered'].includes(
         internalStatus,
       )
@@ -2155,7 +2197,7 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
     }
   }
 
-  if (internalStatus === 'delivered' && order.order_type === 'cod') {
+  if (!isB2B && internalStatus === 'delivered' && order.order_type === 'cod') {
     try {
       const { remittance, created } = await createCodRemittance({
         orderId: order.id,

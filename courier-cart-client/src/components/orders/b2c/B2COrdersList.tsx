@@ -247,6 +247,7 @@ export const statusColorMap: Record<string, 'success' | 'pending' | 'error' | 'i
   shipment_created: 'info', // legacy
   in_transit: 'pending',
   out_for_delivery: 'pending',
+  on_hold: 'pending',
   delivered: 'success',
   cancelled: 'error',
   ndr: 'error',
@@ -266,6 +267,7 @@ const shippingStatusMap: Record<string, string> = {
   shipment_created: 'Shipment Created',
   in_transit: 'In Transit',
   out_for_delivery: 'Out For Delivery',
+  on_hold: 'On Hold',
   delivered: 'Delivered',
   ndr: 'NDR',
   rto: 'RTO Initiated',
@@ -1058,6 +1060,7 @@ const B2COrdersList = () => {
         'pickup_initiated',
         'in_transit',
         'out_for_delivery',
+        'on_hold',
         'delivered',
         'ndr',
         'undelivered',

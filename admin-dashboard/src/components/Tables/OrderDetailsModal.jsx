@@ -81,6 +81,7 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
       shipment_created: 'blue',
       in_transit: 'purple',
       out_for_delivery: 'cyan',
+      on_hold: 'yellow',
       delivered: 'green',
       cancelled: 'red',
       rto: 'pink',

@@ -17,6 +17,7 @@ export default function OrderStatusChart({ chartData, ChartComponent }: OrderSta
     'shipment_created': theme.palette.primary.main,
     cancelled: theme.palette.error.main,
     'out_for_delivery': theme.palette.secondary.main,
+    on_hold: theme.palette.warning.dark,
     default: theme.palette.grey[500],
   }
 
