@@ -118,6 +118,27 @@ export type ShadowfaxAwbGenerationResult = {
   raw: any
 }
 
+export type ShadowfaxOrderTrackingEvent = {
+  created?: string | null
+  location?: string | null
+  status_id?: string | null
+  status?: string | null
+  remarks?: string | null
+  awb_number?: string | null
+}
+
+export type ShadowfaxOrderDetailsResult = {
+  successful: boolean
+  status: string | null
+  message: string
+  awbNumber: string | null
+  orderId: string | null
+  orderDetails: Record<string, any> | null
+  trackingDetails: ShadowfaxOrderTrackingEvent[]
+  latestTrackingEvent: ShadowfaxOrderTrackingEvent | null
+  raw: any
+}
+
 const normalize = (value?: string | null) => String(value || '').trim()
 
 const toNumber = (value: unknown, fallback = 0) => {
@@ -341,6 +362,51 @@ export class ShadowfaxService {
       message: normalize(raw?.message) || 'Shadowfax AWBs generated successfully',
       count: requestedCount,
       awbNumbers,
+      raw,
+    }
+  }
+
+  async getOrderDetails(awbNumber: string): Promise<ShadowfaxOrderDetailsResult> {
+    const normalizedAwb = normalize(awbNumber)
+    if (!normalizedAwb) {
+      throw new HttpError(400, 'AWB number is required for Shadowfax order details.')
+    }
+
+    const raw = await this.request<any>(
+      'GET',
+      `${DEFAULT_SHADOWFAX_TRACK_PATH}/${encodeURIComponent(normalizedAwb)}/track/`,
+    )
+
+    const orderDetails = (raw?.order_details ?? raw?.data?.order_details ?? null) as Record<
+      string,
+      any
+    > | null
+    const trackingDetails = Array.isArray(raw?.tracking_details)
+      ? raw.tracking_details
+      : Array.isArray(raw?.data?.tracking_details)
+        ? raw.data.tracking_details
+        : []
+    const latestTrackingEvent = trackingDetails.length
+      ? (trackingDetails[trackingDetails.length - 1] as ShadowfaxOrderTrackingEvent)
+      : null
+
+    return {
+      successful: normalize(raw?.message).toLowerCase() === 'success' || Boolean(orderDetails),
+      status:
+        normalize(orderDetails?.status_display) ||
+        normalize(orderDetails?.status) ||
+        normalize(latestTrackingEvent?.status) ||
+        null,
+      message: normalize(raw?.message) || 'Shadowfax order details fetched successfully',
+      awbNumber:
+        normalize(orderDetails?.awb_number) ||
+        normalize(latestTrackingEvent?.awb_number) ||
+        normalizedAwb ||
+        null,
+      orderId: normalize(orderDetails?.client_order_id) || null,
+      orderDetails,
+      trackingDetails,
+      latestTrackingEvent,
       raw,
     }
   }

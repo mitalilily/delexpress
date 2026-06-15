@@ -1454,3 +1454,37 @@ export const generateShadowfaxAwbController = async (req: Request, res: Response
     })
   }
 }
+
+export const getShadowfaxOrderDetailsController = async (req: Request, res: Response) => {
+  try {
+    const awbNumber =
+      typeof req.params.awbNumber === 'string'
+        ? req.params.awbNumber.trim()
+        : typeof req.query.awbNumber === 'string'
+          ? req.query.awbNumber.trim()
+          : ''
+
+    if (!awbNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'awbNumber is required',
+      })
+    }
+
+    const service = new ShadowfaxService()
+    const result = await service.getOrderDetails(awbNumber)
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      status: result.status,
+      data: result,
+    })
+  } catch (err: any) {
+    console.error('Error fetching Shadowfax order details:', err)
+    return res.status(err?.status || 500).json({
+      success: false,
+      message: err?.message || 'Failed to fetch Shadowfax order details',
+    })
+  }
+}
