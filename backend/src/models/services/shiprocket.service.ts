@@ -1451,8 +1451,8 @@ export const fetchAvailableCouriersWithRates = async (
       const destinationPincode = normalizePincode(
         params.destination ?? params.destination_pincode,
       )?.toString()
-      const shadowfaxFlow =
-        String(params.shipment_type || '').toLowerCase() === 'b2b' ? 'warehouse' : 'marketplace'
+      // Shadowfax is being run in warehouse mode across the site.
+      const shadowfaxFlow = 'warehouse'
       const pickupService =
         shadowfaxFlow === 'warehouse' ? 'warehouse_pickup' : 'seller_pickup'
       const deliveryService =
@@ -4025,10 +4025,8 @@ export const createB2CShipmentService = async (
       console.log('→ Using Shadowfax create-order API...')
 
       const shadowfax = new ShadowfaxService()
-      const shadowfaxFlow =
-        String((params as any)?.shipment_type || '').toLowerCase() === 'b2b' || params.isReverse
-          ? 'warehouse'
-          : 'marketplace'
+      // Shadowfax is being run in warehouse mode across the site.
+      const shadowfaxFlow = 'warehouse'
       const paymentMode =
         params.payment_type === 'cod'
           ? 'COD'
