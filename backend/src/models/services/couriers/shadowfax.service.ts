@@ -11,6 +11,7 @@ export const DEFAULT_SHADOWFAX_SERVICEABILITY_PATH = '/v1/clients/serviceability
 export const DEFAULT_SHADOWFAX_ORDER_PATH = '/v3/clients/orders/'
 export const DEFAULT_SHADOWFAX_ORDER_UPDATE_PATH = '/v3/clients/order_update/'
 export const DEFAULT_SHADOWFAX_ORDER_CANCEL_PATH = '/v3/clients/orders/cancel/'
+export const DEFAULT_SHADOWFAX_SUPPORT_ISSUE_PATH = '/v1/clients/support/issue/'
 export const DEFAULT_SHADOWFAX_AWB_PATH = '/v3/clients/generate_marketplace_awb/'
 export const DEFAULT_SHADOWFAX_TRACK_PATH = '/v4/clients/orders'
 
@@ -203,6 +204,22 @@ export type ShadowfaxCancelShipmentResult = {
   responseCode: number | null
   responseMsg: string | null
   requestId: string | null
+  raw: any
+}
+
+export type ShadowfaxIssueCategory = 1 | 2 | 3 | 4 | 5
+
+export type ShadowfaxSupportIssueParams = {
+  awbNumber: string
+  issueCategory: ShadowfaxIssueCategory
+}
+
+export type ShadowfaxSupportIssueResult = {
+  successful: boolean
+  status: string | null
+  message: string
+  awbNumber: string | null
+  issueCategory: ShadowfaxIssueCategory | null
   raw: any
 }
 
@@ -531,6 +548,35 @@ export class ShadowfaxService {
       responseCode: Number.isFinite(responseCode) ? responseCode : null,
       responseMsg,
       requestId: normalizedRequestId,
+      raw,
+    }
+  }
+
+  async raiseSupportIssue(
+    params: ShadowfaxSupportIssueParams,
+  ): Promise<ShadowfaxSupportIssueResult> {
+    const normalizedAwb = normalize(params.awbNumber)
+    const issueCategory = Number(params.issueCategory)
+
+    if (!normalizedAwb) {
+      throw new HttpError(400, 'AWB number is required for Shadowfax escalation.')
+    }
+
+    if (![1, 2, 3, 4, 5].includes(issueCategory)) {
+      throw new HttpError(400, 'Shadowfax issue_category must be between 1 and 5.')
+    }
+
+    const raw = await this.request<any>('POST', DEFAULT_SHADOWFAX_SUPPORT_ISSUE_PATH, {
+      awb_number: normalizedAwb,
+      issue_category: issueCategory,
+    })
+
+    return {
+      successful: normalize(raw?.status).toUpperCase() === 'SUCCESS',
+      status: normalize(raw?.status) || null,
+      message: normalize(raw?.message) || 'Issue received',
+      awbNumber: normalizedAwb,
+      issueCategory: issueCategory as ShadowfaxIssueCategory,
       raw,
     }
   }

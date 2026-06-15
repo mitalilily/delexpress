@@ -1575,3 +1575,50 @@ export const updateShadowfaxOrderController = async (req: Request, res: Response
     })
   }
 }
+
+export const createShadowfaxEscalationController = async (req: Request, res: Response) => {
+  try {
+    const awbNumber =
+      typeof req.body?.awbNumber === 'string'
+        ? req.body.awbNumber.trim()
+        : typeof req.body?.awb_number === 'string'
+          ? req.body.awb_number.trim()
+          : typeof req.params.awbNumber === 'string'
+            ? req.params.awbNumber.trim()
+            : ''
+    const issueCategory = Number(req.body?.issueCategory ?? req.body?.issue_category)
+
+    if (!awbNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'awbNumber is required',
+      })
+    }
+
+    if (![1, 2, 3, 4, 5].includes(issueCategory)) {
+      return res.status(400).json({
+        success: false,
+        message: 'issueCategory must be between 1 and 5',
+      })
+    }
+
+    const service = new ShadowfaxService()
+    const result = await service.raiseSupportIssue({
+      awbNumber,
+      issueCategory: issueCategory as 1 | 2 | 3 | 4 | 5,
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      status: result.status,
+      data: result,
+    })
+  } catch (err: any) {
+    console.error('Error creating Shadowfax escalation:', err)
+    return res.status(err?.status || 500).json({
+      success: false,
+      message: err?.message || 'Failed to create Shadowfax escalation',
+    })
+  }
+}
