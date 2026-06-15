@@ -1,9 +1,10 @@
 import { Request, Response } from 'express'
+import crypto from 'crypto'
 import { eq } from 'drizzle-orm'
 import { db } from '../../models/client'
 import { processEkartWebhook } from '../../models/services/webhookProcessor'
 import { courier_credentials } from '../../models/schema/courierCredentials'
-import crypto from 'crypto'
+import { DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET } from './webhookSecret'
 
 const EKART_WEBHOOK_SECRET_HEADERS = [
   'x-ekart-webhook-secret',
@@ -42,7 +43,7 @@ const fetchEkartWebhookSecret = async () => {
 
 export const ekartWebhookHandler = async (req: Request, res: Response) => {
   const payload = req.body
-  const configuredSecret = await fetchEkartWebhookSecret()
+  const configuredSecret = (await fetchEkartWebhookSecret()) || DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET
   const receivedSecret = findSecretHeader(req.headers)
   const rawBody =
     (req as any).rawBody || (req.body ? JSON.stringify(req.body) : '')

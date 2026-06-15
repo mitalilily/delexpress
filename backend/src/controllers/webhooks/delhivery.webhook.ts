@@ -11,6 +11,19 @@ import {
   type DelhiveryDocumentType,
 } from '../../models/services/couriers/delhiveryDocument.utils'
 import { pending_webhooks } from '../../schema/schema'
+import {
+  DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET,
+  getWebhookHeaderValue,
+  verifyWebhookSecret,
+} from './webhookSecret'
+
+const DELHIVERY_WEBHOOK_SECRET_HEADERS = [
+  'x-delhivery-webhook-secret',
+  'x-delhivery-webhook-signature',
+  'x-webhook-secret',
+  'x-webhook-signature',
+  'authorization',
+]
 
 const DELHIVERY_PENDING_DEDUPE_WINDOW_MS = 10 * 60 * 1000
 
@@ -80,6 +93,18 @@ const createDelhiveryDocumentPushHandler =
   async (req: Request, res: Response) => {
     const timestamp = new Date().toISOString()
     const payload = req.body
+    const rawBody = (req as any).rawBody || (req.body ? JSON.stringify(req.body) : '')
+    const receivedSecret = getWebhookHeaderValue(req.headers, DELHIVERY_WEBHOOK_SECRET_HEADERS)
+    if (
+      !verifyWebhookSecret({
+        configuredSecret: DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET,
+        receivedSecret,
+        rawBody,
+      })
+    ) {
+      console.warn('⚠️ Delhivery webhook rejected: invalid or missing secret')
+      return res.status(401).json({ success: false, message: 'invalid webhook secret' })
+    }
     const awb = getDelhiveryAwb(payload)
     const documentType = detectDelhiveryDocumentType(payload, defaultDocumentType)
 
@@ -146,6 +171,18 @@ const createDelhiveryDocumentPushHandler =
 export const delhiveryScanPushHandler = async (req: Request, res: Response) => {
   const timestamp = new Date().toISOString()
   const payload = req.body
+  const rawBody = (req as any).rawBody || (req.body ? JSON.stringify(req.body) : '')
+  const receivedSecret = getWebhookHeaderValue(req.headers, DELHIVERY_WEBHOOK_SECRET_HEADERS)
+  if (
+    !verifyWebhookSecret({
+      configuredSecret: DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET,
+      receivedSecret,
+      rawBody,
+    })
+  ) {
+    console.warn('⚠️ Delhivery webhook rejected: invalid or missing secret')
+    return res.status(401).json({ success: false, message: 'invalid webhook secret' })
+  }
   const trackingUpdate = extractDelhiveryTrackingUpdate(payload)
   const awb = trackingUpdate.waybill
   const status = trackingUpdate.rawStatus || payload?.status || 'unknown'
@@ -215,6 +252,18 @@ export const delhiveryEpodPushHandler = createDelhiveryDocumentPushHandler('EPOD
 export const delhiveryWebhookHandler = async (req: Request, res: Response) => {
   const timestamp = new Date().toISOString()
   const payload = req.body
+  const rawBody = (req as any).rawBody || (req.body ? JSON.stringify(req.body) : '')
+  const receivedSecret = getWebhookHeaderValue(req.headers, DELHIVERY_WEBHOOK_SECRET_HEADERS)
+  if (
+    !verifyWebhookSecret({
+      configuredSecret: DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET,
+      receivedSecret,
+      rawBody,
+    })
+  ) {
+    console.warn('⚠️ Delhivery webhook rejected: invalid or missing secret')
+    return res.status(401).json({ success: false, message: 'invalid webhook secret' })
+  }
   const trackingUpdate = extractDelhiveryTrackingUpdate(payload)
   const shipment = trackingUpdate.shipment || payload?.Shipment
   const awb = trackingUpdate.waybill

@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { db } from '../../models/client'
 import { processXpressbeesWebhook } from '../../models/services/webhookProcessor'
 import { courier_credentials } from '../../models/schema/courierCredentials'
+import { DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET } from './webhookSecret'
 import { pending_webhooks } from '../../schema/schema'
 
 const XPRESSBEES_WEBHOOK_SECRET_HEADERS = [
@@ -53,7 +54,7 @@ const extractEventPayload = (payload: any) => {
 export const xpressbeesWebhookHandler = async (req: Request, res: Response) => {
   const timestamp = new Date().toISOString()
   const payload = req.body
-  const configuredSecret = await fetchXpressbeesWebhookSecret()
+  const configuredSecret = (await fetchXpressbeesWebhookSecret()) || DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET
   const receivedSecret = findSecretHeader(req.headers)
   const rawBody =
     (req as any).rawBody || (req.body ? JSON.stringify(req.body) : '')

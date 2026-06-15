@@ -3,6 +3,19 @@ import { and, eq, gte, isNull } from 'drizzle-orm'
 import { db } from '../../models/client'
 import { processShadowfaxWebhook } from '../../models/services/webhookProcessor'
 import { pending_webhooks } from '../../schema/schema'
+import {
+  DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET,
+  getWebhookHeaderValue,
+  verifyWebhookSecret,
+} from './webhookSecret'
+
+const SHADOWFAX_WEBHOOK_SECRET_HEADERS = [
+  'x-shadowfax-webhook-secret',
+  'x-shadowfax-webhook-signature',
+  'x-webhook-secret',
+  'x-webhook-signature',
+  'authorization',
+]
 
 const extractShadowfaxEventPayload = (payload: any) => {
   if (payload?.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
@@ -17,6 +30,18 @@ const extractShadowfaxEventPayload = (payload: any) => {
 export const shadowfaxWebhookHandler = async (req: Request, res: Response) => {
   const timestamp = new Date().toISOString()
   const payload = req.body
+  const rawBody = (req as any).rawBody || (req.body ? JSON.stringify(req.body) : '')
+  const receivedSecret = getWebhookHeaderValue(req.headers, SHADOWFAX_WEBHOOK_SECRET_HEADERS)
+  if (
+    !verifyWebhookSecret({
+      configuredSecret: DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET,
+      receivedSecret,
+      rawBody,
+    })
+  ) {
+    console.warn('⚠️ Shadowfax webhook rejected: invalid or missing secret')
+    return res.status(401).json({ success: false, message: 'invalid webhook secret' })
+  }
   const event = extractShadowfaxEventPayload(payload)
   const awb =
     event?.awb ||
