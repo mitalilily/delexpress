@@ -67,6 +67,8 @@ import { DelhiveryService } from './couriers/delhivery.service'
 import { ExpressflyService } from './couriers/expressfly.service'
 import { extractDelhiveryTrackingUpdate } from './couriers/delhiveryTracking.utils'
 import { EkartService } from './couriers/ekart.service'
+import { extractShadowfaxTrackingUpdate } from './couriers/shadowfaxTracking.utils'
+import { ShadowfaxService } from './couriers/shadowfax.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
 import { calculateOrderWeights } from './courierWeightCalculation.service'
 import { generateLabelForOrder } from './generateCustomLabelService'
@@ -1074,7 +1076,7 @@ export const fetchAvailableCouriersWithRates = async (
 
     // Build registry of enabled couriers by service provider
     // Filter by business type: check if business_type JSONB array contains 'b2c'
-    const SUPPORTED_PROVIDERS = ['delhivery', 'ekart', 'xpressbees', 'expressfly']
+    const SUPPORTED_PROVIDERS = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax']
     const systemCourierRows = await db
       .select({
         id: couriers.id,
@@ -1437,6 +1439,91 @@ export const fetchAvailableCouriersWithRates = async (
         available: xpressbeesAvailable,
         records: xpressbeesResp?.records?.length ?? 0,
         candidates: providerCourierBuckets.get('xpressbees')?.rows.length ?? 0,
+      })
+    }
+
+    let shadowfaxAvailable = false
+    let shadowfaxResp: any = null
+    let shadowfaxEDD = '3-5 Days'
+    if (enabledProviders.has('shadowfax')) {
+      const shadowfax = new ShadowfaxService()
+      const originPincode = normalizePincode(params.origin ?? params.source_pincode)?.toString()
+      const destinationPincode = normalizePincode(
+        params.destination ?? params.destination_pincode,
+      )?.toString()
+      const shadowfaxFlow =
+        String(params.shipment_type || '').toLowerCase() === 'b2b' ? 'warehouse' : 'marketplace'
+      const pickupService =
+        shadowfaxFlow === 'warehouse' ? 'warehouse_pickup' : 'seller_pickup'
+      const deliveryService =
+        shadowfaxFlow === 'warehouse' ? 'warehouse_return' : 'customer_delivery'
+
+      console.log('[Serviceability] Shadowfax pincode check start', {
+        mode: isCalculator ? 'calculator' : 'standard',
+        origin: originPincode,
+        destination: destinationPincode,
+        pickupService,
+        deliveryService,
+      })
+
+      if (originPincode && destinationPincode) {
+        try {
+          const [pickupResp, deliveryResp] = await Promise.all([
+            shadowfax.checkServiceability({
+              service: pickupService,
+              page: 1,
+              count: 25,
+              pincodes: [originPincode],
+            }),
+            shadowfax.checkServiceability({
+              service: deliveryService,
+              page: 1,
+              count: 25,
+              pincodes: [destinationPincode],
+            }),
+          ])
+
+          shadowfaxResp = {
+            pickup: pickupResp,
+            delivery: deliveryResp,
+          }
+          shadowfaxAvailable = pickupResp.serviceable && deliveryResp.serviceable
+
+          console.log('[Serviceability] Shadowfax pincode check result', {
+            mode: isCalculator ? 'calculator' : 'standard',
+            origin: originPincode,
+            destination: destinationPincode,
+            pickupService,
+            deliveryService,
+            pickupRecords: pickupResp.records?.length ?? 0,
+            deliveryRecords: deliveryResp.records?.length ?? 0,
+          })
+        } catch (err: any) {
+          console.error(
+            '❌ Shadowfax serviceability error:',
+            err?.response?.data || err?.message || err,
+          )
+        }
+      }
+    }
+
+    if (shadowfaxAvailable) {
+      registerServiceableProvider('shadowfax', {
+        providerId: 'shadowfax',
+        providerName: 'Shadowfax',
+        codAvailable: true,
+        prepaidAvailable: true,
+        edd: shadowfaxEDD,
+        raw: shadowfaxResp,
+      })
+
+      console.log('[Serviceability] Shadowfax candidate couriers prepared', {
+        mode: isCalculator ? 'calculator' : 'standard',
+        destination: params.destination?.toString(),
+        available: shadowfaxAvailable,
+        pickupRecords: shadowfaxResp?.pickup?.records?.length ?? 0,
+        deliveryRecords: shadowfaxResp?.delivery?.records?.length ?? 0,
+        candidates: providerCourierBuckets.get('shadowfax')?.rows.length ?? 0,
       })
     }
 
@@ -3535,10 +3622,10 @@ export const createB2CShipmentService = async (
   try {
     // 1️⃣ CREATE SHIPMENT
     const requestedIntegrationType = String(params.integration_type || '').toLowerCase()
-    const allowedIntegrationTypes = ['delhivery', 'ekart', 'xpressbees', 'expressfly']
+    const allowedIntegrationTypes = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax']
     if (!requestedIntegrationType || !allowedIntegrationTypes.includes(requestedIntegrationType)) {
       throw new Error(
-        `Invalid integration_type: ${params.integration_type}. Supported values: delhivery, ekart, xpressbees, expressfly.`,
+        `Invalid integration_type: ${params.integration_type}. Supported values: delhivery, ekart, xpressbees, expressfly, shadowfax.`,
       )
     }
 
@@ -3547,6 +3634,7 @@ export const createB2CShipmentService = async (
       | 'ekart'
       | 'xpressbees'
       | 'expressfly'
+      | 'shadowfax'
     if (integrationType === 'ekart' && params.pickup) {
       const ekartPickupAlias = buildEkartWarehouseAliasFromPickup({
         warehouse_name: params.pickup.warehouse_name,
@@ -3570,7 +3658,9 @@ export const createB2CShipmentService = async (
         ? 'Ekart Logistics'
         : integrationType === 'xpressbees'
           ? 'Xpressbees'
-          : 'Expressfly Logistics'
+          : integrationType === 'expressfly'
+            ? 'Expressfly Logistics'
+            : 'Shadowfax'
 
     let manifestFailure: DelhiveryManifestError | null = null
     let shipmentSuccessPackage: any = null
@@ -3928,6 +4018,186 @@ export const createB2CShipmentService = async (
         courier_id: params.courier_id ? Number(params.courier_id) : null,
         label: expressflyPackage?.label ?? expressflyPackage?.shippingLabelLink ?? undefined,
         manifest: expressflyPackage?.manifest ?? undefined,
+        courier_cost: providerCourierCost,
+        sort_code: providerSortCode,
+      }
+    } else if (integrationType === 'shadowfax') {
+      console.log('→ Using Shadowfax create-order API...')
+
+      const shadowfax = new ShadowfaxService()
+      const shadowfaxFlow =
+        String((params as any)?.shipment_type || '').toLowerCase() === 'b2b' || params.isReverse
+          ? 'warehouse'
+          : 'marketplace'
+      const paymentMode =
+        params.payment_type === 'cod'
+          ? 'COD'
+          : params.payment_type === 'reverse'
+            ? 'Prepaid'
+            : 'Prepaid'
+      const pickup = params.pickup as any
+      const consignee = params.consignee as any
+      const fallbackReturn = (params.rto ?? params.pickup) as any
+      const orderItems = Array.isArray(params.order_items) ? (params.order_items as any[]) : []
+      const firstItem = orderItems[0] || {}
+      const derivedWeight = Number(params.package_weight ?? params.weight ?? (firstItem as any)?.weight ?? 0)
+      const productValue = Number(params.order_amount ?? firstItem?.price ?? 0)
+      const promisedDeliveryDate =
+        (params as any)?.promised_delivery_date ||
+        (params as any)?.pickup_date ||
+        params.order_date?.toISOString?.()
+
+      shipmentData = await shadowfax.createOrder({
+        orderType: shadowfaxFlow,
+        orderDetails: {
+          client_order_id: params.order_number,
+          actual_weight: Number.isFinite(derivedWeight) ? derivedWeight : undefined,
+          volumetric_weight: Number.isFinite(derivedWeight) ? derivedWeight : undefined,
+          product_value: Number.isFinite(productValue) ? productValue : 0,
+          payment_mode: paymentMode,
+          cod_amount: params.payment_type === 'cod' ? Number(params.order_amount ?? productValue ?? 0) : 0,
+          promised_delivery_date:
+            typeof promisedDeliveryDate === 'string' && promisedDeliveryDate.trim()
+              ? promisedDeliveryDate
+              : undefined,
+          total_amount: Number.isFinite(productValue) ? productValue : undefined,
+          eway_bill:
+            sanitizeString(
+              (params as any).ewbn_number ||
+                (params as any).ewaybill_number ||
+                (params as any).ewb ||
+                (params as any).ewbn,
+            ) || undefined,
+          gstin_number:
+            sanitizeString(
+              (params as any).gstin_number ||
+                (params as any).company?.gst ||
+                (params as any).company?.gstin,
+            ) || undefined,
+          order_service:
+            sanitizeString((params as any).service_type || (params as any).transport_speed) ||
+            'regular',
+        },
+        customerDetails: {
+          name: consignee?.name || consignee?.company_name || consignee?.address || 'Customer',
+          contact: consignee?.phone || consignee?.contact || '',
+          address_line_1: consignee?.address || consignee?.address_line_1 || '',
+          address_line_2: consignee?.address_2 || consignee?.address_line_2 || '',
+          city: consignee?.city || '',
+          state: consignee?.state || '',
+          pincode: consignee?.pincode || '',
+          latitude: consignee?.latitude,
+          longitude: consignee?.longitude,
+          email: consignee?.email,
+        },
+        pickupDetails: {
+          name: pickup?.warehouse_name || pickup?.name || 'Pickup',
+          contact: pickup?.phone || pickup?.contact || '',
+          address_line_1: pickup?.address || pickup?.address_line_1 || '',
+          address_line_2: pickup?.address_2 || pickup?.address_line_2 || '',
+          city: pickup?.city || '',
+          state: pickup?.state || '',
+          pincode: pickup?.pincode || '',
+          latitude: pickup?.latitude,
+          longitude: pickup?.longitude,
+          unique_code: pickup?.unique_code || pickup?.warehouse_name || pickup?.name || undefined,
+        },
+        returnDetails: {
+          name: fallbackReturn?.name || fallbackReturn?.warehouse_name || 'Return',
+          contact: fallbackReturn?.phone || fallbackReturn?.contact || pickup?.phone || pickup?.contact || '',
+          address_line_1: fallbackReturn?.address || fallbackReturn?.address_line_1 || pickup?.address || pickup?.address_line_1 || '',
+          address_line_2: fallbackReturn?.address_2 || fallbackReturn?.address_line_2 || pickup?.address_2 || pickup?.address_line_2 || '',
+          city: fallbackReturn?.city || pickup?.city || '',
+          state: fallbackReturn?.state || pickup?.state || '',
+          pincode: fallbackReturn?.pincode || pickup?.pincode || '',
+          latitude: fallbackReturn?.latitude || pickup?.latitude,
+          longitude: fallbackReturn?.longitude || pickup?.longitude,
+          unique_code:
+            fallbackReturn?.unique_code ||
+            fallbackReturn?.warehouse_name ||
+            fallbackReturn?.name ||
+            pickup?.unique_code ||
+            pickup?.warehouse_name ||
+            undefined,
+          email: fallbackReturn?.email || pickup?.email || undefined,
+        },
+        productDetails: orderItems.map((item: any) => ({
+          hsn_code: sanitizeString(item?.hsn || item?.hsnCode) || undefined,
+          invoice_no: sanitizeString((params as any).invoice_number || item?.invoice_no) || undefined,
+          sku_name: sanitizeString(item?.name || item?.sku_name) || undefined,
+          sku_id: sanitizeString(item?.sku || item?.sku_id) || undefined,
+          category: sanitizeString((params as any).category_of_goods || item?.category) || undefined,
+          price: Number.isFinite(Number(item?.price)) ? Number(item.price) : undefined,
+          seller_details: {
+            seller_name:
+              sanitizeString((params as any).company?.name || pickup?.warehouse_name || pickup?.name) ||
+              undefined,
+            seller_address:
+              sanitizeString((params as any).company?.address || pickup?.address || pickup?.address_line_1) ||
+              undefined,
+            seller_state:
+              sanitizeString((params as any).company?.state || pickup?.state) || undefined,
+            gstin_number:
+              sanitizeString(
+                (params as any).company?.gst ||
+                  (params as any).company?.gstin ||
+                  pickup?.gst_number,
+              ) || undefined,
+          },
+          taxes: {
+            cgst: Number.isFinite(Number(item?.cgst))
+              ? Number(item.cgst)
+              : Number.isFinite(Number(item?.tax_rate))
+                ? Number(item.tax_rate) / 2
+                : undefined,
+            sgst: Number.isFinite(Number(item?.sgst))
+              ? Number(item.sgst)
+              : Number.isFinite(Number(item?.tax_rate))
+                ? Number(item.tax_rate) / 2
+                : undefined,
+            igst: Number.isFinite(Number(item?.igst)) ? Number(item.igst) : undefined,
+            total_tax: Number.isFinite(Number(item?.total_tax))
+              ? Number(item.total_tax)
+              : Number.isFinite(Number(item?.tax_rate))
+                ? Number(item.tax_rate)
+                : undefined,
+          },
+          additional_details:
+            item?.additional_details && typeof item.additional_details === 'object'
+              ? item.additional_details
+              : {
+                  requires_extra_care: Boolean((params as any).dangerous_good || (params as any).fragile_shipment),
+                  type_extra_care: sanitizeString((params as any).category_of_goods || ''),
+                  quantity: Number(item?.qty ?? item?.quantity ?? 1) || 1,
+                },
+        })),
+      })
+
+      if (!shipmentData?.successful && !shipmentData?.awbNumber) {
+        console.error('❌ Invalid Shadowfax shipment:', shipmentData)
+        throw new HttpError(500, 'Shadowfax order creation failed')
+      }
+
+      shipmentSuccessPackage = {
+        waybill: shipmentData?.awbNumber ?? null,
+        label: shipmentData?.label ?? null,
+        manifest: shipmentData?.manifest ?? null,
+        courier_name: shipmentData?.shippingProviderName ?? 'Shadowfax',
+        courier_id: params.courier_id ?? null,
+        status: shipmentData?.status ?? null,
+        sort_code: shipmentData?.shippingProviderCode ?? null,
+      }
+
+      providerCourierCost = params?.courier_cost ?? null
+      providerSortCode = shipmentData?.shippingProviderCode ?? null
+
+      shipmentMeta = {
+        shipment_id: shipmentData?.raw?.data?.id ?? shipmentData?.orderId ?? undefined,
+        awb_number: shipmentData?.awbNumber ?? undefined,
+        courier_name: shipmentData?.shippingProviderName ?? 'Shadowfax',
+        courier_id: params.courier_id ? Number(params.courier_id) : null,
+        label: shipmentData?.label ?? undefined,
+        manifest: shipmentData?.manifest ?? undefined,
         courier_cost: providerCourierCost,
         sort_code: providerSortCode,
       }
@@ -7364,6 +7634,78 @@ const mapDelhiveryTracking = (raw: any, order: OrderSummary): ProviderNormalized
   }
 }
 
+const mapShadowfaxTracking = (raw: any, order: OrderSummary): ProviderNormalizedTracking => {
+  const history: TrackingHistoryItem[] = []
+  const orderDetails = raw?.order_details ?? raw?.data?.order_details ?? {}
+  const trackingDetails = Array.isArray(raw?.tracking_details)
+    ? raw.tracking_details
+    : Array.isArray(raw?.data?.tracking_details)
+      ? raw.data.tracking_details
+      : []
+
+  const normalizedTracking = extractShadowfaxTrackingUpdate({
+    ...raw,
+    data: {
+      ...(Array.isArray(trackingDetails) && trackingDetails.length
+        ? trackingDetails[trackingDetails.length - 1]
+        : {}),
+      awb_number: orderDetails?.awb_number ?? order.awb_number,
+      order_id: orderDetails?.client_order_id ?? order.order_number,
+      order_type:
+        String(order.order_type || '').toLowerCase().includes('warehouse') || order.id?.startsWith?.('b2b_')
+          ? 'warehouse'
+          : 'marketplace',
+      status: orderDetails?.status_display ?? orderDetails?.status,
+      status_id:
+        trackingDetails[trackingDetails.length - 1]?.status_id ??
+        orderDetails?.status ??
+        order.order_status,
+      remarks:
+        trackingDetails[trackingDetails.length - 1]?.remarks ??
+        trackingDetails[trackingDetails.length - 1]?.remark ??
+        orderDetails?.status_display,
+      location:
+        trackingDetails[trackingDetails.length - 1]?.location ??
+        orderDetails?.destination_hub ??
+        orderDetails?.pickup_details?.city,
+      event_timestamp:
+        trackingDetails[trackingDetails.length - 1]?.created ?? order.updated_at ?? order.created_at,
+      type:
+        String(order.order_type || '').toLowerCase().includes('warehouse') || order.id?.startsWith?.('b2b_')
+          ? 'RTO'
+          : 'FWD',
+    },
+  })
+
+  trackingDetails.forEach((detail: any) => {
+    pushHistoryEvent(history, {
+      statusCode: detail?.status_id ?? detail?.status,
+      message: detail?.remarks ?? detail?.status ?? detail?.status_id,
+      location: detail?.location,
+      time: detail?.created,
+    })
+  })
+
+  if (!history.length) {
+    pushHistoryEvent(history, {
+      statusCode: normalizedTracking.statusId,
+      message: normalizedTracking.statusText,
+      location: normalizedTracking.location || '',
+      time: normalizedTracking.eventTime || order.updated_at || order.created_at || undefined,
+    })
+  }
+
+  sortHistoryDescending(history)
+
+  return {
+    history,
+    status: normalizedTracking.internalStatus,
+    edd: undefined,
+    shipment_info: normalizedTracking.remark || normalizedTracking.description || order.order_status,
+    courier_name: 'Shadowfax',
+  }
+}
+
 const buildTrackingResponse = (
   order: OrderSummary,
   providerData: ProviderNormalizedTracking,
@@ -7475,11 +7817,22 @@ const findOrderByAwb = async (awb: string): Promise<OrderSummary | null> => {
     .limit(1)
 
   if (b2b) {
+    const courierPartner = sanitizeString(b2b.courier_partner).toLowerCase()
+    const b2bIntegrationType = courierPartner.includes('shadowfax')
+      ? 'shadowfax'
+      : courierPartner.includes('expressfly')
+        ? 'expressfly'
+        : courierPartner.includes('xpressbees')
+          ? 'xpressbees'
+          : courierPartner.includes('ekart')
+            ? 'ekart'
+            : 'delhivery'
+
     return {
       id: b2b.id,
       order_id: b2b.order_id,
       order_number: b2b.order_number,
-      integration_type: 'delhivery',
+      integration_type: b2bIntegrationType,
       courier_partner: b2b.courier_partner,
       courier_id: b2b.courier_id ? Number(b2b.courier_id) : null,
       awb_number: b2b.awb_number ?? awb,
@@ -7506,9 +7859,10 @@ export const trackByAwbService = async (awb: string): Promise<TrackingServiceRes
 
   let providerKey = sanitizeString(order.integration_type ?? 'delhivery').toLowerCase()
 
-  if (!['delhivery'].includes(providerKey) && order.courier_partner) {
+  if (!['delhivery', 'shadowfax'].includes(providerKey) && order.courier_partner) {
     const partner = order.courier_partner.toLowerCase()
     if (partner.includes('delhivery')) providerKey = 'delhivery'
+    if (partner.includes('shadowfax')) providerKey = 'shadowfax'
   }
 
   let providerData: ProviderNormalizedTracking
@@ -7518,6 +7872,10 @@ export const trackByAwbService = async (awb: string): Promise<TrackingServiceRes
       const delhiveryService = new DelhiveryService()
       const raw = await delhiveryService.trackShipment(awb)
       providerData = mapDelhiveryTracking(raw, order)
+    } else if (providerKey === 'shadowfax') {
+      const shadowfaxService = new ShadowfaxService()
+      const raw = await shadowfaxService.trackOrder(awb)
+      providerData = mapShadowfaxTracking(raw, order)
     } else {
       throw new HttpError(400, 'Unsupported integration_type for tracking')
     }
