@@ -6,7 +6,6 @@ import { plans } from '../models/schema/plans'
 import { shippingRates } from '../models/schema/shippingRates'
 import { zones } from '../models/schema/zones'
 
-const TARGET_PLAN_NAME = 'Basic'
 const TARGET_COURIER_ID = 99
 const TARGET_COURIER_NAME = 'Delhivery Express Surface'
 const TARGET_SERVICE_PROVIDER = 'delhivery'
@@ -18,10 +17,15 @@ const DEFAULT_COD_PERCENT = '1.80'
 const DEFAULT_OTHER_CHARGES = '0.00'
 const RATE_BY_ZONE_INDEX = ['48.00', '90.00', '35.00', '53.00', '41.00', '85.00']
 
-async function main() {
-  const [plan] = await db.select({ id: plans.id, name: plans.name }).from(plans).where(eq(plans.name, TARGET_PLAN_NAME)).limit(1)
+const getTargetPlans = () => {
+  const raw = process.argv.slice(2).map((value) => value.trim()).filter(Boolean)
+  return raw.length ? raw : ['Basic', 'Signature']
+}
+
+const restoreForPlan = async (planName: string) => {
+  const [plan] = await db.select({ id: plans.id, name: plans.name }).from(plans).where(eq(plans.name, planName)).limit(1)
   if (!plan) {
-    throw new Error(`Plan not found: ${TARGET_PLAN_NAME}`)
+    throw new Error(`Plan not found: ${planName}`)
   }
 
   const [courier] = await db.select().from(couriers).where(eq(couriers.id, TARGET_COURIER_ID)).limit(1)
@@ -106,6 +110,13 @@ async function main() {
     inserted: insertRows.length,
     zoneCount: zoneRows.length,
   })
+}
+
+async function main() {
+  const plansToRestore = getTargetPlans()
+  for (const planName of plansToRestore) {
+    await restoreForPlan(planName)
+  }
 }
 
 if (require.main === module) {
