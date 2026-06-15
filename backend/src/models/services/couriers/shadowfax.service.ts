@@ -139,6 +139,16 @@ export type ShadowfaxOrderDetailsResult = {
   raw: any
 }
 
+export type ShadowfaxBulkOrderDetailsResult = {
+  successful: boolean
+  status: string | null
+  message: string
+  count: number
+  awbNumbers: string[]
+  orders: ShadowfaxOrderDetailsResult[]
+  raw: any
+}
+
 const normalize = (value?: string | null) => String(value || '').trim()
 
 const toNumber = (value: unknown, fallback = 0) => {
@@ -407,6 +417,91 @@ export class ShadowfaxService {
       orderDetails,
       trackingDetails,
       latestTrackingEvent,
+      raw,
+    }
+  }
+
+  async getMultipleOrderDetails(awbNumbers: Array<string | number>): Promise<ShadowfaxBulkOrderDetailsResult> {
+    const normalizedAwbNumbers = awbNumbers
+      .map((value) => normalize(String(value)))
+      .filter(Boolean)
+
+    if (!normalizedAwbNumbers.length) {
+      throw new HttpError(400, 'At least one AWB number is required for Shadowfax bulk order details.')
+    }
+
+    if (normalizedAwbNumbers.length > 50) {
+      throw new HttpError(400, 'Shadowfax bulk order details supports up to 50 AWB numbers per request.')
+    }
+
+    const raw = await this.request<any>(
+      'POST',
+      '/v4/clients/bulk_track/',
+      {
+        awb_numbers: normalizedAwbNumbers,
+      },
+      {
+        format: 'json',
+      },
+    )
+
+    const orderRows = Array.isArray(raw?.data)
+      ? raw.data
+      : Array.isArray(raw?.results)
+        ? raw.results
+        : Array.isArray(raw?.data?.data)
+          ? raw.data.data
+          : []
+
+    const orders = orderRows.map((order: any) => {
+      const trackingDetails = Array.isArray(order?.tracking_details) ? order.tracking_details : []
+      const latestTrackingEvent = trackingDetails.length
+        ? (trackingDetails[trackingDetails.length - 1] as ShadowfaxOrderTrackingEvent)
+        : null
+
+      const orderDetails = {
+        ...(order || {}),
+        tracking_details: trackingDetails,
+      }
+
+      const awbNumber = normalize(order?.awb_number) || null
+
+      const result: ShadowfaxOrderDetailsResult = {
+        successful: Boolean(awbNumber),
+        status:
+          normalize(order?.status_display) ||
+          normalize(order?.status) ||
+          normalize(latestTrackingEvent?.status) ||
+          null,
+        message: normalize(raw?.message) || 'Shadowfax order details fetched successfully',
+        awbNumber,
+        orderId: normalize(order?.client_order_id) || null,
+        orderDetails,
+        trackingDetails,
+        latestTrackingEvent,
+        raw: order,
+      }
+
+      return result
+    })
+    const orderStatuses = orders
+      .map((order: ShadowfaxOrderDetailsResult) => normalize(order.status))
+      .filter(Boolean)
+    const uniqueStatuses = Array.from(new Set(orderStatuses))
+    const resolvedStatus =
+      uniqueStatuses.length === 1
+        ? String(uniqueStatuses[0])
+        : uniqueStatuses.length > 1
+          ? 'mixed'
+          : normalize(raw?.status) || null
+
+    return {
+      successful: normalize(raw?.message).toLowerCase() === 'success' || orders.length > 0,
+      status: resolvedStatus,
+      message: normalize(raw?.message) || 'Shadowfax bulk order details fetched successfully',
+      count: normalizedAwbNumbers.length,
+      awbNumbers: normalizedAwbNumbers,
+      orders,
       raw,
     }
   }

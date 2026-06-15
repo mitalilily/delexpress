@@ -1488,3 +1488,46 @@ export const getShadowfaxOrderDetailsController = async (req: Request, res: Resp
     })
   }
 }
+
+export const getShadowfaxBulkOrderDetailsController = async (req: Request, res: Response) => {
+  try {
+    const rawAwbNumbers =
+      req.body?.awbNumbers ??
+      req.body?.awb_numbers ??
+      req.query?.awbNumbers ??
+      req.query?.awb_numbers ??
+      []
+
+    const awbNumbers = Array.isArray(rawAwbNumbers)
+      ? rawAwbNumbers.map((value) => String(value))
+      : typeof rawAwbNumbers === 'string' && rawAwbNumbers.trim()
+        ? rawAwbNumbers
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean)
+        : []
+
+    if (!awbNumbers.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'awbNumbers is required',
+      })
+    }
+
+    const service = new ShadowfaxService()
+    const result = await service.getMultipleOrderDetails(awbNumbers)
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      status: result.status,
+      data: result,
+    })
+  } catch (err: any) {
+    console.error('Error fetching Shadowfax bulk order details:', err)
+    return res.status(err?.status || 500).json({
+      success: false,
+      message: err?.message || 'Failed to fetch Shadowfax bulk order details',
+    })
+  }
+}
