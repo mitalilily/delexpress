@@ -22,6 +22,7 @@ import {
   getShadowfaxBulkOrderDetailsController,
   getShadowfaxOrderDetailsController,
   createShadowfaxEscalationController,
+  getShadowfaxPodDetailsController,
   updateShadowfaxOrderController,
   updateShadowfaxCredentialsController,
   updateXpressbeesCredentialsController,
@@ -98,6 +99,12 @@ router.post(
   requireAuth,
   isAdminMiddleware,
   createShadowfaxEscalationController,
+)
+router.post(
+  '/shadowfax/pod-details',
+  requireAuth,
+  isAdminMiddleware,
+  getShadowfaxPodDetailsController,
 )
 router.get('/expressfly/orders', requireAuth, isAdminMiddleware, getExpressflyOrdersController)
 router.get('/expressfly/orders/:orderId', requireAuth, isAdminMiddleware, getExpressflyOrderController)

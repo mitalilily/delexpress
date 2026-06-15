@@ -12,6 +12,7 @@ export const DEFAULT_SHADOWFAX_ORDER_PATH = '/v3/clients/orders/'
 export const DEFAULT_SHADOWFAX_ORDER_UPDATE_PATH = '/v3/clients/order_update/'
 export const DEFAULT_SHADOWFAX_ORDER_CANCEL_PATH = '/v3/clients/orders/cancel/'
 export const DEFAULT_SHADOWFAX_SUPPORT_ISSUE_PATH = '/v1/clients/support/issue/'
+export const DEFAULT_SHADOWFAX_POD_DETAILS_PATH = '/v1/clients/pod_details/'
 export const DEFAULT_SHADOWFAX_AWB_PATH = '/v3/clients/generate_marketplace_awb/'
 export const DEFAULT_SHADOWFAX_TRACK_PATH = '/v4/clients/orders'
 
@@ -220,6 +221,23 @@ export type ShadowfaxSupportIssueResult = {
   message: string
   awbNumber: string | null
   issueCategory: ShadowfaxIssueCategory | null
+  raw: any
+}
+
+export type ShadowfaxPODDetailRecord = {
+  recipient: string | null
+  recipient_contact: string | null
+  recipient_signature: string | string[] | null
+  recipient_name: string | null
+}
+
+export type ShadowfaxPODDetailsResult = {
+  successful: boolean
+  status: string | null
+  message: string
+  count: number
+  awbNumbers: string[]
+  podDetails: Record<string, ShadowfaxPODDetailRecord>
   raw: any
 }
 
@@ -577,6 +595,39 @@ export class ShadowfaxService {
       message: normalize(raw?.message) || 'Issue received',
       awbNumber: normalizedAwb,
       issueCategory: issueCategory as ShadowfaxIssueCategory,
+      raw,
+    }
+  }
+
+  async getPodDetails(awbNumbers: Array<string | number>): Promise<ShadowfaxPODDetailsResult> {
+    const normalizedAwbNumbers = awbNumbers
+      .map((value) => normalize(String(value)))
+      .filter(Boolean)
+
+    if (!normalizedAwbNumbers.length) {
+      throw new HttpError(400, 'At least one AWB number is required for Shadowfax POD details.')
+    }
+
+    if (normalizedAwbNumbers.length > 100) {
+      throw new HttpError(400, 'Shadowfax POD details supports up to 100 AWB numbers per request.')
+    }
+
+    const raw = await this.request<any>('POST', DEFAULT_SHADOWFAX_POD_DETAILS_PATH, {
+      awb_numbers: normalizedAwbNumbers,
+    })
+
+    const podDetails = (raw?.pod_details ?? raw?.data?.pod_details ?? {}) as Record<
+      string,
+      ShadowfaxPODDetailRecord
+    >
+
+    return {
+      successful: normalize(raw?.message).toLowerCase() === 'success' || Object.keys(podDetails).length > 0,
+      status: normalize(raw?.status) || null,
+      message: normalize(raw?.message) || 'Shadowfax POD details fetched successfully',
+      count: normalizedAwbNumbers.length,
+      awbNumbers: normalizedAwbNumbers,
+      podDetails,
       raw,
     }
   }
