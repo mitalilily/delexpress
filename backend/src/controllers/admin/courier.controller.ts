@@ -11,6 +11,7 @@ import {
   upsertShippingRate,
 } from '../../models/services/courierIntegration.service'
 import { ExpressflyService } from '../../models/services/couriers/expressfly.service'
+import { ShadowfaxService } from '../../models/services/couriers/shadowfax.service'
 import { fetchAvailableCouriersWithRatesAdmin } from '../../models/services/shiprocket.service'
 import { courier_credentials } from '../../models/schema/courierCredentials'
 import { couriers } from '../../models/schema/couriers'
@@ -1421,5 +1422,35 @@ export const deleteCourierController = async (req: Request, res: Response) => {
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false, message: 'Failed to delete courier' })
+  }
+}
+
+export const generateShadowfaxAwbController = async (req: Request, res: Response) => {
+  try {
+    const rawCount = req.body?.count ?? req.query?.count ?? 1
+    const count = typeof rawCount === 'string' ? Number(rawCount.trim()) : Number(rawCount)
+
+    if (!Number.isFinite(count) || count < 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'count must be a positive number',
+      })
+    }
+
+    const service = new ShadowfaxService()
+    const result = await service.generateAwb(count)
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      status: result.status,
+      data: result,
+    })
+  } catch (err: any) {
+    console.error('Error generating Shadowfax AWB:', err)
+    return res.status(err?.status || 500).json({
+      success: false,
+      message: err?.message || 'Failed to generate Shadowfax AWB',
+    })
   }
 }

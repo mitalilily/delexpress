@@ -9,6 +9,7 @@ export const DEFAULT_SHADOWFAX_STAGING_BASE_API = 'https://dale.staging.shadowfa
 export const DEFAULT_SHADOWFAX_BASE_API = 'https://dale.shadowfax.in/api'
 export const DEFAULT_SHADOWFAX_SERVICEABILITY_PATH = '/v1/clients/serviceability/'
 export const DEFAULT_SHADOWFAX_ORDER_PATH = '/v3/clients/orders/'
+export const DEFAULT_SHADOWFAX_AWB_PATH = '/v3/clients/generate_marketplace_awb/'
 export const DEFAULT_SHADOWFAX_TRACK_PATH = '/v4/clients/orders'
 
 export type ShadowfaxServiceName =
@@ -105,6 +106,15 @@ export type ShadowfaxCreateOrderResult = {
   shippingProviderCode: string | null
   label: string | null
   manifest: string | null
+  raw: any
+}
+
+export type ShadowfaxAwbGenerationResult = {
+  successful: boolean
+  status: string | null
+  message: string
+  count: number
+  awbNumbers: string[]
   raw: any
 }
 
@@ -300,6 +310,37 @@ export class ShadowfaxService {
       shippingProviderCode: normalize(orderData?.sort_code) || null,
       label: normalize(orderData?.label) || null,
       manifest: normalize(orderData?.manifest) || null,
+      raw,
+    }
+  }
+
+  async generateAwb(count = 1): Promise<ShadowfaxAwbGenerationResult> {
+    const requestedCount = Number.isFinite(Number(count)) ? Math.floor(Number(count)) : 1
+
+    if (requestedCount < 1) {
+      throw new HttpError(400, 'AWB count must be at least 1.')
+    }
+
+    if (requestedCount > 100000) {
+      throw new HttpError(400, 'AWB count cannot exceed 100000.')
+    }
+
+    const raw = await this.request<any>('POST', DEFAULT_SHADOWFAX_AWB_PATH, {
+      count: requestedCount,
+    })
+
+    const awbNumbers = Array.isArray(raw?.awb_numbers)
+      ? raw.awb_numbers.map((awb: any) => normalize(awb)).filter(Boolean)
+      : Array.isArray(raw?.data?.awb_numbers)
+        ? raw.data.awb_numbers.map((awb: any) => normalize(awb)).filter(Boolean)
+        : []
+
+    return {
+      successful: normalize(raw?.message).toLowerCase() === 'success' || awbNumbers.length > 0,
+      status: normalize(raw?.status) || normalize(raw?.data?.status) || null,
+      message: normalize(raw?.message) || 'Shadowfax AWBs generated successfully',
+      count: requestedCount,
+      awbNumbers,
       raw,
     }
   }
