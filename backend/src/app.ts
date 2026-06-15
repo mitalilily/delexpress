@@ -16,6 +16,7 @@ import {
   delhiveryWebhookHandler,
 } from './controllers/webhooks/delhivery.webhook'
 import { ekartWebhookHandler } from './controllers/webhooks/ekart.webhook'
+import { shadowfaxWebhookHandler } from './controllers/webhooks/shadowfax.webhook'
 import { xpressbeesWebhookHandler } from './controllers/webhooks/xpressbees.webhook'
 import adminCourierRoutes from './routes/adminRoutes/adminCourier.routes'
 import adminSupportRoutes from './routes/adminRoutes/adminSupport.routes'
@@ -239,6 +240,8 @@ app.use('/api/v1', externalApiRoutes)
 // Ekart webhook
 app.post('/api/webhook/ekart', express.json(), ekartWebhookHandler)
 app.post('/api/webhook/ekart/track', express.json(), ekartWebhookHandler)
+app.post('/api/webhook/shadowfax', express.json(), shadowfaxWebhookHandler)
+app.post('/api/webhook/shadowfax/track', express.json(), shadowfaxWebhookHandler)
 app.post(
   '/api/webhook/xpressbees',
   express.json({

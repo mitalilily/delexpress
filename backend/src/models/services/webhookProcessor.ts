@@ -20,6 +20,9 @@ import {
   mapDelhiveryStatusToInternal,
 } from './couriers/delhiveryTracking.utils'
 import {
+  extractShadowfaxTrackingUpdate,
+} from './couriers/shadowfaxTracking.utils'
+import {
   detectDelhiveryDocumentType,
   extractDelhiveryDocumentReference,
   type DelhiveryDocumentType,
@@ -2012,6 +2015,177 @@ export async function processXpressbeesWebhook(payload: any, tx = db) {
 
   if (internalStatus === 'cancelled') {
     await applyCancellationRefundOnce(tx, order, 'xpressbees_webhook')
+  }
+
+  return { success: true }
+}
+
+export async function processShadowfaxWebhook(payload: any, tx = db) {
+  const event = extractShadowfaxTrackingUpdate(payload)
+  const awb = event.awb
+  const referenceNo = event.referenceNo
+
+  if (!awb && !referenceNo) {
+    return { success: false, reason: 'missing_awb' }
+  }
+
+  let order
+  if (awb) {
+    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.awb_number, String(awb)))
+  }
+  if (!order && referenceNo) {
+    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.order_number, String(referenceNo)))
+  }
+  if (!order && referenceNo) {
+    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.order_id, String(referenceNo)))
+  }
+
+  if (!order) {
+    console.warn(
+      `⚠️ No local order found for Shadowfax AWB ${awb || 'N/A'} ref ${referenceNo || 'N/A'}`,
+    )
+    return { success: false, reason: 'order_not_found' }
+  }
+
+  const internalStatus = event.internalStatus
+  const statusLower = internalStatus.toLowerCase()
+  const statusText = event.statusId || event.statusText || internalStatus
+  const deliveryMessage = event.remark || event.description || statusText
+
+  const updateData: any = {
+    order_status: internalStatus,
+    delivery_location: event.location,
+    delivery_message: deliveryMessage || null,
+    updated_at: new Date(),
+  }
+
+  await tx.transaction(async (innerTx) => {
+    await innerTx.update(b2c_orders).set(updateData).where(eq(b2c_orders.id, order.id))
+    await syncShopifyStatusForLocalOrder({ ...order, ...updateData }, innerTx).catch((err) => {
+      console.warn('⚠️ Failed Shopify status sync for Shadowfax webhook:', err)
+    })
+
+    try {
+      await logTrackingEvent({
+        orderId: order.id,
+        userId: order.user_id,
+        awbNumber: order.awb_number,
+        courier: 'Shadowfax',
+        statusCode: internalStatus,
+        statusText,
+        location: event.location,
+        raw: payload,
+      })
+    } catch (err: any) {
+      console.error('❌ Failed to log Shadowfax tracking event:', err)
+    }
+
+    if (
+      ['booked', 'pickup_initiated', 'shipment_created', 'in_transit', 'out_for_delivery', 'delivered'].includes(
+        internalStatus,
+      )
+    ) {
+      try {
+        const [freshOrder] = await innerTx
+          .select()
+          .from(b2c_orders)
+          .where(eq(b2c_orders.id, order.id))
+
+        if (!freshOrder) return
+        await ensureOrderDocumentsAfterWebhook(freshOrder, innerTx, 'Shadowfax')
+      } catch (err: any) {
+        console.error(`❌ Shadowfax document recovery flow error for ${order.order_number}:`, err)
+      }
+    }
+  })
+
+  if (statusLower === 'ndr') {
+    try {
+      await recordNdrEvent({
+        orderId: order.id,
+        userId: order.user_id,
+        awbNumber: order.awb_number || undefined,
+        status: statusLower,
+        reason: event.remark || event.description || null,
+        remarks: statusText || null,
+        payload,
+      })
+      await createNotificationService({
+        targetRole: 'user',
+        userId: order.user_id,
+        title: 'Delivery attempt issue (Shadowfax)',
+        message: `Order ${order.order_number} marked as ${statusLower}.`,
+      })
+      await createNotificationService({
+        targetRole: 'admin',
+        title: 'NDR captured (Shadowfax)',
+        message: `User ${order.user_id} order ${order.order_number} status ${statusLower}`,
+      })
+    } catch (err) {
+      console.error('❌ Failed to record NDR event (Shadowfax):', err)
+    }
+  }
+
+  if (internalStatus.startsWith('rto')) {
+    try {
+      const rtoCharge = await applyRtoChargeOnce(tx, order, 'Shadowfax')
+      await recordRtoEvent({
+        orderId: order.id,
+        userId: order.user_id,
+        awbNumber: order.awb_number || undefined,
+        status: statusLower,
+        reason: event.remark || event.description || null,
+        remarks: statusText || null,
+        rtoCharges: rtoCharge,
+        payload,
+      })
+      await createNotificationService({
+        targetRole: 'user',
+        userId: order.user_id,
+        title: 'RTO update (Shadowfax)',
+        message: `Order ${order.order_number} status ${statusLower}.`,
+      })
+      await createNotificationService({
+        targetRole: 'admin',
+        title: 'RTO event (Shadowfax)',
+        message: `User ${order.user_id} order ${order.order_number} ${statusLower}`,
+      })
+    } catch (err) {
+      console.error('❌ Failed to record RTO event (Shadowfax):', err)
+    }
+  }
+
+  if (internalStatus === 'delivered' && order.order_type === 'cod') {
+    try {
+      const { remittance, created } = await createCodRemittance({
+        orderId: order.id,
+        orderType: 'b2c',
+        userId: order.user_id,
+        orderNumber: order.order_number,
+        awbNumber: order.awb_number || undefined,
+        courierPartner: 'Shadowfax',
+        codAmount: Number(order.order_amount ?? 0),
+        codCharges: Number(order.cod_charges ?? 0),
+        freightCharges: Number(order.freight_charges ?? order.shipping_charges ?? 0),
+        collectedAt: new Date(),
+      })
+
+      if (created) {
+        await createNotificationService({
+          targetRole: 'admin',
+          title: 'COD remittance created',
+          message: `Order ${order.order_number} (${order.awb_number || 'no AWB'}) created pending COD remittance of ₹${Number(
+            remittance.remittableAmount || 0,
+          ).toFixed(2)}.`,
+        })
+      }
+    } catch (err) {
+      console.error(`❌ Failed to create COD remittance for Shadowfax order ${order.order_number}:`, err)
+    }
+  }
+
+  if (internalStatus === 'cancelled') {
+    await applyCancellationRefundOnce(tx, order, 'shadowfax_webhook')
   }
 
   return { success: true }
