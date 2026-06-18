@@ -8,6 +8,7 @@ import { shipNowOrderService } from '../../models/services/orderShipNow.service'
 import { db } from '../../models/client'
 import { recordNdrEvent } from '../../models/services/ndr.service'
 import { b2c_orders } from '../../models/schema/b2cOrders'
+import { getMerchantSafeOperationalError } from '../../utils/merchantErrorMessages'
 import { buildCsv } from '../../utils/csv'
 import { createZipBuffer } from '../../utils/zip'
 
@@ -238,9 +239,14 @@ export const shipNowOrderControllerAdmin = async (req: any, res: Response) => {
     })
   } catch (error: any) {
     console.error('Error processing ship now request:', error?.message || error)
+    const rawMessage = error?.response?.data?.message || error?.message || ''
+    const errorMessage = getMerchantSafeOperationalError(
+      rawMessage,
+      'Please contact your admin to add wallet balance and retry.',
+    )
     return res.status(typeof error?.statusCode === 'number' ? error.statusCode : 400).json({
       success: false,
-      message: error?.message || 'Failed to process ship now request',
+      message: errorMessage || 'Failed to process ship now request',
     })
   }
 }

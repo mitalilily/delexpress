@@ -398,9 +398,14 @@ export const shipNowOrderController = async (req: any, res: Response) => {
   } catch (error: any) {
     console.error('Ship now error:', error)
     const statusCode = typeof error?.statusCode === 'number' ? error.statusCode : 500
+    const rawMessage = error?.response?.data?.message || error?.message || ''
+    const errorMessage = getMerchantSafeOperationalError(
+      rawMessage,
+      'Please contact your admin to add wallet balance and retry.',
+    )
     return res.status(statusCode).json({
       success: false,
-      message: error?.message || 'Failed to process ship now request.',
+      message: errorMessage || 'Failed to process ship now request.',
     })
   }
 }

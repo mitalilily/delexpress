@@ -300,7 +300,14 @@ const ShipmentDetailsDialog = ({
   const rto = parsePickupDetails(order.rto_details)
   const products = Array.isArray(order.products) ? order.products : []
   const dimensions = `${asText(order.length)} x ${asText(order.breadth)} x ${asText(order.height)} cm`
-  const totalCustomerCharge = Math.max(Number(order.order_amount ?? 0) - Number(order.cod_charges ?? 0), 0)
+  const totalCustomerCharge = Math.max(
+    Number(order.order_amount ?? 0) +
+      Number(order.shipping_charges ?? 0) +
+      Number(order.transaction_fee ?? 0) +
+      Number(order.gift_wrap ?? 0) -
+      (Number(order.discount ?? 0) + Number(order.prepaid_amount ?? 0)),
+    0,
+  )
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
@@ -1438,17 +1445,22 @@ const B2COrdersList = () => {
       minWidth: 150,
       truncate: false,
       render: (_v, row) => {
-        const orderAmount = Number(row.order_amount ?? 0)
-        const cod = Number(row.cod_charges ?? 0)
-        const customerTotal = Math.max(orderAmount - cod, 0)
+        const customerTotal = Math.max(
+          Number(row.order_amount ?? 0) +
+            Number(row.shipping_charges ?? 0) +
+            Number(row.transaction_fee ?? 0) +
+            Number(row.gift_wrap ?? 0) -
+            (Number(row.discount ?? 0) + Number(row.prepaid_amount ?? 0)),
+          0,
+        )
         return (
           <Stack spacing={0.25}>
             <Typography sx={{ fontSize: 13, fontWeight: 800 }}>{asMoney(customerTotal)}</Typography>
             <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
-              Ship {asMoney(row.shipping_charges)} | COD {asMoney(row.cod_charges)}
+              Ship {asMoney(row.shipping_charges)} | Fee {asMoney(row.transaction_fee)}
             </Typography>
             <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
-              Other {asMoney(row.other_charges)}
+              Gift {asMoney(row.gift_wrap)} | Disc {asMoney(row.discount)}
             </Typography>
           </Stack>
         )

@@ -22,7 +22,7 @@ import { toast } from "../UI/Toast";
 import { useQueryClient } from "@tanstack/react-query";
 
 const defaultShopifySettings: ShopifyForm["settings"] = {
-  fulfillTrigger: "do_not_fulfill",
+  fulfillTrigger: "order_booked",
   customerNotifyOnFulfill: "do_not_notify",
 };
 

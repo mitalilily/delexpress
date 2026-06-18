@@ -646,88 +646,99 @@ export const syncShopifyStatusForLocalOrder = async (order: any, tx: any = db) =
   const requestConfig = buildShopifyStoreRequestConfig(store)
 
   const orderStatus = String(order?.order_status || '').toLowerCase()
+  const trackingInfo = getTrackingInfoForOrder(order)
+  const fulfillmentStatusEligible = (statusPriority[orderStatus] || 0) >= statusPriority.booked
+  const shouldSyncFulfillment =
+    shouldAttemptFulfillment(orderStatus, settings?.fulfillTrigger) ||
+    (Boolean(settings?.autoUpdateShipmentStatus) &&
+      fulfillmentStatusEligible &&
+      Boolean(trackingInfo))
 
   try {
-    if (shouldAttemptFulfillment(orderStatus, settings?.fulfillTrigger)) {
+    if (shouldSyncFulfillment) {
       try {
-      const trackingInfo = getTrackingInfoForOrder(order)
-      if (!trackingInfo) {
-        console.warn(
-          `Shopify fulfillment skipped for ${order?.order_number || order?.id}: AWB is not available yet`,
-        )
-      } else {
-      const [shopifyOrderRes, fulfillmentOrdersRes] = await Promise.all([
-        axios.get(`${base}/orders/${shopifyOrderId}.json`, {
-          ...requestConfig,
-          params: { fields: 'id,fulfillment_status' },
-          timeout: 20000,
-        }),
-        axios.get(`${base}/orders/${shopifyOrderId}/fulfillment_orders.json`, {
-          ...requestConfig,
-          timeout: 20000,
-        }),
-      ])
+        if (!trackingInfo) {
+          console.warn(
+            `Shopify fulfillment skipped for ${order?.order_number || order?.id}: AWB is not available yet`,
+          )
+        } else {
+          const [shopifyOrderRes, fulfillmentOrdersRes] = await Promise.all([
+            axios.get(`${base}/orders/${shopifyOrderId}.json`, {
+              ...requestConfig,
+              params: { fields: 'id,fulfillment_status' },
+              timeout: 20000,
+            }),
+            axios.get(`${base}/orders/${shopifyOrderId}/fulfillment_orders.json`, {
+              ...requestConfig,
+              timeout: 20000,
+            }),
+          ])
 
-      const shopifyOrder = shopifyOrderRes?.data?.order || {}
-      const isAlreadyFulfilled =
-        String(shopifyOrder?.fulfillment_status || '').toLowerCase() === 'fulfilled'
+          const shopifyOrder = shopifyOrderRes?.data?.order || {}
+          const isAlreadyFulfilled =
+            String(shopifyOrder?.fulfillment_status || '').toLowerCase() === 'fulfilled'
 
-      let existingFulfillments: any[] = []
-      try {
-        const fulfillmentRes = await axios.get(`${base}/orders/${shopifyOrderId}/fulfillments.json`, {
-          ...requestConfig,
-          timeout: 20000,
-        })
-        existingFulfillments = Array.isArray(fulfillmentRes?.data?.fulfillments)
-          ? fulfillmentRes.data.fulfillments
-          : []
-      } catch (fulfillmentErr: any) {
-        console.warn(
-          `Shopify existing fulfillment lookup failed for ${order?.order_number || order?.id}:`,
-          fulfillmentErr?.response?.data || fulfillmentErr?.message || fulfillmentErr,
-        )
-      }
+          let existingFulfillments: any[] = []
+          try {
+            const fulfillmentRes = await axios.get(
+              `${base}/orders/${shopifyOrderId}/fulfillments.json`,
+              {
+                ...requestConfig,
+                timeout: 20000,
+              },
+            )
+            existingFulfillments = Array.isArray(fulfillmentRes?.data?.fulfillments)
+              ? fulfillmentRes.data.fulfillments
+              : []
+          } catch (fulfillmentErr: any) {
+            console.warn(
+              `Shopify existing fulfillment lookup failed for ${order?.order_number || order?.id}:`,
+              fulfillmentErr?.response?.data || fulfillmentErr?.message || fulfillmentErr,
+            )
+          }
 
-      const fulfillmentToUpdate = existingFulfillments.find((fulfillment) =>
-        shouldUpdateFulfillmentTracking(fulfillment, trackingInfo.number),
-      )
+          const fulfillmentToUpdate = existingFulfillments.find((fulfillment) =>
+            shouldUpdateFulfillmentTracking(fulfillment, trackingInfo.number),
+          )
 
-      if (fulfillmentToUpdate?.id) {
-        await axios.post(
-          `${base}/fulfillments/${fulfillmentToUpdate.id}/update_tracking.json`,
-          {
-            fulfillment: {
-              notify_customer: shouldNotifyCustomerOnFulfill(settings),
-              tracking_info: trackingInfo,
-            },
-          },
-          { ...requestConfig, timeout: 20000 },
-        )
-      }
+          if (fulfillmentToUpdate?.id) {
+            await axios.post(
+              `${base}/fulfillments/${fulfillmentToUpdate.id}/update_tracking.json`,
+              {
+                fulfillment: {
+                  notify_customer: shouldNotifyCustomerOnFulfill(settings),
+                  tracking_info: trackingInfo,
+                },
+              },
+              { ...requestConfig, timeout: 20000 },
+            )
+          }
 
-      const allFulfillmentOrders = Array.isArray(fulfillmentOrdersRes?.data?.fulfillment_orders)
-        ? fulfillmentOrdersRes.data.fulfillment_orders
-        : []
+          const allFulfillmentOrders = Array.isArray(fulfillmentOrdersRes?.data?.fulfillment_orders)
+            ? fulfillmentOrdersRes.data.fulfillment_orders
+            : []
 
-      const openFulfillmentOrders = allFulfillmentOrders.filter(canCreateFulfillmentForFulfillmentOrder)
+          const openFulfillmentOrders = allFulfillmentOrders.filter(
+            canCreateFulfillmentForFulfillmentOrder,
+          )
 
-      if (!fulfillmentToUpdate && !isAlreadyFulfilled && openFulfillmentOrders.length) {
-        const fulfillmentPayload: any = {
-          fulfillment: {
-            line_items_by_fulfillment_order: openFulfillmentOrders.map((fo: any) => ({
-              fulfillment_order_id: fo.id,
-            })),
-            notify_customer: shouldNotifyCustomerOnFulfill(settings),
-            tracking_info: trackingInfo,
-          },
+          if (!fulfillmentToUpdate && !isAlreadyFulfilled && openFulfillmentOrders.length) {
+            const fulfillmentPayload: any = {
+              fulfillment: {
+                line_items_by_fulfillment_order: openFulfillmentOrders.map((fo: any) => ({
+                  fulfillment_order_id: fo.id,
+                })),
+                notify_customer: shouldNotifyCustomerOnFulfill(settings),
+                tracking_info: trackingInfo,
+              },
+            }
+
+            await axios.post(`${base}/fulfillments.json`, fulfillmentPayload, {
+              ...requestConfig,
+              timeout: 20000,
+            })
+          }
         }
-
-        await axios.post(`${base}/fulfillments.json`, fulfillmentPayload, {
-          ...requestConfig,
-          timeout: 20000,
-        })
-      }
-      }
       } catch (fulfillmentErr: any) {
         console.warn(
           `Shopify fulfillment sync failed for ${order?.order_number || order?.id}:`,
