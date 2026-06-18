@@ -3,36 +3,36 @@ import { Box, Button, Collapse, Flex, Stack, Text, useColorModeValue } from '@ch
 import React, { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 
-const BRAND_PRIMARY = '#8A1F43'
-const BRAND_SECONDARY = '#56C0A5'
+const BRAND_PRIMARY = '#7696AC'
+const BRAND_SECONDARY = '#8FB5CC'
 
 const SidebarContent = ({ logoText, routes, sidebarWidth }) => {
   const location = useLocation()
   const [state, setState] = React.useState({})
 
-  const sidebarBg = useColorModeValue('rgba(255, 253, 249, 0.96)', 'rgba(36, 9, 20, 0.94)')
-  const sidebarBorder = useColorModeValue('rgba(138, 31, 67, 0.14)', 'rgba(228, 138, 165, 0.24)')
+  const sidebarBg = useColorModeValue('rgba(246, 250, 252, 0.96)', 'rgba(17, 28, 40, 0.94)')
+  const sidebarBorder = useColorModeValue('rgba(118, 150, 172, 0.14)', 'rgba(167, 200, 210, 0.24)')
   const sidebarShadow = useColorModeValue(
-    '10px 0 32px rgba(36, 9, 20, 0.1)',
+    '10px 0 32px rgba(17, 28, 40, 0.1)',
     '10px 0 32px rgba(0, 0, 0, 0.38)',
   )
-  const activeBg = useColorModeValue('rgba(138, 31, 67, 0.1)', 'rgba(228, 138, 165, 0.16)')
-  const hoverBg = useColorModeValue('rgba(138, 31, 67, 0.06)', 'rgba(255, 255, 255, 0.08)')
-  const activeBorder = useColorModeValue('rgba(138, 31, 67, 0.22)', 'rgba(228, 138, 165, 0.28)')
-  const hoverBorder = useColorModeValue('rgba(138, 31, 67, 0.14)', 'rgba(228, 138, 165, 0.18)')
-  const iconBg = useColorModeValue('rgba(138, 31, 67, 0.06)', 'rgba(255, 255, 255, 0.08)')
-  const iconActiveBg = useColorModeValue('rgba(138, 31, 67, 0.14)', 'rgba(228, 138, 165, 0.2)')
+  const activeBg = useColorModeValue('rgba(118, 150, 172, 0.1)', 'rgba(167, 200, 210, 0.16)')
+  const hoverBg = useColorModeValue('rgba(118, 150, 172, 0.06)', 'rgba(255, 255, 255, 0.08)')
+  const activeBorder = useColorModeValue('rgba(118, 150, 172, 0.22)', 'rgba(167, 200, 210, 0.28)')
+  const hoverBorder = useColorModeValue('rgba(118, 150, 172, 0.14)', 'rgba(167, 200, 210, 0.18)')
+  const iconBg = useColorModeValue('rgba(118, 150, 172, 0.06)', 'rgba(255, 255, 255, 0.08)')
+  const iconActiveBg = useColorModeValue('rgba(118, 150, 172, 0.14)', 'rgba(167, 200, 210, 0.2)')
   const textColor = useColorModeValue('gray.700', 'gray.100')
   const iconColor = useColorModeValue('gray.500', 'gray.300')
-  const dividerColor = useColorModeValue('rgba(138, 31, 67, 0.12)', 'rgba(228, 138, 165, 0.18)')
-  const thumbColor = useColorModeValue('rgba(138,31,67,0.3)', 'rgba(228,138,165,0.34)')
+  const dividerColor = useColorModeValue('rgba(118, 150, 172, 0.12)', 'rgba(167, 200, 210, 0.18)')
+  const thumbColor = useColorModeValue('rgba(118,150,172,0.3)', 'rgba(167,200,210,0.34)')
   const brandCardBg = useColorModeValue(
-    'linear-gradient(120deg, rgba(138, 31, 67, 0.12) 0%, rgba(86, 192, 165, 0.12) 100%)',
-    'linear-gradient(120deg, rgba(228, 138, 165, 0.18) 0%, rgba(86, 192, 165, 0.12) 100%)',
+    'linear-gradient(120deg, rgba(118, 150, 172, 0.12) 0%, rgba(167, 200, 210, 0.12) 100%)',
+    'linear-gradient(120deg, rgba(167, 200, 210, 0.18) 0%, rgba(118, 150, 172, 0.12) 100%)',
   )
-  const brandCardBorder = useColorModeValue('rgba(138, 31, 67, 0.16)', 'rgba(228, 138, 165, 0.28)')
+  const brandCardBorder = useColorModeValue('rgba(118, 150, 172, 0.16)', 'rgba(167, 200, 210, 0.28)')
   const brandText = useColorModeValue('gray.800', 'gray.100')
-  const collapsedLogoBg = useColorModeValue('rgba(138, 31, 67, 0.08)', 'rgba(228, 138, 165, 0.18)')
+  const collapsedLogoBg = useColorModeValue('rgba(118, 150, 172, 0.08)', 'rgba(167, 200, 210, 0.18)')
 
   const activeRoute = (routeName) => location.pathname.startsWith(routeName)
 

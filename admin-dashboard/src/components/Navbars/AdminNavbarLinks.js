@@ -28,15 +28,15 @@ export default function HeaderLinks({ variant, children, fixed, secondary, onOpe
   const settingsRef = useRef()
   const { isLoggedIn, logout } = useAuthStore()
   const inputBg = useColorModeValue('rgba(255, 255, 255, 0.74)', 'rgba(36, 9, 20, 0.72)')
-  const inputBorder = useColorModeValue('rgba(138, 31, 67, 0.16)', 'rgba(228, 138, 165, 0.22)')
-  const hoverBg = useColorModeValue('rgba(138, 31, 67, 0.08)', 'rgba(255, 255, 255, 0.08)')
+  const inputBorder = useColorModeValue('rgba(118, 150, 172, 0.16)', 'rgba(167, 200, 210, 0.22)')
+  const hoverBg = useColorModeValue('rgba(118, 150, 172, 0.08)', 'rgba(255, 255, 255, 0.08)')
   const mainTextColor = useColorModeValue('gray.700', 'gray.100')
   const navbarIconColor = useColorModeValue('gray.600', 'gray.200')
   const searchIconColor = useColorModeValue('gray.500', 'gray.400')
   const placeholder = useColorModeValue('gray.400', 'gray.500')
 
   const styles = {
-    accent: '#8A1F43',
+    accent: '#7696AC',
     inputBg,
     inputBorder,
     hoverBg,
@@ -58,7 +58,7 @@ export default function HeaderLinks({ variant, children, fixed, secondary, onOpe
         transition="all 0.2s ease"
         _focusWithin={{
           borderColor: styles.accent,
-          boxShadow: '0 0 0 3px rgba(138, 31, 67, 0.12)',
+          boxShadow: '0 0 0 3px rgba(118, 150, 172, 0.12)',
         }}
       >
         <InputLeftElement pointerEvents="none" pl="14px">
@@ -99,7 +99,7 @@ export default function HeaderLinks({ variant, children, fixed, secondary, onOpe
                   _hover={{
                     bg: styles.hoverBg,
                     color: styles.accent,
-                    borderColor: 'rgba(138, 31, 67, 0.18)',
+                    borderColor: 'rgba(118, 150, 172, 0.18)',
                   }}
                 >
                   <Text display={{ sm: 'none', md: 'flex' }}>Logout</Text>
@@ -181,7 +181,7 @@ export default function HeaderLinks({ variant, children, fixed, secondary, onOpe
         _hover={{
           bg: styles.hoverBg,
           color: styles.accent,
-          borderColor: 'rgba(138, 31, 67, 0.18)',
+          borderColor: 'rgba(118, 150, 172, 0.18)',
         }}
       />
 

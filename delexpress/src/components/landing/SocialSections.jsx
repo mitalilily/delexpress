@@ -55,8 +55,8 @@ export default function SocialSections({
                   "{item.quote}"
                 </Typography>
                 <Typography
-                  className={`mt-6 text-sm font-semibold uppercase tracking-[0.18em] ${index === 1 ? 'text-[#f1c5d1]' : ''}`}
-                  sx={index === 1 ? undefined : { color: '#9b3150' }}
+                  className={`mt-6 text-sm font-semibold uppercase tracking-[0.18em] ${index === 1 ? 'text-[#DDE8EE]' : ''}`}
+                  sx={index === 1 ? undefined : { color: '#7696AC' }}
                 >
                   {item.author}
                 </Typography>
@@ -92,7 +92,7 @@ export default function SocialSections({
                   disableGutters
                   sx={{
                     borderRadius: '24px !important',
-                    border: '1px solid rgba(186, 170, 177, 0.74)',
+                    border: '1px solid rgba(134, 159, 174, 0.74)',
                     backgroundColor: 'rgba(255,255,255,0.84)',
                     boxShadow: '0 16px 34px rgba(39, 28, 35, 0.06)',
                     '&::before': { display: 'none' },
@@ -139,7 +139,7 @@ export default function SocialSections({
                 transition={{ duration: 0.45, delay: index * 0.05 }}
                 className="surface-panel rounded-[28px] p-5 sm:p-6"
               >
-                <Typography className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b3150]">
+                <Typography className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7696AC]">
                   Privacy point {index + 1}
                 </Typography>
                 <Typography className="mt-4 text-sm leading-8 sm:text-base" sx={{ color: '#625b63' }}>
@@ -172,7 +172,7 @@ export default function SocialSections({
                 transition={{ duration: 0.45, delay: index * 0.05 }}
                 className="dark-panel rounded-[28px] p-5 text-white sm:p-6"
               >
-                <Typography className="text-xs font-semibold uppercase tracking-[0.2em] text-[#f1c5d1]">
+                <Typography className="text-xs font-semibold uppercase tracking-[0.2em] text-[#DDE8EE]">
                   Terms point {index + 1}
                 </Typography>
                 <Typography className="mt-4 text-sm leading-8 text-white/74 sm:text-base">
@@ -192,7 +192,7 @@ export default function SocialSections({
           <MotionDiv {...fadeUp} className="cta-panel rounded-[40px] p-7 text-white sm:p-10">
             <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
               <div>
-                <Typography className="text-sm uppercase tracking-[0.28em] text-[#f6d7c8]">
+                <Typography className="text-sm uppercase tracking-[0.28em] text-[#DDE8EE]">
                   Get Started
                 </Typography>
                 <Typography variant="h2" className="mt-4 text-4xl text-white sm:text-5xl">
@@ -218,7 +218,7 @@ export default function SocialSections({
                     backgroundColor: '#ffffff',
                     color: '#181318',
                     boxShadow: '0 16px 34px rgba(17,12,16,0.18)',
-                    '&:hover': { backgroundColor: '#f6edf1' },
+                    '&:hover': { backgroundColor: '#EEF4F8' },
                   }}
                 >
                   Get Started Today
@@ -231,7 +231,7 @@ export default function SocialSections({
                     color: '#ffffff',
                     fontWeight: 700,
                     px: 0,
-                    '&:hover': { backgroundColor: 'transparent', color: '#f6d7c8' },
+                    '&:hover': { backgroundColor: 'transparent', color: '#DDE8EE' },
                   }}
                 >
                   Open shipping tools

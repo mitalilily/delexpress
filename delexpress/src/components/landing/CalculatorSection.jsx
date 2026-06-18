@@ -58,7 +58,7 @@ export default function CalculatorSection({
                 InputLabelProps={{ shrink: true }}
                 inputProps={{ min: 0, step: '0.1' }}
                 sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#fffaf6' },
+                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#F7FBFD' },
                 }}
               />
               <TextField
@@ -71,7 +71,7 @@ export default function CalculatorSection({
                 InputLabelProps={{ shrink: true }}
                 inputProps={{ min: 1, step: '1' }}
                 sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#fffaf6' },
+                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#F7FBFD' },
                 }}
               />
               <TextField
@@ -92,7 +92,7 @@ export default function CalculatorSection({
                         : ' ')
                 }
                 sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#fffaf6' },
+                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#F7FBFD' },
                   '& .MuiFormHelperText-root': {
                     minHeight: '1.45rem',
                     marginLeft: '0.15rem',
@@ -117,7 +117,7 @@ export default function CalculatorSection({
                         : ' ')
                 }
                 sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#fffaf6' },
+                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#F7FBFD' },
                   '& .MuiFormHelperText-root': {
                     minHeight: '1.45rem',
                     marginLeft: '0.15rem',
@@ -137,7 +137,7 @@ export default function CalculatorSection({
                 InputLabelProps={{ shrink: true }}
                 inputProps={{ min: 0, step: '1' }}
                 sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#fffaf6' },
+                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#F7FBFD' },
                 }}
               />
               <TextField
@@ -150,7 +150,7 @@ export default function CalculatorSection({
                 InputLabelProps={{ shrink: true }}
                 inputProps={{ min: 0, step: '1' }}
                 sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#fffaf6' },
+                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#F7FBFD' },
                 }}
               />
               <TextField
@@ -163,7 +163,7 @@ export default function CalculatorSection({
                 InputLabelProps={{ shrink: true }}
                 inputProps={{ min: 0, step: '1' }}
                 sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#fffaf6' },
+                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#F7FBFD' },
                 }}
               />
             </div>
@@ -191,7 +191,7 @@ export default function CalculatorSection({
 
             <div className="weight-breakdown-panel mt-6">
               <div className="weight-breakdown-head">
-                <Typography className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9a534d]">
+                <Typography className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5D7E96]">
                   Weight breakdown
                 </Typography>
                 <Typography className="text-sm" sx={{ color: '#6b6167' }}>
@@ -266,7 +266,7 @@ export default function CalculatorSection({
 
           <MotionDiv {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.08 }}>
             <div className="calculator-results-shell rounded-[36px] p-5 text-white sm:p-7 lg:p-8">
-              <Typography className="text-sm uppercase tracking-[0.25em] text-[#f6d7c8]">
+              <Typography className="text-sm uppercase tracking-[0.25em] text-[#DDE8EE]">
                 Rate results
               </Typography>
               <Typography variant="h3" className="mt-4 text-3xl text-white sm:text-4xl">
@@ -328,7 +328,7 @@ export default function CalculatorSection({
                         'Switch between prepaid and COD to compare availability',
                       ].map((tip) => (
                         <div key={tip} className="calculator-empty-tip">
-                          <Typography className="text-xs uppercase tracking-[0.18em] text-[#f6d7c8]">
+                          <Typography className="text-xs uppercase tracking-[0.18em] text-[#DDE8EE]">
                             Try this
                           </Typography>
                           <Typography className="mt-3 text-sm leading-6 text-white/72">

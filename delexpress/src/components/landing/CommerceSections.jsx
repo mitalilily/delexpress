@@ -22,7 +22,7 @@ export default function CommerceSections({
         <Container maxWidth="xl">
           <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
             <MotionDiv {...fadeUp} className="dark-panel rounded-[36px] p-6 text-white sm:p-8">
-              <Typography className="text-[0.74rem] font-semibold uppercase tracking-[0.28em] text-[#f0cbb2]">
+              <Typography className="text-[0.74rem] font-semibold uppercase tracking-[0.28em] text-[#C6D8E2]">
                 Our Courier Network
               </Typography>
               <Typography variant="h2" className="mt-4 text-4xl text-white sm:text-5xl">
@@ -78,8 +78,8 @@ export default function CommerceSections({
                     'Reduce manual comparison work',
                     'Present one polished shipping workflow',
                   ].map((item) => (
-                    <div key={item} className="rounded-[24px] bg-[#f7efe5] p-5">
-                      <Typography className="text-sm font-semibold uppercase tracking-[0.18em] text-[#ab5a43]">
+                    <div key={item} className="rounded-[24px] bg-[#EFF5F8] p-5">
+                      <Typography className="text-sm font-semibold uppercase tracking-[0.18em] text-[#5D7E96]">
                         Why it matters
                       </Typography>
                       <Typography variant="h6" className="mt-3 text-xl text-[#181318]">
@@ -115,7 +115,7 @@ export default function CommerceSections({
                 className="tool-card surface-panel rounded-[32px] p-6"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <div className="grid h-16 w-16 place-items-center rounded-[22px] bg-[#171318] text-white shadow-[0_16px_32px_rgba(23,19,24,0.16)]">
+                  <div className="grid h-16 w-16 place-items-center rounded-[22px] bg-[#132436] text-white shadow-[0_16px_32px_rgba(19,36,54,0.16)]">
                     <ToolIcon icon={tool.icon} size={28} />
                   </div>
                   <LiteralVisual title={tool.title} compact />
@@ -134,8 +134,8 @@ export default function CommerceSections({
                   className="mt-5"
                   sx={{
                     borderRadius: '999px',
-                    backgroundColor: '#f6e9ed',
-                    color: '#7b3b52',
+                    backgroundColor: '#DDE8EE',
+                    color: '#5D7E96',
                     fontWeight: 700,
                   }}
                 />
@@ -189,7 +189,7 @@ export default function CommerceSections({
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="max-w-lg">
-                      <Typography className="text-sm uppercase tracking-[0.25em] text-[#f1c5d1]">
+                      <Typography className="text-sm uppercase tracking-[0.25em] text-[#DDE8EE]">
                         One view for every shipment
                       </Typography>
                       <Typography
@@ -233,7 +233,7 @@ export default function CommerceSections({
                           'Review delivery trends before choosing a partner',
                         ].map((item) => (
                           <div key={item} className="flex items-start gap-3">
-                            <div className="mt-2 h-2.5 w-2.5 rounded-full bg-[#56c0a5]" />
+                            <div className="mt-2 h-2.5 w-2.5 rounded-full bg-[#8FB5CC]" />
                             <Typography className="text-sm leading-7 text-white/72">
                               {item}
                             </Typography>

@@ -61,7 +61,7 @@ const componentOverrides = {
             fontSize: '12px',
             color: 'gray.700',
             borderColor: 'gray.200',
-            bg: 'rgba(155, 49, 80, 0.06)',
+            bg: 'rgba(118, 150, 172, 0.06)',
           },
           td: {
             borderColor: 'gray.100',
@@ -76,9 +76,9 @@ const componentOverrides = {
         dialog: {
           borderRadius: '24px',
           borderWidth: '1px',
-          borderColor: 'rgba(155, 49, 80, 0.12)',
+          borderColor: 'rgba(118, 150, 172, 0.12)',
           boxShadow: '0 28px 64px rgba(24, 19, 24, 0.16)',
-          bg: 'rgba(255, 250, 244, 0.96)',
+          bg: 'rgba(247, 251, 253, 0.96)',
           overflow: 'hidden',
           backdropFilter: 'blur(16px)',
         },

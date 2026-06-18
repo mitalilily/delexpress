@@ -332,7 +332,7 @@ export default function Dashboard() {
                   (geographic.topOriginCities || []).slice(0, 5).map((item) => (
                     <HStack key={`origin-${item.city}`} justify="space-between" p={3} borderRadius="10px" borderWidth="1px" borderColor={borderColor} bg={tileBg}>
                       <HStack spacing={2}>
-                        <IconMapPin size={16} color="#8A1F43" />
+                        <IconMapPin size={16} color="#7696AC" />
                         <Text color={textPrimary} fontSize="sm">{item.city}</Text>
                       </HStack>
                       <Badge>{toNum(item.count)}</Badge>

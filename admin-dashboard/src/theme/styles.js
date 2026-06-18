@@ -8,12 +8,12 @@ export const globalStyles = {
   styles: {
     global: (props) => ({
       body: {
-        bg: mode('#F7EFE6', '#181318')(props),
+        bg: mode('#F6FAFC', '#111C28')(props),
         color: mode('gray.900', 'whiteAlpha.900')(props),
         fontFamily: "'Poppins', sans-serif",
         backgroundImage: mode(
-          'radial-gradient(circle at 8% 8%, rgba(155,49,80,0.14) 0%, transparent 36%), radial-gradient(circle at 96% 0%, rgba(86,192,165,0.12) 0%, transparent 28%), linear-gradient(180deg, #fffaf4 0%, #f7efe6 100%)',
-          'radial-gradient(circle at 8% 8%, rgba(231,146,174,0.16) 0%, transparent 36%), radial-gradient(circle at 96% 0%, rgba(86,192,165,0.12) 0%, transparent 28%), linear-gradient(180deg, #22191f 0%, #181318 100%)',
+          'radial-gradient(circle at 8% 8%, rgba(118,150,172,0.14) 0%, transparent 36%), radial-gradient(circle at 96% 0%, rgba(198,216,226,0.12) 0%, transparent 28%), linear-gradient(180deg, #F6FAFC 0%, #EEF4F8 100%)',
+          'radial-gradient(circle at 8% 8%, rgba(151,183,203,0.16) 0%, transparent 36%), radial-gradient(circle at 96% 0%, rgba(198,216,226,0.12) 0%, transparent 28%), linear-gradient(180deg, #18242E 0%, #111C28 100%)',
         ),
       },
       html: {

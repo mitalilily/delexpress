@@ -182,8 +182,8 @@ export default function AdminWeightReconciliationDashboard() {
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
       {/* Header */}
       <Flex align="center" gap={3} mb={6}>
-        <RiScales3Line size={32} color="#333369" />
-        <Heading size="lg" color="#333369">
+        <RiScales3Line size={32} color="#7696AC" />
+        <Heading size="lg" color="#7696AC">
           Weight Reconciliation
         </Heading>
       </Flex>

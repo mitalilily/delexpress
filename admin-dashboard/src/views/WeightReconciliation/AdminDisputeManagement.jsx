@@ -204,7 +204,7 @@ export default function AdminDisputeManagement() {
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
       {/* Header */}
-      <Heading size="lg" color="#333369" mb={6}>
+      <Heading size="lg" color="#7696AC" mb={6}>
         Dispute Management
       </Heading>
 

@@ -11,7 +11,7 @@ function LookupCard({ label, lookup, icon }) {
     <MotionCard className="surface-panel rounded-[30px] p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Typography className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b3150]">
+          <Typography className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7696AC]">
             {label}
           </Typography>
           <Typography variant="h6" className="mt-3 text-xl text-[#181318]">
@@ -23,7 +23,7 @@ function LookupCard({ label, lookup, icon }) {
         </div>
       </div>
 
-      <Typography className="mt-4 text-sm leading-7 sm:text-base" sx={{ color: '#635b63' }}>
+      <Typography className="mt-4 text-sm leading-7 sm:text-base" sx={{ color: '#5d6c78' }}>
         {lookup.isLoading
           ? 'Checking serviceability location...'
           : lookup.error ||
@@ -37,8 +37,8 @@ function LookupCard({ label, lookup, icon }) {
         className="mt-5"
         sx={{
           borderRadius: '999px',
-          backgroundColor: isReady ? '#e8f6f1' : '#f6e9ed',
-          color: isReady ? '#24795f' : '#7b3b52',
+          backgroundColor: isReady ? '#E8F6F1' : '#DDE8EE',
+          color: isReady ? '#24795f' : '#5D7E96',
           fontWeight: 700,
         }}
       />
@@ -87,7 +87,7 @@ export default function PincodeServiceabilitySection({
                         : ' ')
                 }
                 sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#fffaf6' },
+                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#F7FBFD' },
                   '& .MuiFormHelperText-root': { minHeight: '1.45rem', marginLeft: '0.15rem' },
                 }}
               />
@@ -109,16 +109,16 @@ export default function PincodeServiceabilitySection({
                         : ' ')
                 }
                 sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#fffaf6' },
+                  '& .MuiOutlinedInput-root': { borderRadius: '18px', backgroundColor: '#F7FBFD' },
                   '& .MuiFormHelperText-root': { minHeight: '1.45rem', marginLeft: '0.15rem' },
                 }}
               />
             </div>
 
-            <div className="mt-6 rounded-[28px] border border-[#ead8d0] bg-white/70 p-5">
+            <div className="mt-6 rounded-[28px] border border-[#D6E1E5] bg-white/70 p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <Typography className="text-xs font-semibold uppercase tracking-[0.2em] text-[#ab5a43]">
+                  <Typography className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5D7E96]">
                     Route status
                   </Typography>
                   <Typography variant="h5" className="mt-3 text-[#181318]">
@@ -127,7 +127,7 @@ export default function PincodeServiceabilitySection({
                       : 'Verify both pincodes to confirm route coverage'}
                   </Typography>
                 </div>
-                <div className="grid h-14 w-14 place-items-center rounded-[20px] bg-[#f7efe5] text-[#ab5a43]">
+                <div className="grid h-14 w-14 place-items-center rounded-[20px] bg-[#EFF5F8] text-[#5D7E96]">
                   {bothServiceable ? (
                     <CheckCircleRoundedIcon sx={{ fontSize: 30 }} />
                   ) : (
@@ -136,7 +136,7 @@ export default function PincodeServiceabilitySection({
                 </div>
               </div>
 
-              <Typography className="mt-4 text-sm leading-7 sm:text-base" sx={{ color: '#635b63' }}>
+              <Typography className="mt-4 text-sm leading-7 sm:text-base" sx={{ color: '#5d6c78' }}>
                 {bothServiceable
                   ? 'You can now move straight to the calculator and compare the visible courier rates for this lane.'
                   : 'This separate check makes the route validation easier to read before the calculator runs.'}

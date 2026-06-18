@@ -105,7 +105,7 @@ export default function LandingHeader({ menuOpen, navigationLinks, onToggleMenu,
                 <Typography variant="h6" className="brand-heading text-xl">
                   ExpressoPro
                 </Typography>
-                <Typography className="text-sm leading-6" sx={{ color: '#6d6067' }}>
+                <Typography className="text-sm leading-6" sx={{ color: '#5d6c78' }}>
                   Smart shipping stack for modern ecommerce teams
                 </Typography>
               </div>
@@ -141,7 +141,7 @@ export default function LandingHeader({ menuOpen, navigationLinks, onToggleMenu,
                   borderRadius: '999px',
                   px: 2.2,
                   py: 1.15,
-                  borderColor: 'rgba(155, 49, 80, 0.16)',
+                  borderColor: 'rgba(118, 150, 172, 0.16)',
                   color: '#20181d',
                 }}
               >
@@ -156,8 +156,8 @@ export default function LandingHeader({ menuOpen, navigationLinks, onToggleMenu,
                   borderRadius: '999px',
                   px: 2.5,
                   py: 1.15,
-                  backgroundColor: '#181318',
-                  '&:hover': { backgroundColor: '#30262e' },
+                  backgroundColor: '#132436',
+                  '&:hover': { backgroundColor: '#1D3044' },
                 }}
               >
                 Get Started
@@ -205,7 +205,7 @@ export default function LandingHeader({ menuOpen, navigationLinks, onToggleMenu,
                 sx={{
                   borderRadius: '999px',
                   py: 1.15,
-                  borderColor: 'rgba(155, 49, 80, 0.18)',
+                  borderColor: 'rgba(118, 150, 172, 0.18)',
                   color: '#20181d',
                 }}
               >
@@ -219,8 +219,8 @@ export default function LandingHeader({ menuOpen, navigationLinks, onToggleMenu,
                 sx={{
                   borderRadius: '999px',
                   py: 1.15,
-                  backgroundColor: '#181318',
-                  '&:hover': { backgroundColor: '#30262e' },
+                  backgroundColor: '#132436',
+                  '&:hover': { backgroundColor: '#1D3044' },
                 }}
               >
                 Get Started

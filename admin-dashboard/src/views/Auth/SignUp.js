@@ -15,18 +15,18 @@ import {
 } from '@chakra-ui/react'
 
 function SignUp() {
-  const pageBg = useColorModeValue('#F7F2ED', '#161219')
-  const shellBg = useColorModeValue('rgba(255,250,244,0.9)', 'rgba(36, 9, 20, 0.82)')
-  const shellBorder = useColorModeValue('rgba(155,49,80,0.12)', 'rgba(231, 146, 174, 0.2)')
+  const pageBg = useColorModeValue('#F6FAFC', '#111C28')
+  const shellBg = useColorModeValue('rgba(247,251,253,0.9)', 'rgba(17, 28, 40, 0.82)')
+  const shellBorder = useColorModeValue('rgba(118,150,172,0.12)', 'rgba(167, 200, 210, 0.2)')
   const heroBg = useColorModeValue(
-    'linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(245,230,234,0.9) 100%)',
-    'linear-gradient(180deg, rgba(91,28,49,0.92) 0%, rgba(61,17,34,0.94) 100%)',
+    'linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(221,232,238,0.9) 100%)',
+    'linear-gradient(180deg, rgba(74,102,126,0.92) 0%, rgba(30,48,68,0.94) 100%)',
   )
   const textPrimary = useColorModeValue('#161219', 'whiteAlpha.900')
   const textSecondary = useColorModeValue('#6A616A', 'whiteAlpha.700')
   const inputBg = useColorModeValue('rgba(255,255,255,0.82)', 'rgba(24, 19, 24, 0.76)')
-  const inputBorder = useColorModeValue('rgba(155,49,80,0.18)', 'rgba(231, 146, 174, 0.2)')
-  const brand = useColorModeValue('#8A1F43', '#E48AA5')
+  const inputBorder = useColorModeValue('rgba(118,150,172,0.18)', 'rgba(167, 200, 210, 0.2)')
+  const brand = useColorModeValue('#7696AC', '#A7C8D2')
 
   return (
     <Flex
@@ -43,8 +43,8 @@ function SignUp() {
         position="absolute"
         inset="0"
         bgImage={useColorModeValue(
-          'radial-gradient(circle at 10% 8%, rgba(155,49,80,0.14) 0%, transparent 38%), radial-gradient(circle at 94% 2%, rgba(86,192,165,0.12) 0%, transparent 28%)',
-          'radial-gradient(circle at 10% 8%, rgba(231,146,174,0.18) 0%, transparent 38%), radial-gradient(circle at 94% 2%, rgba(86,192,165,0.12) 0%, transparent 28%)',
+          'radial-gradient(circle at 10% 8%, rgba(118,150,172,0.14) 0%, transparent 38%), radial-gradient(circle at 94% 2%, rgba(198,216,226,0.12) 0%, transparent 28%)',
+          'radial-gradient(circle at 10% 8%, rgba(167,200,210,0.18) 0%, transparent 38%), radial-gradient(circle at 94% 2%, rgba(198,216,226,0.12) 0%, transparent 28%)',
         )}
       />
 
@@ -74,7 +74,7 @@ function SignUp() {
           minH={{ base: '240px', lg: 'unset' }}
           position="relative"
           overflow="hidden"
-          borderRight={{ base: 'none', lg: '1px solid rgba(155,49,80,0.08)' }}
+          borderRight={{ base: 'none', lg: '1px solid rgba(118,150,172,0.08)' }}
         >
           <VStack align="flex-start" spacing={5} position="relative" zIndex="1">
             <Box
@@ -116,7 +116,7 @@ function SignUp() {
                 borderRadius="20px"
                 bg={useColorModeValue('rgba(255,255,255,0.68)', 'rgba(255,255,255,0.06)')}
                 border={`1px solid ${useColorModeValue(
-                  'rgba(155,49,80,0.14)',
+                  'rgba(118,150,172,0.14)',
                   'rgba(255,255,255,0.14)',
                 )}`}
               >
@@ -172,7 +172,7 @@ function SignUp() {
                     borderColor={inputBorder}
                     _focus={{
                       borderColor: 'brand.500',
-                      boxShadow: '0 0 0 4px rgba(155,49,80,0.12)',
+                      boxShadow: '0 0 0 4px rgba(118,150,172,0.12)',
                     }}
                   />
                 </FormControl>
@@ -188,7 +188,7 @@ function SignUp() {
                     borderColor={inputBorder}
                     _focus={{
                       borderColor: 'brand.500',
-                      boxShadow: '0 0 0 4px rgba(155,49,80,0.12)',
+                      boxShadow: '0 0 0 4px rgba(118,150,172,0.12)',
                     }}
                   />
                 </FormControl>
@@ -205,7 +205,7 @@ function SignUp() {
                   borderRadius="18px"
                   bg={inputBg}
                   borderColor={inputBorder}
-                  _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 4px rgba(155,49,80,0.12)' }}
+                  _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 4px rgba(118,150,172,0.12)' }}
                 />
               </FormControl>
 
@@ -220,7 +220,7 @@ function SignUp() {
                   borderRadius="18px"
                   bg={inputBg}
                   borderColor={inputBorder}
-                  _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 4px rgba(155,49,80,0.12)' }}
+                  _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 4px rgba(118,150,172,0.12)' }}
                 />
               </FormControl>
 

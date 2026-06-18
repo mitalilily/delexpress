@@ -85,12 +85,12 @@ export default function OperationsSections({
                 className="surface-panel rounded-[32px] p-5"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <Chip
-                    label={step.step}
-                    sx={{
-                      borderRadius: "999px",
-                      backgroundColor: "#fff1f5",
-                      color: "#9b3150",
+                    <Chip
+                      label={step.step}
+                      sx={{
+                        borderRadius: "999px",
+                      backgroundColor: "#EFF5F8",
+                      color: "#7696AC",
                       fontWeight: 700,
                     }}
                   />
@@ -116,10 +116,7 @@ export default function OperationsSections({
                   transition={{ duration: 0.45, delay: index * 0.05 }}
                   className="surface-panel rounded-[28px] p-4"
                 >
-                  <Typography
-                    className="text-sm font-semibold uppercase tracking-[0.18em]"
-                    sx={{ color: "#9b3150" }}
-                  >
+                  <Typography className="text-sm font-semibold uppercase tracking-[0.18em]" sx={{ color: "#7696AC" }}>
                     {step.step}
                   </Typography>
                   <Typography variant="h6" className="mt-3 text-lg">
@@ -190,8 +187,8 @@ export default function OperationsSections({
                           label={trackingMeta[index]?.note ?? "Shipment stage"}
                           sx={{
                             borderRadius: "999px",
-                            backgroundColor: "#f4ece5",
-                            color: "#8d5b46",
+                            backgroundColor: "#E6EEF3",
+                            color: "#5D7E96",
                             fontWeight: 700,
                           }}
                         />

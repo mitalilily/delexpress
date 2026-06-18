@@ -24,13 +24,13 @@ function SidebarResponsive(props) {
 
   const activeRoute = (routeName) => (location.pathname === routeName ? 'active' : '')
 
-  const drawerBg = useColorModeValue('#FFFDF9', '#240914')
-  const activeBg = useColorModeValue('rgba(138, 31, 67, 0.12)', 'rgba(228, 138, 165, 0.18)')
-  const hoverBg = useColorModeValue('rgba(138, 31, 67, 0.08)', 'rgba(255, 255, 255, 0.08)')
+  const drawerBg = useColorModeValue('#F6FAFC', '#111C28')
+  const activeBg = useColorModeValue('rgba(118, 150, 172, 0.12)', 'rgba(167, 200, 210, 0.18)')
+  const hoverBg = useColorModeValue('rgba(118, 150, 172, 0.08)', 'rgba(255, 255, 255, 0.08)')
   const textColor = useColorModeValue('gray.700', 'gray.100')
   const iconColor = useColorModeValue('gray.500', 'gray.300')
-  const activeTextColor = '#8A1F43'
-  const dividerColor = useColorModeValue('rgba(138, 31, 67, 0.12)', 'rgba(228, 138, 165, 0.18)')
+  const activeTextColor = '#7696AC'
+  const dividerColor = useColorModeValue('rgba(118, 150, 172, 0.12)', 'rgba(167, 200, 210, 0.18)')
 
   const createLinks = (routes) => {
     return routes
@@ -64,7 +64,7 @@ function SidebarResponsive(props) {
               borderRadius="12px"
               w="100%"
               border="1px solid"
-              borderColor={isActive ? 'rgba(138, 31, 67, 0.22)' : 'transparent'}
+              borderColor={isActive ? 'rgba(118, 150, 172, 0.22)' : 'transparent'}
               _hover={{ bg: hoverBg, transform: 'translateX(2px)' }}
               _active={{ bg: 'inherit', transform: 'none' }}
               _focus={{ boxShadow: 'none' }}
@@ -72,7 +72,7 @@ function SidebarResponsive(props) {
             >
               <Flex align="center">
                 <IconBox
-                  bg={isActive ? 'rgba(138, 31, 67, 0.14)' : 'rgba(138, 31, 67, 0.06)'}
+                  bg={isActive ? 'rgba(118, 150, 172, 0.14)' : 'rgba(118, 150, 172, 0.06)'}
                   color={isActive ? activeTextColor : iconColor}
                   h="30px"
                   w="30px"

@@ -68,7 +68,7 @@ export default function B2CForm({ formData, onChange, shipmentType }) {
             placeholder="Enter weight in grams"
             bg={useColorModeValue('white', 'rgba(15, 35, 66, 0.8)')}
             borderColor={sectionBorder}
-            _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 3px rgba(31,79,168,0.12)' }}
+            _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 3px rgba(118,150,172,0.12)' }}
           />
         </FormControl>
       </SimpleGrid>
@@ -76,21 +76,21 @@ export default function B2CForm({ formData, onChange, shipmentType }) {
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} mt={4}>
         <FormControl isRequired={shipmentType === 'b2c'}>
           <FormLabel color={labelColor}>Length (cm)</FormLabel>
-          <Input name="length" type="number" value={length} onChange={(e) => setLength(e.target.value)} placeholder="e.g. 20" bg={useColorModeValue('white', 'rgba(15, 35, 66, 0.8)')} borderColor={sectionBorder} _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 3px rgba(31,79,168,0.12)' }} />
+          <Input name="length" type="number" value={length} onChange={(e) => setLength(e.target.value)} placeholder="e.g. 20" bg={useColorModeValue('white', 'rgba(15, 35, 66, 0.8)')} borderColor={sectionBorder} _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 3px rgba(118,150,172,0.12)' }} />
         </FormControl>
         <FormControl isRequired={shipmentType === 'b2c'}>
           <FormLabel color={labelColor}>Breadth (cm)</FormLabel>
-          <Input name="breadth" type="number" value={breadth} onChange={(e) => setBreadth(e.target.value)} placeholder="e.g. 15" bg={useColorModeValue('white', 'rgba(15, 35, 66, 0.8)')} borderColor={sectionBorder} _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 3px rgba(31,79,168,0.12)' }} />
+          <Input name="breadth" type="number" value={breadth} onChange={(e) => setBreadth(e.target.value)} placeholder="e.g. 15" bg={useColorModeValue('white', 'rgba(15, 35, 66, 0.8)')} borderColor={sectionBorder} _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 3px rgba(118,150,172,0.12)' }} />
         </FormControl>
         <FormControl isRequired={shipmentType === 'b2c'}>
           <FormLabel color={labelColor}>Height (cm)</FormLabel>
-          <Input name="height" type="number" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="e.g. 10" bg={useColorModeValue('white', 'rgba(15, 35, 66, 0.8)')} borderColor={sectionBorder} _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 3px rgba(31,79,168,0.12)' }} />
+          <Input name="height" type="number" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="e.g. 10" bg={useColorModeValue('white', 'rgba(15, 35, 66, 0.8)')} borderColor={sectionBorder} _focus={{ borderColor: 'brand.500', boxShadow: '0 0 0 3px rgba(118,150,172,0.12)' }} />
         </FormControl>
       </SimpleGrid>
 
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={6}>
         <Flex bg={tileBg} p={4} borderRadius="12px" align="center" gap={3} borderWidth="1px" borderColor={sectionBorder}>
-          <TbRulerMeasure size={22} color="#8A1F43" />
+          <TbRulerMeasure size={22} color="#7696AC" />
           <Box>
             <Text fontSize="xs" color={subtitleColor} textTransform="uppercase" fontWeight="700">
               Volumetric Weight

@@ -29,7 +29,7 @@ const CustomModal = ({
   const headerBg = useColorModeValue('rgba(248, 250, 252, 0.9)', 'rgba(15, 28, 53, 0.9)')
   const borderColor = useColorModeValue('rgba(148, 163, 184, 0.34)', 'rgba(148, 163, 184, 0.2)')
   const textColor = useColorModeValue('gray.800', 'gray.100')
-  const closeBgHover = useColorModeValue('rgba(138, 31, 67, 0.1)', 'rgba(228, 138, 165, 0.2)')
+  const closeBgHover = useColorModeValue('rgba(118, 150, 172, 0.1)', 'rgba(167, 200, 210, 0.2)')
   const scrollbarThumb = useColorModeValue('rgba(100, 116, 139, 0.5)', 'rgba(148, 163, 184, 0.5)')
   const scrollbarThumbHover = useColorModeValue('rgba(71, 85, 105, 0.6)', 'rgba(148, 163, 184, 0.65)')
 

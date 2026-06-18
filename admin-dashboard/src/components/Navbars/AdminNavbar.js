@@ -42,8 +42,8 @@ export default function AdminNavbar(props) {
     'linear-gradient(110deg, rgba(36,9,20,0.94) 0%, rgba(61,17,34,0.92) 100%)',
   )
   const fixedNavbarBorder = useColorModeValue(
-    '1px solid rgba(138, 31, 67, 0.14)',
-    '1px solid rgba(228, 138, 165, 0.22)',
+    '1px solid rgba(118, 150, 172, 0.14)',
+    '1px solid rgba(167, 200, 210, 0.22)',
   )
 
   if (fixed === true && scrolled === true) {
@@ -116,7 +116,7 @@ export default function AdminNavbar(props) {
             display={{ base: 'none', md: 'block' }}
             borderRadius="10px"
             p="4px"
-            bg={useColorModeValue('rgba(138, 31, 67, 0.06)', 'rgba(228, 138, 165, 0.16)')}
+            bg={useColorModeValue('rgba(118, 150, 172, 0.06)', 'rgba(167, 200, 210, 0.16)')}
           />
 
           <Box>

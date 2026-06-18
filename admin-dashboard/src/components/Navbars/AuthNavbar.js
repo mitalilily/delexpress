@@ -18,7 +18,7 @@ export default function AuthNavbar(props) {
       )
   const navbarBorder = secondary
     ? 'none'
-    : useColorModeValue('1px solid rgba(138, 31, 67, 0.14)', '1px solid rgba(228, 138, 165, 0.22)')
+    : useColorModeValue('1px solid rgba(118, 150, 172, 0.14)', '1px solid rgba(167, 200, 210, 0.22)')
   const navbarShadow = secondary
     ? 'none'
     : useColorModeValue('0 14px 36px rgba(36, 9, 20, 0.12)', '0 14px 36px rgba(0, 0, 0, 0.42)')
