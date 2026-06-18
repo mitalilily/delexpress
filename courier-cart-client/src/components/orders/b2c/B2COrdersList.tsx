@@ -41,6 +41,7 @@ import {
   useCreateReverseShipment,
   useRegenerateOrderDocuments,
   useRetryFailedManifest,
+  useShipNowOrder,
 } from '../../../hooks/Orders/useOrders'
 import { usePickupAddresses } from '../../../hooks/Pickup/usePickupAddresses'
 import { usePresignedDownloadMutation } from '../../../hooks/Uploads/usePresignedDownloadUrls'
@@ -56,6 +57,7 @@ import DataTable, { type Column } from '../../UI/table/DataTable'
 import TableSkeleton from '../../UI/table/TableSkeleton'
 import CustomSelect from '../../UI/inputs/CustomSelect'
 import ManifestPickupScheduleDialog from '../ManifestPickupScheduleDialog'
+import ShipNowDialog from '../ShipNowDialog'
 import {
   BULK_MANIFEST_LIMIT,
   downloadFile,
@@ -99,6 +101,11 @@ type PickupSchedulePayload = {
   pickup_time: string
 }
 
+type ShipNowPayload = PickupSchedulePayload & {
+  expected_package_count: number
+  pickup_address_id?: string
+}
+
 type ActionMenuAction =
   | 'view-details'
   | 'generate-manifest'
@@ -113,6 +120,7 @@ type ActionMenuAction =
   | 'select-courier'
   | 'reverse-shipment'
   | 'retry-manifest'
+  | 'ship-now'
 
 const getDefaultPickupDateInput = () => new Date().toISOString().split('T')[0]
 
@@ -513,6 +521,15 @@ const B2COrdersList = () => {
   const [pickupDialogDescription, setPickupDialogDescription] = useState('')
   const [pickupDialogDate, setPickupDialogDate] = useState(getDefaultPickupDateInput())
   const [pickupDialogTime, setPickupDialogTime] = useState(getDefaultPickupTimeInput())
+  const [shipNowDialogOpen, setShipNowDialogOpen] = useState(false)
+  const [shipNowDialogTitle, setShipNowDialogTitle] = useState('Ship Now')
+  const [shipNowDialogDescription, setShipNowDialogDescription] = useState('')
+  const [shipNowCourierLabel, setShipNowCourierLabel] = useState('Courier')
+  const [shipNowRequiresPickupSchedule, setShipNowRequiresPickupSchedule] = useState(false)
+  const [shipNowPickupDate, setShipNowPickupDate] = useState(getDefaultPickupDateInput())
+  const [shipNowPickupTime, setShipNowPickupTime] = useState(getDefaultPickupTimeInput())
+  const [shipNowPackageCount, setShipNowPackageCount] = useState('1')
+  const [shipNowPickupAddressId, setShipNowPickupAddressId] = useState('')
   const [shopifyOrderForCourier, setShopifyOrderForCourier] = useState<B2COrder | null>(null)
   const [detailOrder, setDetailOrder] = useState<B2COrder | null>(null)
   const [actionMenuAnchor, setActionMenuAnchor] = useState<HTMLElement | null>(null)
@@ -522,6 +539,7 @@ const B2COrdersList = () => {
   const pickupDialogResolverRef = useRef<((value: PickupSchedulePayload | null) => void) | null>(
     null,
   )
+  const shipNowDialogResolverRef = useRef<((value: ShipNowPayload | null) => void) | null>(null)
   const [filters, setFilters] = useState<OrderFilters>({
     status: '',
     sortBy: 'created_at',
@@ -540,6 +558,7 @@ const B2COrdersList = () => {
   const { mutateAsync: retryFailedManifest, isPending: retryingManifest } = useRetryFailedManifest()
   const { mutateAsync: regenerateDocuments, isPending: isRegeneratingDocuments } =
     useRegenerateOrderDocuments()
+  const { mutateAsync: shipNowOrder, isPending: isShippingNow } = useShipNowOrder()
   const queryClient = useQueryClient()
   const { mutateAsync: presignDownloads } = usePresignedDownloadMutation()
   const { data: couriers } = useAllCouriersWithDetails()
@@ -588,6 +607,51 @@ const B2COrdersList = () => {
     setPickupDialogOpen(false)
     pickupDialogResolverRef.current?.(value)
     pickupDialogResolverRef.current = null
+  }
+
+  const requestShipNowDetails = (order: B2COrder, label: string) =>
+    new Promise<ShipNowPayload | null>((resolve) => {
+      const details = parsePickupDetails(order.pickup_details)
+      const initialDate =
+        typeof details?.pickup_date === 'string' && details.pickup_date.trim()
+          ? details.pickup_date.slice(0, 10)
+          : getDefaultPickupDateInput()
+      const initialTimeRaw =
+        typeof details?.pickup_time === 'string' && details.pickup_time.trim()
+          ? details.pickup_time.trim()
+          : getDefaultPickupTimeInput()
+      const initialCount = Number(details?.expected_package_count ?? 1)
+      const initialPickupAddressId =
+        String(order.pickup_location_id || details?.pickup_address_id || '').trim() || ''
+
+      shipNowDialogResolverRef.current = resolve
+      setShipNowDialogTitle('Ship Now')
+      setShipNowDialogDescription(label)
+      setShipNowCourierLabel(String(order.courier_partner || order.integration_type || 'Courier'))
+      setShipNowRequiresPickupSchedule(true)
+      setShipNowPickupDate(initialDate)
+      setShipNowPickupTime(initialTimeRaw.slice(0, 5))
+      setShipNowPackageCount(String(Number.isFinite(initialCount) && initialCount > 0 ? initialCount : 1))
+      setShipNowPickupAddressId(initialPickupAddressId)
+      setShipNowDialogOpen(true)
+    })
+
+  const closeShipNowDialog = (value: ShipNowPayload | null) => {
+    setShipNowDialogOpen(false)
+    setShipNowRequiresPickupSchedule(false)
+    shipNowDialogResolverRef.current?.(value)
+    shipNowDialogResolverRef.current = null
+  }
+
+  const getOrderProviderKey = (row: B2COrder) =>
+    String(row.integration_type || row.courier_partner || '').trim().toLowerCase()
+
+  const isDelhiveryShipNow = (row: B2COrder) => getOrderProviderKey(row) === 'delhivery'
+
+  const canShipNow = (row: B2COrder) => {
+    const status = String(row.order_status || '').trim().toLowerCase()
+    if (['cancelled', 'delivered', 'rto_delivered'].includes(status)) return false
+    return true
   }
 
   /* ───────────── Handlers ───────────── */
@@ -700,6 +764,52 @@ const B2COrdersList = () => {
       orderId: String(order.id),
       ...(pickupSchedule || {}),
     })
+  }
+
+  const handleShipNow = async (order: B2COrder) => {
+    if (!order.id) return
+
+    const providerKey = getOrderProviderKey(order)
+    const requiresPickup = providerKey === 'delhivery'
+
+    const shipNowDetails =
+      requiresPickup
+        ? await requestShipNowDetails(
+            order,
+            `Set pickup date, time, count, and pickup address before triggering Delhivery pickup for ${order.order_number}.`,
+          )
+        : ({ expected_package_count: 1 } as ShipNowPayload)
+
+    if (requiresPickup && !shipNowDetails) {
+      toast.open({
+        message: `Ship Now cancelled for ${order.order_number} before pickup confirmation.`,
+        severity: 'info',
+      })
+      return
+    }
+
+    try {
+      await shipNowOrder({
+        orderId: String(order.id),
+        ...(shipNowDetails || { expected_package_count: 1 }),
+      })
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['b2cOrdersByUser'] }),
+        queryClient.invalidateQueries({ queryKey: ['orders'] }),
+      ])
+
+      toast.open({
+        message: requiresPickup
+          ? `Pickup request submitted for ${order.order_number} and documents regenerated.`
+          : `Label regenerated for ${order.order_number}.`,
+        severity: 'success',
+      })
+    } catch (error) {
+      console.error('Ship now failed for order:', order.order_number, error)
+      const message = getActionableErrorMessage(error, `Ship Now failed for ${order.order_number}.`)
+      toast.open({ message, severity: 'error' })
+    }
   }
 
   const handleApplyFilters = (appliedFilters: OrderFilters) => {
@@ -1238,6 +1348,11 @@ const B2COrdersList = () => {
       return
     }
 
+    if (action === 'ship-now') {
+      await handleShipNow(row)
+      return
+    }
+
     if (action === 'select-courier') {
       setShopifyOrderForCourier(row)
       return
@@ -1694,6 +1809,19 @@ const B2COrdersList = () => {
               </ListItemIcon>
               {syncingStatusOrderId === actionMenuOrder.id ? 'Syncing Live Status...' : 'Sync Live Status'}
             </MenuItem>
+            <MenuItem
+              disabled={
+                !canShipNow(actionMenuOrder) ||
+                (isDelhiveryShipNow(actionMenuOrder) && !String(actionMenuOrder.awb_number || '').trim()) ||
+                isShippingNow
+              }
+              onClick={() => void runActionMenuAction('ship-now')}
+            >
+              <ListItemIcon sx={{ minWidth: 34 }}>
+                <MdLocalShipping size={18} />
+              </ListItemIcon>
+              {isShippingNow ? 'Shipping Now...' : 'Ship Now'}
+            </MenuItem>
             {(isShopifySyncedOrderReadyForCourier(actionMenuOrder) ||
               (actionMenuOrder.order_status || '').toLowerCase() === 'delivered' ||
               (String(actionMenuOrder.order_status || '').toLowerCase() === 'manifest_failed' &&
@@ -1796,6 +1924,32 @@ const B2COrdersList = () => {
           closePickupDialog({
             pickup_date: pickupDialogDate,
             pickup_time: normalizePickupTime(pickupDialogTime),
+          })
+        }
+      />
+
+      <ShipNowDialog
+        open={shipNowDialogOpen}
+        title={shipNowDialogTitle}
+        courierLabel={shipNowCourierLabel}
+        description={shipNowDialogDescription}
+        requiresPickupSchedule={shipNowRequiresPickupSchedule}
+        pickupDate={shipNowPickupDate}
+        pickupTime={shipNowPickupTime}
+        packageCount={shipNowPackageCount}
+        pickupAddressId={shipNowPickupAddressId}
+        pickupAddresses={warehouses?.pickupAddresses || []}
+        onPickupDateChange={setShipNowPickupDate}
+        onPickupTimeChange={setShipNowPickupTime}
+        onPackageCountChange={setShipNowPackageCount}
+        onPickupAddressIdChange={setShipNowPickupAddressId}
+        onCancel={() => closeShipNowDialog(null)}
+        onConfirm={() =>
+          closeShipNowDialog({
+            pickup_date: shipNowPickupDate,
+            pickup_time: normalizePickupTime(shipNowPickupTime),
+            expected_package_count: Math.max(1, Number(shipNowPackageCount) || 1),
+            pickup_address_id: shipNowPickupAddressId || undefined,
           })
         }
       />

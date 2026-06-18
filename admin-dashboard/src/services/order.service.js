@@ -94,6 +94,24 @@ export async function regenerateAdminOrderDocuments(
   }
 }
 
+export async function shipNowAdminOrder(
+  orderId,
+  { pickup_date, pickup_time, expected_package_count, pickup_address_id } = {},
+) {
+  try {
+    const response = await api.post(`/admin/orders/${orderId}/ship-now`, {
+      pickup_date,
+      pickup_time,
+      expected_package_count,
+      pickup_address_id,
+    })
+    return response.data
+  } catch (error) {
+    console.error('Error processing ship now request:', error.response?.data || error.message)
+    throw error
+  }
+}
+
 export async function addManualNdrToOrder(
   orderId,
   { status = 'ndr', reason, remarks, attemptNo } = {},

@@ -28,6 +28,7 @@ import {
 import {
   useCancelOrderMutation,
   useRegenerateOrderDocumentsMutation,
+  useShipNowOrderMutation,
   useUpdateOrderStatusMutation,
 } from 'hooks/useOrders'
 import { useMemo, useState } from 'react'
@@ -66,11 +67,19 @@ const OrdersTable = ({
     remarks: '',
     attemptNo: '1',
   })
+  const shipNowModal = useDisclosure()
+  const [shipNowOrder, setShipNowOrder] = useState(null)
+  const [shipNowForm, setShipNowForm] = useState({
+    pickupDate: '',
+    pickupTime: '',
+    packageCount: '1',
+  })
   const history = useHistory()
   const toast = useToast()
   const { mutateAsync: cancelOrderMutation, isPending: isCancelling } = useCancelOrderMutation()
   const { mutateAsync: regenerateDocuments, isPending: isRegenerating } =
     useRegenerateOrderDocumentsMutation()
+  const { mutateAsync: shipNowMutation, isPending: isShippingNow } = useShipNowOrderMutation()
   const { mutateAsync: updateOrderStatus, isPending: isUpdatingStatus } =
     useUpdateOrderStatusMutation()
 
@@ -105,6 +114,92 @@ const OrdersTable = ({
     () => new Set(['delhivery']),
     [],
   )
+
+  const getProviderKey = (order) =>
+    String(order?.integration_type || order?.courier_partner || '').trim().toLowerCase()
+
+  const isDelhiveryOrder = (order) => getProviderKey(order) === 'delhivery'
+
+  const canShipNow = (order) => {
+    if (String(order?.type || '').toLowerCase() === 'b2b') return false
+    const status = String(order?.order_status || '').trim().toLowerCase()
+    return !['cancelled', 'delivered', 'rto_delivered'].includes(status)
+  }
+
+  const openShipNowModal = (order) => {
+    const pickup = order?.pickup_details || {}
+    const initialDate =
+      typeof pickup.pickup_date === 'string' && pickup.pickup_date.trim()
+        ? pickup.pickup_date.slice(0, 10)
+        : new Date().toISOString().split('T')[0]
+    const initialTime =
+      typeof pickup.pickup_time === 'string' && pickup.pickup_time.trim()
+        ? pickup.pickup_time.slice(0, 5)
+        : new Date(Date.now() + 60 * 60 * 1000).toTimeString().slice(0, 5)
+
+    setShipNowOrder(order)
+    setShipNowForm({
+      pickupDate: initialDate,
+      pickupTime: initialTime,
+      packageCount: String(Number(pickup.expected_package_count || 1) || 1),
+    })
+    shipNowModal.onOpen()
+  }
+
+  const closeShipNowModal = () => {
+    shipNowModal.onClose()
+    setShipNowOrder(null)
+  }
+
+  const handleSubmitShipNow = async () => {
+    if (!shipNowOrder?.id) return
+
+    const providerKey = getProviderKey(shipNowOrder)
+    const requiresPickup = providerKey === 'delhivery'
+    const packageCount = Math.max(1, Number(shipNowForm.packageCount) || 1)
+
+    if (requiresPickup && (!shipNowForm.pickupDate || !shipNowForm.pickupTime)) {
+      toast({
+        title: 'Pickup schedule required',
+        description: 'Pick a valid pickup date and time before shipping.',
+        status: 'warning',
+        duration: 4000,
+        isClosable: true,
+      })
+      return
+    }
+
+    try {
+      await shipNowMutation({
+        orderId: shipNowOrder.id,
+        pickup_date: requiresPickup ? shipNowForm.pickupDate : undefined,
+        pickup_time: requiresPickup ? shipNowForm.pickupTime : undefined,
+        expected_package_count: packageCount,
+      })
+
+      toast({
+        title: 'Ship Now completed',
+        description: requiresPickup
+          ? `Pickup requested for order ${shipNowOrder.order_number || shipNowOrder.id} and documents regenerated.`
+          : `Label regenerated for order ${shipNowOrder.order_number || shipNowOrder.id}.`,
+        status: 'success',
+        duration: 4000,
+        isClosable: true,
+      })
+      closeShipNowModal()
+      if (onRefresh) onRefresh()
+    } catch (error) {
+      const message =
+        error?.response?.data?.message || error?.message || 'Failed to process ship now request.'
+      toast({
+        title: 'Ship Now failed',
+        description: message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    }
+  }
 
   const captions = [
     'Order ID',
@@ -461,6 +556,13 @@ const OrdersTable = ({
           >
             Regenerate Label & Invoice
           </MenuItem>
+          <MenuItem
+            icon={<FiTruck />}
+            onClick={() => openShipNowModal(order)}
+            isDisabled={!canShipNow(order) || (isDelhiveryOrder(order) && !getOrderAwbNumber(order))}
+          >
+            Ship Now
+          </MenuItem>
           <MenuItem icon={<FiRefreshCw />} onClick={() => openStatusModal(order)}>
             Change Status
           </MenuItem>
@@ -606,6 +708,98 @@ const OrdersTable = ({
               isDisabled={!statusForm.status || (isNdrStatus && !statusForm.reason.trim())}
             >
               Save Status
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={shipNowModal.isOpen} onClose={closeShipNowModal} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Ship Now</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Stack spacing={4}>
+              <FormControl>
+                <FormLabel>Order</FormLabel>
+                <Input
+                  value={`${shipNowOrder?.order_number || '—'}${getOrderAwbNumber(shipNowOrder) ? ` • ${getOrderAwbNumber(shipNowOrder)}` : ''}`}
+                  isReadOnly
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Courier</FormLabel>
+                <Input
+                  value={getOrderCourierDisplayName(shipNowOrder) || '—'}
+                  isReadOnly
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Pickup Flow</FormLabel>
+                <Input
+                  value={
+                    isDelhiveryOrder(shipNowOrder)
+                      ? 'Delhivery pickup request + documents'
+                      : 'Label only'
+                  }
+                  isReadOnly
+                />
+              </FormControl>
+              <FormControl isRequired>
+                <FormLabel>Number of Items</FormLabel>
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={shipNowForm.packageCount}
+                  onChange={(e) =>
+                    setShipNowForm((prev) => ({ ...prev, packageCount: e.target.value }))
+                  }
+                />
+              </FormControl>
+              {isDelhiveryOrder(shipNowOrder) && (
+                <>
+                  <FormControl isRequired>
+                    <FormLabel>Pickup Date</FormLabel>
+                    <Input
+                      type="date"
+                      min={new Date().toISOString().split('T')[0]}
+                      value={shipNowForm.pickupDate}
+                      onChange={(e) =>
+                        setShipNowForm((prev) => ({ ...prev, pickupDate: e.target.value }))
+                      }
+                    />
+                  </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel>Pickup Time</FormLabel>
+                    <Input
+                      type="time"
+                      value={shipNowForm.pickupTime}
+                      onChange={(e) =>
+                        setShipNowForm((prev) => ({ ...prev, pickupTime: e.target.value }))
+                      }
+                    />
+                  </FormControl>
+                </>
+              )}
+              <Badge colorScheme={isDelhiveryOrder(shipNowOrder) ? 'orange' : 'green'} alignSelf="flex-start">
+                {isDelhiveryOrder(shipNowOrder)
+                  ? 'Pickup will be requested before label and invoice generation'
+                  : 'Pickup request is not required for this courier'}
+              </Badge>
+            </Stack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={closeShipNowModal}>
+              Cancel
+            </Button>
+            <Button
+              colorScheme="blue"
+              onClick={handleSubmitShipNow}
+              isLoading={isShippingNow}
+              isDisabled={!shipNowOrder?.id || !shipNowForm.packageCount || Number(shipNowForm.packageCount) < 1}
+            >
+              Continue
             </Button>
           </ModalFooter>
         </ModalContent>

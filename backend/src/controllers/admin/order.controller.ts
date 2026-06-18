@@ -4,6 +4,7 @@ import {
   getAllOrdersServiceAdmin,
   regenerateOrderDocumentsServiceAdmin,
 } from '../../models/services/adminOrders.service'
+import { shipNowOrderService } from '../../models/services/orderShipNow.service'
 import { db } from '../../models/client'
 import { recordNdrEvent } from '../../models/services/ndr.service'
 import { b2c_orders } from '../../models/schema/b2cOrders'
@@ -203,6 +204,43 @@ export const updateOrderStatusControllerAdmin = async (req: any, res: Response) 
     return res.status(400).json({
       success: false,
       message: error?.message || 'Failed to update order status',
+    })
+  }
+}
+
+export const shipNowOrderControllerAdmin = async (req: any, res: Response) => {
+  try {
+    const orderId = String(req.params.id || '').trim()
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: 'Order ID is required' })
+    }
+
+    const result = await shipNowOrderService({
+      orderId,
+      pickupDate: req.body?.pickup_date ?? req.body?.pickupDate ?? undefined,
+      pickupTime: req.body?.pickup_time ?? req.body?.pickupTime ?? undefined,
+      expectedPackageCount:
+        req.body?.expected_package_count ??
+        req.body?.expectedPackageCount ??
+        req.body?.package_count ??
+        req.body?.packageCount ??
+        undefined,
+      pickupAddressId:
+        req.body?.pickup_address_id ?? req.body?.pickupAddressId ?? req.body?.pickup_location_id ?? undefined,
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: result.pickupRequested
+        ? 'Pickup request submitted and documents generated successfully'
+        : 'Label regenerated successfully',
+      data: result,
+    })
+  } catch (error: any) {
+    console.error('Error processing ship now request:', error?.message || error)
+    return res.status(typeof error?.statusCode === 'number' ? error.statusCode : 400).json({
+      success: false,
+      message: error?.message || 'Failed to process ship now request',
     })
   }
 }

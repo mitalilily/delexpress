@@ -4,6 +4,7 @@ import {
   cancelAdminOrder,
   fetchAllOrders,
   regenerateAdminOrderDocuments,
+  shipNowAdminOrder,
   updateAdminOrderStatus,
 } from 'services/order.service'
 
@@ -25,6 +26,24 @@ export const useRegenerateOrderDocumentsMutation = () => {
   return useMutation({
     mutationFn: ({ orderId, regenerateLabel = true, regenerateInvoice = true }) =>
       regenerateAdminOrderDocuments(orderId, { regenerateLabel, regenerateInvoice }),
+  })
+}
+
+export const useShipNowOrderMutation = () => {
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      pickup_date,
+      pickup_time,
+      expected_package_count,
+      pickup_address_id,
+    }) =>
+      shipNowAdminOrder(orderId, {
+        pickup_date,
+        pickup_time,
+        expected_package_count,
+        pickup_address_id,
+      }),
   })
 }
 

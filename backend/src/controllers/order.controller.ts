@@ -15,6 +15,7 @@ import {
 } from '../models/services/shiprocket.service'
 import { getMerchantSafeOperationalError } from '../utils/merchantErrorMessages'
 import { regenerateOrderDocumentsServiceAdmin } from '../models/services/adminOrders.service'
+import { shipNowOrderService } from '../models/services/orderShipNow.service'
 
 export const createB2CShipmentController = async (req: any, res: Response) => {
   try {
@@ -356,6 +357,50 @@ export const regenerateOrderDocumentsController = async (req: any, res: Response
     return res.status(statusCode).json({
       success: false,
       message: error?.message || 'Failed to regenerate order documents',
+    })
+  }
+}
+
+export const shipNowOrderController = async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.sub
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' })
+    }
+
+    const orderId = String(req.params.orderId || '').trim()
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: 'Order ID is required' })
+    }
+
+    const result = await shipNowOrderService({
+      orderId,
+      expectedUserId: userId,
+      pickupDate: req.body?.pickup_date ?? req.body?.pickupDate ?? undefined,
+      pickupTime: req.body?.pickup_time ?? req.body?.pickupTime ?? undefined,
+      expectedPackageCount:
+        req.body?.expected_package_count ??
+        req.body?.expectedPackageCount ??
+        req.body?.package_count ??
+        req.body?.packageCount ??
+        undefined,
+      pickupAddressId:
+        req.body?.pickup_address_id ?? req.body?.pickupAddressId ?? req.body?.pickup_location_id ?? undefined,
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: result.pickupRequested
+        ? 'Pickup request submitted and documents generated successfully'
+        : 'Label regenerated successfully',
+      data: result,
+    })
+  } catch (error: any) {
+    console.error('Ship now error:', error)
+    const statusCode = typeof error?.statusCode === 'number' ? error.statusCode : 500
+    return res.status(statusCode).json({
+      success: false,
+      message: error?.message || 'Failed to process ship now request.',
     })
   }
 }

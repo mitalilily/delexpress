@@ -262,6 +262,20 @@ export const regenerateOrderDocumentsService = async (
   return res.data
 }
 
+export interface ShipNowOrderParams {
+  pickup_date?: string
+  pickup_time?: string
+  expected_package_count?: number
+  pickup_address_id?: string
+}
+
+export const shipNowOrderService = async (orderId: string, payload: ShipNowOrderParams = {}) => {
+  const res = await axiosInstance.post(`/orders/${orderId}/ship-now`, payload, {
+    timeout: 0,
+  })
+  return res.data
+}
+
 interface FetchOrdersParams {
   page?: number
   limit?: number

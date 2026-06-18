@@ -8,6 +8,7 @@ import {
   generateManifestService,
   regenerateOrderDocumentsService,
   retryFailedManifestService,
+  shipNowOrderService,
   type CreateB2BShipmentParams,
   type CreateShipmentParams,
   type GenerateManifestParams,
@@ -169,6 +170,37 @@ export const useRegenerateOrderDocuments = () => {
       const message =
         error?.response?.data?.message || error?.message || 'Failed to regenerate documents'
       toast.open({ message, severity: 'error' })
+    },
+  })
+}
+
+export const useShipNowOrder = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      pickup_date,
+      pickup_time,
+      expected_package_count,
+      pickup_address_id,
+    }: {
+      orderId: string
+      pickup_date?: string
+      pickup_time?: string
+      expected_package_count?: number
+      pickup_address_id?: string
+    }) =>
+      shipNowOrderService(orderId, {
+        pickup_date,
+        pickup_time,
+        expected_package_count,
+        pickup_address_id,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['b2cOrdersByUser'] })
+      queryClient.invalidateQueries({ queryKey: ['b2bOrdersByUser'] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
     },
   })
 }
