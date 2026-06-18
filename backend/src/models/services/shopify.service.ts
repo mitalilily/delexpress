@@ -15,6 +15,7 @@ type SyncResult = {
   created: number
   updated: number
   skipped: number
+  fulfillmentSynced?: number
 }
 
 type FulfillTrigger =
@@ -160,6 +161,9 @@ const shouldAttemptFulfillment = (orderStatus: unknown, trigger: unknown) => {
   const orderLevel = statusPriority[String(orderStatus || '').toLowerCase()] || 0
   return orderLevel >= triggerPriority[normalizedTrigger]
 }
+
+const isShopifyFulfillmentEligibleStatus = (orderStatus: unknown) =>
+  (statusPriority[String(orderStatus || '').toLowerCase()] || 0) >= statusPriority.booked
 
 const shouldNotifyCustomerOnFulfill = (settings: any) => {
   const value = String(
@@ -518,6 +522,33 @@ const upsertFromShopifyOrder = async (
   return 'created' as const
 }
 
+const backfillShopifyFulfillmentForStore = async (
+  store: ShopifyStore,
+  tx: any = db,
+): Promise<number> => {
+  const candidateOrders = await tx
+    .select()
+    .from(b2c_orders)
+    .where(
+      and(
+        eq(b2c_orders.user_id, store.userId),
+        sql`${b2c_orders.order_id} LIKE ${`shopify_${String(store.id)}_%`}`,
+      ),
+    )
+
+  let syncedCount = 0
+
+  for (const order of candidateOrders) {
+    if (!trimText(order?.awb_number)) continue
+    if (!isShopifyFulfillmentEligibleStatus(order?.order_status)) continue
+
+    await syncShopifyStatusForLocalOrder(order, tx)
+    syncedCount += 1
+  }
+
+  return syncedCount
+}
+
 export const syncShopifyOrdersForUser = async (
   userId: string,
   limit = 50,
@@ -531,7 +562,7 @@ export const syncShopifyOrdersForUser = async (
     throw new Error('No connected Shopify store found for this user')
   }
 
-  const result: SyncResult = { created: 0, updated: 0, skipped: 0 }
+  const result: SyncResult = { created: 0, updated: 0, skipped: 0, fulfillmentSynced: 0 }
 
   for (const store of storesToSync) {
     const orders = await fetchShopifyOrders(store as ShopifyStore, limit)
@@ -540,6 +571,8 @@ export const syncShopifyOrdersForUser = async (
       const state = await upsertFromShopifyOrder(store as ShopifyStore, order, settings, tx)
       result[state] += 1
     }
+    result.fulfillmentSynced =
+      (result.fulfillmentSynced || 0) + (await backfillShopifyFulfillmentForStore(store as ShopifyStore, tx))
   }
 
   return result

@@ -123,9 +123,10 @@ const UserConnectedChannels = () => {
               onClick={() => {
                 if (syncingShopify) return
                 syncShopifyOrders({ limit: 100, storeId: row?.id }, {
-                  onSuccess: (data: { created: number; updated: number; message: string }) => {
+                  onSuccess: (data: { created: number; updated: number; fulfillmentSynced?: number; message: string }) => {
+                    const fulfillmentSynced = data?.fulfillmentSynced ?? 0
                     toast.open({
-                      message: `Shopify sync complete: ${data?.created ?? 0} created, ${data?.updated ?? 0} updated`,
+                      message: `Shopify sync complete: ${data?.created ?? 0} created, ${data?.updated ?? 0} updated${fulfillmentSynced ? `, ${fulfillmentSynced} fulfillment(s) repaired` : ''}`,
                       severity: 'success',
                     })
                   },
