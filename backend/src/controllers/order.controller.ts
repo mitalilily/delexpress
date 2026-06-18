@@ -401,7 +401,7 @@ export const shipNowOrderController = async (req: any, res: Response) => {
     const rawMessage = error?.response?.data?.message || error?.message || ''
     const errorMessage = getMerchantSafeOperationalError(
       rawMessage,
-      'Please contact your admin to add wallet balance and retry.',
+      'Please contact your admin.',
     )
     return res.status(statusCode).json({
       success: false,
