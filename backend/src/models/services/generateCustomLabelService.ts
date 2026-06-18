@@ -248,6 +248,24 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
   const showPlatformBranding = Boolean(settings.powered_by?.toString().trim())
   const charLimit = Math.max(10, Number(settings.char_limit ?? 25))
   const maxItems = Math.max(1, Number(settings.max_items ?? 3))
+  const toAmount = (value: unknown) => {
+    const n = Number(value ?? 0)
+    return Number.isFinite(n) ? n : 0
+  }
+  const customerFacingSubtotal = products.reduce((sum: number, p: any) => {
+    const qty = toAmount(p?.qty ?? p?.quantity ?? 1)
+    const price = toAmount(p?.price)
+    const discount = toAmount(p?.discount)
+    return sum + Math.max(0, price * qty - discount)
+  }, 0)
+  const customerFacingTotal = Math.max(
+    customerFacingSubtotal +
+      toAmount(order.shipping_charges) +
+      toAmount(order.transaction_fee) +
+      toAmount(order.gift_wrap) -
+      (toAmount(order.discount) + toAmount(order.prepaid_amount)),
+    0,
+  )
 
   // For Delhivery, prefer barcode_img coming from provider APIs (if stored on order);
   // otherwise fall back to a locally generated AWB barcode.
@@ -307,11 +325,6 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
     showInvoiceBarcode && order.invoice_number
       ? await generateBarcodeBase64(order.invoice_number)
       : null
-
-  const toAmount = (value: unknown) => {
-    const n = Number(value ?? 0)
-    return Number.isFinite(n) ? n : 0
-  }
   const formatCurrency = (value: number | string | null | undefined) =>
     `Rs. ${toAmount(value).toFixed(2)}`
 
@@ -581,7 +594,7 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
     infoLineParts.push(`Invoice: ${order.invoice_number}`)
   if (showOrderDate && order.order_date) infoLineParts.push(`Order Dt: ${order.order_date}`)
   if (showInvoiceDate && order.invoice_date) infoLineParts.push(`Inv Dt: ${order.invoice_date}`)
-  if (showDeclaredValue) infoLineParts.push(`Declared: ${formatCurrency(order.order_amount)}`)
+  if (showDeclaredValue) infoLineParts.push(`Declared: ${formatCurrency(customerFacingTotal)}`)
 
   if (infoLineParts.length > 0) {
     pageContent.push({
@@ -664,17 +677,14 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
   }
 
   if (showOrderValueSection) {
-    const productValue = products.reduce((sum: number, p: any) => {
-      const qty = toAmount(p?.qty ?? p?.quantity ?? 1)
-      const price = toAmount(p?.price)
-      const discount = toAmount(p?.discount)
-      return sum + Math.max(0, price * qty - discount)
-    }, 0)
-    const normalizedOrderValue = toAmount(order.order_amount)
-    const orderValue = normalizedOrderValue > 0 ? normalizedOrderValue : productValue
+    const orderValue =
+      customerFacingTotal > 0
+        ? customerFacingTotal
+        : toAmount(order.order_amount) > 0
+          ? toAmount(order.order_amount)
+          : customerFacingSubtotal
     const codCollectibleRaw = toAmount(order.cod_amount ?? order.order_amount)
-    const codCollectible =
-      paymentType === 'cod' ? (codCollectibleRaw > 0 ? codCollectibleRaw : orderValue) : 0
+    const codCollectible = paymentType === 'cod' ? (codCollectibleRaw > 0 ? codCollectibleRaw : orderValue) : 0
 
     const summaryParts = [`Order Value: ${formatCurrency(orderValue)}`]
     summaryParts.push(
