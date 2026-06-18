@@ -25,7 +25,7 @@ import React, { useEffect, useRef } from 'react'
 import { MdExpandLess, MdExpandMore } from 'react-icons/md'
 import CustomCheckbox from '../inputs/CustomCheckbox'
 
-const BRAND_NAVY = '#0D3B8E'
+const BRAND_NAVY = '#5D7E96'
 const BRAND_ORANGE = '#FF7A00'
 const BRAND_GRADIENT = `linear-gradient(135deg, ${BRAND_NAVY} 0%, ${BRAND_ORANGE} 100%)`
 

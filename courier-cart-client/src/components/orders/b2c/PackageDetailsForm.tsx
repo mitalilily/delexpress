@@ -11,7 +11,7 @@ import { TbPercentage } from 'react-icons/tb'
 import CustomInput from '../../UI/inputs/CustomInput'
 import type { B2CFormData } from './B2COrderForm'
 
-const ACCENT = '#0D3B8E'
+const ACCENT = '#5D7E96'
 
 interface PackageDetailsFormProps {
   control: Control<B2CFormData>

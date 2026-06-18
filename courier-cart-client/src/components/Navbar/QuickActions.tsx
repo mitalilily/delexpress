@@ -8,7 +8,7 @@ import { TbTruckDelivery } from 'react-icons/tb'
 import { useNavigate } from 'react-router-dom'
 import { useMerchantReadiness } from '../../hooks/useMerchantReadiness'
 
-const PLUM = '#8A1F43'
+const PLUM = '#7696AC'
 const MINT = '#56C0A5'
 
 const QuickActions = () => {

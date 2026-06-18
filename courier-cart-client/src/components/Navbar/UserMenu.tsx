@@ -20,7 +20,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/auth/AuthContext'
 import { usePresignedDownloadUrls } from '../../hooks/Uploads/usePresignedDownloadUrls'
 
-const DE_BLUE = '#8A1F43'
+const DE_BLUE = '#7696AC'
 const TEXT_PRIMARY = '#161219'
 
 const getInitials = (fullName?: string) => {

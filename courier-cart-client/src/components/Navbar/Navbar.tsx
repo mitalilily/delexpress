@@ -16,7 +16,7 @@ interface NavbarProps {
 }
 
 const TEXT_PRIMARY = '#161219'
-const PLUM = '#8A1F43'
+const PLUM = '#7696AC'
 
 export default function Navbar({ handleDrawerToggle, pinned }: NavbarProps) {
   const theme = useTheme()

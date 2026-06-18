@@ -52,7 +52,7 @@ const widgetComponents: Record<string, React.ComponentType<any>> = {
 
 export default function Dashboard() {
   const theme = useTheme()
-  const DE_BLUE = '#0052CC'
+  const DE_BLUE = '#7696AC'
   // const DE_AMBER = '#FFAB00'
   const { data: stats, isLoading, error, refetch, isRefetching } = useMerchantDashboardStats()
   const { data: preferences } = useDashboardPreferences()
@@ -121,7 +121,7 @@ export default function Dashboard() {
           <Typography color="text.secondary" sx={{ mb: 3 }}>
             We encountered an error while syncing your command center.
           </Typography>
-          <Button variant="contained" onClick={() => refetch()} sx={{ bgcolor: '#0052CC' }}>
+          <Button variant="contained" onClick={() => refetch()} sx={{ bgcolor: '#7696AC' }}>
             Retry Connection
           </Button>
         </Box>

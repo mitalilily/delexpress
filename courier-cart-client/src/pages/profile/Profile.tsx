@@ -7,7 +7,7 @@ import FullScreenLoader from '../../components/UI/loader/FullScreenLoader'
 
 type TopSection = 'user_profile' | 'company' | 'bank_details' | 'kyc_details'
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 const DE_AMBER = '#FFAB00'
 
 const sectionTabs: Array<{ label: string; value: TopSection; icon: React.ReactNode }> = [

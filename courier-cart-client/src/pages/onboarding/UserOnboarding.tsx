@@ -18,8 +18,8 @@ import type { UserInfoData } from '../../types/user.types'
 import { hasValidationErrors, validateOnboardingFields } from '../../utils/functions'
 import { initialFormData } from '../../utils/utility'
 
-const PLUM = '#8A1F43'
-const PLUM_DARK = '#5E1630'
+const PLUM = '#7696AC'
+const PLUM_DARK = '#4A667E'
 const MINT = '#56C0A5'
 const TEXT_PRIMARY = '#161219'
 

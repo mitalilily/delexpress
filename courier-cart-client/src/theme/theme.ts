@@ -1,8 +1,8 @@
 import { alpha, createTheme } from '@mui/material/styles'
 
-const DE_BLUE = '#8A1F43'
-const DE_BLUE_LIGHT = '#B65476'
-const DE_BLUE_DARK = '#5E1630'
+const DE_BLUE = '#7696AC'
+const DE_BLUE_LIGHT = '#A7C8D2'
+const DE_BLUE_DARK = '#4A667E'
 const DE_AMBER = '#56C0A5'
 const DE_AMBER_LIGHT = '#82D5C0'
 const DE_AMBER_DARK = '#2F8E77'

@@ -219,7 +219,7 @@ const DetailItem = ({ label, value }: { label: string; value: ReactNode }) => (
 
 const DetailSection = ({ title, children }: { title: string; children: ReactNode }) => (
   <Stack spacing={1.25}>
-    <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#0D3B8E', textTransform: 'uppercase' }}>
+    <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#5D7E96', textTransform: 'uppercase' }}>
       {title}
     </Typography>
     <Box
@@ -403,7 +403,7 @@ const ShipmentDetailsDialog = ({
           </DetailSection>
 
           <Stack spacing={1.25}>
-            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#0D3B8E', textTransform: 'uppercase' }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#5D7E96', textTransform: 'uppercase' }}>
               Products
             </Typography>
             {products.length ? (
@@ -450,7 +450,7 @@ const ShipmentDetailsDialog = ({
 
           <Divider />
           <Box>
-            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#0D3B8E', mb: 1 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#5D7E96', mb: 1 }}>
               Raw Available Order Data
             </Typography>
             <Box
@@ -1271,7 +1271,7 @@ const B2COrdersList = () => {
               border: 0,
               bgcolor: 'transparent',
               p: 0,
-              color: '#0D3B8E',
+              color: '#5D7E96',
               fontWeight: 800,
               fontSize: 13,
               cursor: 'pointer',
@@ -1295,7 +1295,7 @@ const B2COrdersList = () => {
           <Link
             href={`/tracking?awb=${encodeURIComponent(row.awb_number)}`}
             underline="hover"
-            sx={{ fontWeight: 800, color: '#0D3B8E', fontSize: 13 }}
+            sx={{ fontWeight: 800, color: '#5D7E96', fontSize: 13 }}
           >
             {compactId(row.awb_number, 18)}
           </Link>

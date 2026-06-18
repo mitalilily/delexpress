@@ -67,10 +67,10 @@ This file contains sensitive credentials. Store it securely and never commit it 
             startIcon={<MdDownload />}
             fullWidth
             sx={{
-              borderColor: '#0052CC',
-              color: '#0052CC',
+              borderColor: '#7696AC',
+              color: '#7696AC',
               '&:hover': {
-                borderColor: '#0052CC',
+                borderColor: '#7696AC',
                 bgcolor: 'rgba(0, 82, 204, 0.08)',
               },
             }}

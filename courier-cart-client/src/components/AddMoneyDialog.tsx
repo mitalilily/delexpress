@@ -24,11 +24,11 @@ import { useRechargeWallet } from '../hooks/useRechargeWallets'
 import { toast } from './UI/Toast'
 import CustomIconLoadingButton from './UI/button/CustomLoadingButton'
 
-const PLUM = '#8A1F43'
-const PLUM_DARK = '#5E1630'
+const PLUM = '#7696AC'
+const PLUM_DARK = '#4A667E'
 const MINT = '#56C0A5'
 const DE_BLUE = PLUM
-const BRAND_GRADIENT = `linear-gradient(135deg, ${PLUM} 0%, #C86B5E 58%, ${MINT} 100%)`
+const BRAND_GRADIENT = `linear-gradient(135deg, ${PLUM} 0%, #A7C8D2 58%, ${MINT} 100%)`
 
 interface AddMoneyDialogProps {
   open: boolean
@@ -104,11 +104,11 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
           borderRadius: { xs: 3, sm: 4 },
           p: 0,
           background: `
-            radial-gradient(420px 180px at 0% 0%, rgba(138, 31, 67, 0.10) 0%, transparent 72%),
+            radial-gradient(420px 180px at 0% 0%, rgba(118, 150, 172, 0.10) 0%, transparent 72%),
             radial-gradient(420px 180px at 100% 0%, rgba(86, 192, 165, 0.10) 0%, transparent 70%),
             linear-gradient(180deg, #FFFCF8 0%, #FFF7F1 100%)
           `,
-          border: '1px solid rgba(138, 31, 67, 0.14)',
+          border: '1px solid rgba(118, 150, 172, 0.14)',
           color: '#161219',
           boxShadow: '0 28px 64px rgba(22, 18, 25, 0.18)',
           overflow: 'hidden',
@@ -120,7 +120,7 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
           pt: 2.6,
           pb: 1.5,
           px: 2.5,
-          borderBottom: '1px solid rgba(138, 31, 67, 0.08)',
+          borderBottom: '1px solid rgba(118, 150, 172, 0.08)',
         }}
       >
         <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="center">

@@ -39,7 +39,7 @@ import { isActive } from '../../utils/functions'
 
 const TEXT_PRIMARY = '#161219'
 const TEXT_SECONDARY = '#6A616A'
-const DE_BLUE = '#8A1F43'
+const DE_BLUE = '#7696AC'
 const SURFACE = '#FFFDF9'
 const MINT = '#56C0A5'
 

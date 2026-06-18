@@ -42,7 +42,7 @@ const features = [
   },
 ]
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 const TEXT_PRIMARY = '#172B4D'
 const TEXT_SECONDARY = '#42526E'
 

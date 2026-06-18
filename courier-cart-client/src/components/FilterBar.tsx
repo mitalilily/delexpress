@@ -54,7 +54,7 @@ interface GlassFilterBarProps<T extends Record<string, any>> {
   appliedCount?: number
 }
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 const DE_AMBER = '#FFAB00'
 
 export const FilterBar = <T extends Record<string, any>>({
@@ -200,7 +200,7 @@ export const FilterBar = <T extends Record<string, any>>({
                   fontWeight: 700,
                   borderRadius: 1,
                   minWidth: 92,
-                  background: `linear-gradient(135deg, ${DE_BLUE} 0%, #2a5fbe 100%)`,
+                  background: `linear-gradient(135deg, ${DE_BLUE} 0%, #8FB5CC 100%)`,
                 }}
               >
                 Apply
@@ -363,7 +363,7 @@ export const FilterBar = <T extends Record<string, any>>({
                 variant="contained"
                 type="submit"
                 sx={{
-                  background: `linear-gradient(135deg, ${DE_BLUE} 0%, #2a5fbe 100%)`,
+                  background: `linear-gradient(135deg, ${DE_BLUE} 0%, #8FB5CC 100%)`,
                   color: '#FFFFFF',
                   fontWeight: 700,
                   textTransform: 'none',

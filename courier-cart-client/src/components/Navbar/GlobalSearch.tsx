@@ -22,7 +22,7 @@ import { useNavigate } from 'react-router-dom'
 import type { GlobalSearchResult } from '../../api/globalSearch.api'
 import { useGlobalSearch } from '../../hooks/useGlobalSearch'
 
-const DE_BLUE = '#8A1F43'
+const DE_BLUE = '#7696AC'
 
 const GlobalSearch = () => {
   const [searchQuery, setSearchQuery] = useState('')

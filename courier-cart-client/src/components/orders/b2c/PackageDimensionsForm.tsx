@@ -4,7 +4,7 @@ import { FaWeightHanging } from 'react-icons/fa'
 import CustomInput from '../../UI/inputs/CustomInput'
 import type { B2CFormData } from './B2COrderForm'
 
-const ACCENT = '#0D3B8E'
+const ACCENT = '#5D7E96'
 const TEXT_PRIMARY = '#102A54'
 const TEXT_MUTED = '#496189'
 

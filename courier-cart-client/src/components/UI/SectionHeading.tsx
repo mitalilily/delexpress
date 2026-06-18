@@ -9,11 +9,11 @@ interface SectionHeadingProps {
   color?: string;
 }
 
-const SectionHeading: React.FC<SectionHeadingProps> = ({ 
-  title, 
-  subtitle, 
-  icon = <TbBolt />, 
-  color = '#0052CC' 
+const SectionHeading: React.FC<SectionHeadingProps> = ({
+  title,
+  subtitle,
+  icon = <TbBolt />,
+  color = '#7696AC'
 }) => {
   return (
     <Stack spacing={0.5} sx={{ mb: 3 }}>
@@ -23,9 +23,9 @@ const SectionHeading: React.FC<SectionHeadingProps> = ({
           animate={{ rotate: 0, scale: 1 }}
           whileHover={{ rotate: 180, scale: 1.2 }}
           transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+          style={{
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'center',
             color: color,
             background: alpha(color, 0.1),

@@ -24,7 +24,7 @@ interface QuickStatsCardsProps {
   formatCurrency: (amount: number) => string
 }
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 const DE_AMBER = '#FFAB00'
 
 export default function QuickStatsCards({

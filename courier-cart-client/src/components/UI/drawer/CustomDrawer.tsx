@@ -10,10 +10,10 @@ import {
 import React from 'react'
 import { IoCloseCircleOutline } from 'react-icons/io5'
 
-const PLUM = '#8A1F43'
+const PLUM = '#7696AC'
 const MINT = '#56C0A5'
 const TEXT_PRIMARY = '#161219'
-const BRAND_GRADIENT = `linear-gradient(135deg, ${PLUM} 0%, #C86B5E 58%, ${MINT} 100%)`
+const BRAND_GRADIENT = `linear-gradient(135deg, ${PLUM} 0%, #A7C8D2 58%, ${MINT} 100%)`
 
 interface GlassDrawerProps {
   open: boolean
@@ -45,12 +45,12 @@ const CustomDrawer: React.FC<GlassDrawerProps> = ({
           sx: {
             width: isMobile ? '100%' : width,
             background: `
-              radial-gradient(340px 140px at 0% 0%, rgba(138, 31, 67, 0.08) 0%, transparent 68%),
+              radial-gradient(340px 140px at 0% 0%, rgba(118, 150, 172, 0.08) 0%, transparent 68%),
               radial-gradient(320px 160px at 100% 0%, rgba(86, 192, 165, 0.08) 0%, transparent 65%),
               linear-gradient(180deg, #FFFDF9 0%, #FFF6EF 100%)
             `,
-            borderLeft: anchor === 'right' ? '1px solid rgba(138, 31, 67, 0.12)' : 'none',
-            borderRight: anchor === 'left' ? '1px solid rgba(138, 31, 67, 0.12)' : 'none',
+            borderLeft: anchor === 'right' ? '1px solid rgba(118, 150, 172, 0.12)' : 'none',
+            borderRight: anchor === 'left' ? '1px solid rgba(118, 150, 172, 0.12)' : 'none',
             boxShadow: '0 18px 48px rgba(22, 18, 25, 0.16)',
             color: TEXT_PRIMARY,
             overflow: 'hidden',
@@ -92,10 +92,10 @@ const CustomDrawer: React.FC<GlassDrawerProps> = ({
             onClick={onClose}
             sx={{
               color: PLUM,
-              bgcolor: 'rgba(138, 31, 67, 0.06)',
-              border: '1px solid rgba(138, 31, 67, 0.08)',
+              bgcolor: 'rgba(118, 150, 172, 0.06)',
+              border: '1px solid rgba(118, 150, 172, 0.08)',
               '&:hover': {
-                bgcolor: 'rgba(138, 31, 67, 0.12)',
+                bgcolor: 'rgba(118, 150, 172, 0.12)',
                 transform: 'rotate(90deg)',
               },
               transition: 'all 0.3s ease',
@@ -106,7 +106,7 @@ const CustomDrawer: React.FC<GlassDrawerProps> = ({
         </Box>
       </Box>
 
-      <Divider sx={{ borderColor: 'rgba(138, 31, 67, 0.08)' }} />
+      <Divider sx={{ borderColor: 'rgba(118, 150, 172, 0.08)' }} />
 
       <Box
         p={3}

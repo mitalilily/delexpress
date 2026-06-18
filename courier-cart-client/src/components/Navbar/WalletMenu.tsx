@@ -5,7 +5,7 @@ import { useAuth } from '../../context/auth/AuthContext'
 import { useWalletBalance } from '../../hooks/useWalletBalance'
 import AddMoneyDialog from '../AddMoneyDialog'
 
-const PLUM = '#8A1F43'
+const PLUM = '#7696AC'
 const TEXT_PRIMARY = '#161219'
 
 const WalletMenu = () => {
@@ -94,7 +94,7 @@ const WalletMenu = () => {
             fontWeight: 800,
             boxShadow: `0 4px 12px ${alpha(PLUM, 0.2)}`,
             '&:hover': {
-              bgcolor: '#5E1630',
+              bgcolor: '#4A667E',
               boxShadow: `0 6px 16px ${alpha(PLUM, 0.3)}`,
             },
           }}

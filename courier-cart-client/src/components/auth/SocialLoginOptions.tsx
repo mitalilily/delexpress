@@ -4,7 +4,7 @@ import type React from 'react'
 import { FaWhatsapp } from 'react-icons/fa'
 import { FcGoogle } from 'react-icons/fc'
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 
 interface ISocialLoginOptions {
   onSelect: (method: 'phone' | 'whatsapp' | 'google' | 'shopify') => void

@@ -16,9 +16,9 @@ import FileUploader from '../../UI/uploader/FileUploader'
 import ProfileEmailVerificationModal from './ProfileEmailVerificationModal'
 import PhoneVerificationModal from './ProfilePhoneVerificationModal'
 
-export const DE_BLUE = '#0052CC'
+export const DE_BLUE = '#7696AC'
 export const DE_AMBER = '#FFAB00'
-export const BRAND_GRADIENT = `linear-gradient(135deg, ${DE_BLUE} 0%, #2a5fbe 100%)`
+export const BRAND_GRADIENT = `linear-gradient(135deg, ${DE_BLUE} 0%, #8FB5CC 100%)`
 
 export default function UserProfileForm() {
   const { user, loading } = useAuth()

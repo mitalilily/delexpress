@@ -5,7 +5,7 @@ import { BsWallet2 } from 'react-icons/bs'
 import AddMoneyDialog from '../../AddMoneyDialog'
 import StatusChip from '../chip/StatusChip'
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 const DE_AMBER = '#FFAB00'
 
 interface WalletBalanceCardProps {

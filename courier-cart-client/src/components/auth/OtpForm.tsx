@@ -11,7 +11,7 @@ import { toast } from '../UI/Toast'
 
 const OTP_LENGTH = 6
 const OTP_RESEND_DELAY_MS = 30000
-const DE_BLUE = '#8A1F43'
+const DE_BLUE = '#7696AC'
 
 const getAuthErrorMessage = (err: unknown, fallback: string) => {
   const errObj = err as {

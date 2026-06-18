@@ -272,10 +272,10 @@ const ApiIntegration = () => {
             startIcon={<MdDownload />}
             onClick={handleDownloadDocumentation}
             sx={{
-              borderColor: '#0052CC',
-              color: '#0052CC',
+              borderColor: '#7696AC',
+              color: '#7696AC',
               '&:hover': {
-                borderColor: '#0052CC',
+                borderColor: '#7696AC',
                 bgcolor: 'rgba(0, 82, 204, 0.08)',
               },
             }}

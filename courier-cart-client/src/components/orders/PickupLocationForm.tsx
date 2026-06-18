@@ -17,7 +17,7 @@ import { usePickupAddresses } from '../../hooks/Pickup/usePickupAddresses'
 import type { B2BFormData } from './b2b/B2BOrderForm'
 import type { B2CFormData } from './b2c/B2COrderForm'
 
-const ACCENT = '#0D3B8E'
+const ACCENT = '#5D7E96'
 const TEXT_PRIMARY = '#102A54'
 
 const PickupLocationForm = () => {

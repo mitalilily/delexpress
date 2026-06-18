@@ -21,7 +21,7 @@ interface OrderExpandedRowProps {
 
 export const OrderExpandedRow = ({ row, type = 'b2c' }: OrderExpandedRowProps) => {
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null)
-  const ACCENT = '#0D3B8E'
+  const ACCENT = '#5D7E96'
   const sortCodeValue = String(row?.sort_code || '').trim()
 
   const { mutateAsync, isPending } = usePresignedDownloadMutation()

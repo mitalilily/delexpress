@@ -2,7 +2,7 @@ import { alpha, Box, Grid, LinearProgress, Stack, Typography } from '@mui/materi
 import { useNavigate } from 'react-router-dom'
 import { useMerchantReadiness } from '../../hooks/useMerchantReadiness'
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 const DE_AMBER = '#FFAB00'
 const TEXT_PRIMARY = '#172B4D'
 const TEXT_SECONDARY = '#42526E'

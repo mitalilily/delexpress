@@ -13,7 +13,7 @@ import { toast } from '../../../UI/Toast'
 import { AddBankAccountDialog } from './AddBankAccountDialog'
 import { BankAccountsList } from './BankAccountList'
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 const DE_AMBER = '#FFAB00'
 const BRAND_GRADIENT = `linear-gradient(135deg, ${DE_BLUE} 0%, ${DE_AMBER} 100%)`
 

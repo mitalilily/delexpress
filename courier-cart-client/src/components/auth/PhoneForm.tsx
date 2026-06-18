@@ -22,7 +22,7 @@ import { toast } from '../UI/Toast'
 import OtpForm from './OtpForm'
 import PasswordLoginForm from './PasswordLoginForm'
 
-const DE_BLUE = '#8A1F43'
+const DE_BLUE = '#7696AC'
 
 const getAuthErrorMessage = (err: unknown, fallback: string) => {
   const errObj = err as {
@@ -235,7 +235,7 @@ export default function PhoneForm() {
             '&.Mui-selected': {
               backgroundColor: '#FFFFFF',
               color: DE_BLUE,
-              boxShadow: '0 4px 12px rgba(138, 31, 67, 0.12)',
+              boxShadow: '0 4px 12px rgba(118, 150, 172, 0.12)',
               '&:hover': {
                 backgroundColor: '#FFFFFF',
               },

@@ -14,8 +14,8 @@ import { useRealtimeHomeDashboard } from '../../hooks/home/useRealtimeHomeDashbo
 const DE_AMBER = '#56C0A5'
 const TEXT_PRIMARY = '#161219'
 const TEXT_SECONDARY = '#6A616A'
-const PLUM = '#8A1F43'
-const PLUM_DARK = '#5E1630'
+const PLUM = '#7696AC'
+const PLUM_DARK = '#4A667E'
 
 const cardShell = {
   borderRadius: 1,

@@ -2,7 +2,7 @@ import { alpha, Accordion, AccordionDetails, AccordionSummary, Stack, Typography
 import React from 'react'
 import { MdExpandMore } from 'react-icons/md'
 
-const BRAND_PRIMARY = '#0D3B8E'
+const BRAND_PRIMARY = '#5D7E96'
 
 interface FormSectionAccordionProps {
   icon?: React.ReactNode

@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import CustomInput from "./CustomInput";
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 
 export interface DropdownItem {
   key: string;

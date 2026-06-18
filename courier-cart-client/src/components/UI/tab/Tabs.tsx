@@ -18,7 +18,7 @@ import {
 import * as React from 'react'
 import { FiMoreHorizontal } from 'react-icons/fi'
 
-const PLUM = '#8A1F43'
+const PLUM = '#7696AC'
 const TEXT_PRIMARY = '#161219'
 const TEXT_SECONDARY = '#6A616A'
 

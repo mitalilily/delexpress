@@ -3,7 +3,7 @@ import { MdOutlineFactCheck, MdVerifiedUser } from 'react-icons/md'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/auth/AuthContext'
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 const DE_AMBER = '#FFAB00'
 const TEXT_PRIMARY = '#172B4D'
 const TEXT_SECONDARY = '#42526E'

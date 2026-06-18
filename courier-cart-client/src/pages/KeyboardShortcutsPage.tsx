@@ -10,7 +10,7 @@ import PageHeading from '../components/UI/heading/PageHeading'
  * ──────────────────────────────────────────────────────────────────────────────
  */
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 
 const Kbd = styled(Box)(({ theme }) => ({
   fontFamily: '"SF Mono", "Monaco", "Cascadia Code", "Roboto Mono", monospace',

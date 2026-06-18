@@ -33,7 +33,7 @@ export default function SwitchAccountButton() {
     navigate('/')
   }
 
-  const DE_BLUE = '#0052CC'
+  const DE_BLUE = '#7696AC'
 
   /* ---------- styles (glass) ----- */
   const glass = {

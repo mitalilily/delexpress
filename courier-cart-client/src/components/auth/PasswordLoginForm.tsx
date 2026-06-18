@@ -14,7 +14,7 @@ import CustomInput from '../UI/inputs/CustomInput'
 import { toast } from '../UI/Toast'
 import EmailVerificationForm from './EmailVerificationForm'
 
-const DE_BLUE = '#8A1F43'
+const DE_BLUE = '#7696AC'
 const DE_AMBER = '#56C0A5'
 
 const primaryButtonStyles = {

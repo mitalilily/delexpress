@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { TbChartArcs, TbMap2, TbShieldCheck, TbTruckDelivery } from 'react-icons/tb'
 import PhoneForm from './PhoneForm'
 
-const PLUM = '#8A1F43'
+const PLUM = '#7696AC'
 const TEXT = '#161219'
 const MUTED = '#6A616A'
 const IVORY = '#F7F2ED'

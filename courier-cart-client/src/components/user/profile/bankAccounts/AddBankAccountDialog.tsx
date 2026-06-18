@@ -16,11 +16,11 @@ import CustomInput from '../../../UI/inputs/CustomInput'
 import CustomDialog from '../../../UI/modal/CustomModal'
 import FileUploader from '../../../UI/uploader/FileUploader'
 
-const PLUM = '#8A1F43'
+const PLUM = '#7696AC'
 const MINT = '#56C0A5'
 const TEXT_PRIMARY = '#161219'
 const TEXT_SECONDARY = '#6A616A'
-const BRAND_GRADIENT = `linear-gradient(135deg, ${PLUM} 0%, #C86B5E 58%, ${MINT} 100%)`
+const BRAND_GRADIENT = `linear-gradient(135deg, ${PLUM} 0%, #A7C8D2 58%, ${MINT} 100%)`
 
 interface DialogProps {
   open: boolean
@@ -112,7 +112,7 @@ export const AddBankAccountDialog: React.FC<DialogProps> = ({
               fullWidth
               sx={{
                 background: 'linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,248,243,0.86))',
-                border: `1px solid rgba(138, 31, 67, 0.1)`,
+                border: `1px solid rgba(118, 150, 172, 0.1)`,
                 borderRadius: 3,
                 p: 0.5,
                 '& .MuiToggleButton-root': {
@@ -126,10 +126,10 @@ export const AddBankAccountDialog: React.FC<DialogProps> = ({
                   '&.Mui-selected': {
                     color: '#FFFFFF',
                     background: BRAND_GRADIENT,
-                    boxShadow: '0 10px 22px rgba(138, 31, 67, 0.18)',
+                    boxShadow: '0 10px 22px rgba(118, 150, 172, 0.18)',
                   },
                   '&:hover': {
-                    backgroundColor: 'rgba(138, 31, 67, 0.05)',
+                    backgroundColor: 'rgba(118, 150, 172, 0.05)',
                   },
                   '&.Mui-selected:hover': {
                     background: BRAND_GRADIENT,
@@ -322,8 +322,8 @@ export const AddBankAccountDialog: React.FC<DialogProps> = ({
                 fontSize: '0.95rem',
                 borderRadius: 2,
                 bgcolor: PLUM,
-                boxShadow: '0 14px 28px rgba(138, 31, 67, 0.2)',
-                '&:hover': { bgcolor: '#5E1630' },
+                boxShadow: '0 14px 28px rgba(118, 150, 172, 0.2)',
+                '&:hover': { bgcolor: '#4A667E' },
               }}
             />
           </Box>

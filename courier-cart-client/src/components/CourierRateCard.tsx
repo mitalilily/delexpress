@@ -55,7 +55,7 @@ type Props = {
   shipmentType?: string
 }
 
-const ACCENT = '#0D3B8E'
+const ACCENT = '#5D7E96'
 const TEXT_PRIMARY = '#102A54'
 const TEXT_MUTED = '#496189'
 const BORDER = '#E2E8F0'

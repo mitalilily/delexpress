@@ -3,7 +3,7 @@ import { MdLocationOn } from 'react-icons/md'
 import { useNavigate } from 'react-router-dom'
 import type { TopDestination } from '../../api/dashboard.api'
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 const TEXT_PRIMARY = '#172B4D'
 const TEXT_SECONDARY = '#42526E'
 

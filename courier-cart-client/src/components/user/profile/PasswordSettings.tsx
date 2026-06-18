@@ -19,7 +19,7 @@ import { useChangePassword } from '../../../hooks/Auth/useChangePassword'
 import { useUserInfo } from '../../../hooks/useUserInfo'
 import { useAuth } from '../../../context/auth/AuthContext'
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 
 interface PasswordFormValues {
   currentPassword?: string

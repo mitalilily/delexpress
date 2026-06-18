@@ -79,7 +79,7 @@ export const useRechargeWallet = () =>
         description: orderData.description || 'Wallet Recharge',
         order_id: orderData.orderId,
         prefill: orderData.prefill,
-        theme: { color: orderData.themeColor || '#0052CC' },
+        theme: { color: orderData.themeColor || '#7696AC' },
         handler: async function (response: RazorpayPaymentResponse) {
           try {
             // Payment successful - confirm with backend

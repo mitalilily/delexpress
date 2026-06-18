@@ -10,7 +10,7 @@ import CustomIconLoadingButton from '../UI/button/CustomLoadingButton'
 import CustomInput from '../UI/inputs/CustomInput'
 import { toast } from '../UI/Toast'
 
-const DE_BLUE = '#8A1F43'
+const DE_BLUE = '#7696AC'
 
 const primaryButtonStyles = {
   width: '100%',

@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import PasswordSettingsForm from './profile/PasswordSettings'
 import UserProfileForm from './profile/UserProfileForm'
 
-const DE_BLUE = '#0052CC'
+const DE_BLUE = '#7696AC'
 const DE_AMBER = '#FFAB00'
 
 const tabs = [

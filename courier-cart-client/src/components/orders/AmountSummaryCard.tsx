@@ -3,7 +3,7 @@ import { type FieldErrors } from 'react-hook-form'
 import { FaMoneyBillWave, FaRupeeSign, FaShoppingCart } from 'react-icons/fa'
 import type { B2CFormData } from './b2c/B2COrderForm'
 
-const ACCENT = '#0D3B8E'
+const ACCENT = '#5D7E96'
 const TEXT_PRIMARY = '#102A54'
 
 interface OrderSummaryProps {

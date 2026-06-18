@@ -78,9 +78,9 @@ Refund & Cancellation Policy
 export const DRAWER_WIDTH = 280
 export const NAVBAR_HEIGHT = 80
 export const RADIUS = 8 // master corner radius
-export const ACTIVE_BG = 'rgba(138, 31, 67, 0.08)' // background behind selected item
-export const ACTIVE_BAR = '#8A1F43' // primary brand color bar at far left
-export const ACCENT = '#8A1F43' // primary brand color accent
+export const ACTIVE_BG = 'rgba(118, 150, 172, 0.08)' // background behind selected item
+export const ACTIVE_BAR = '#7696AC' // primary brand color bar at far left
+export const ACCENT = '#7696AC' // primary brand color accent
 
 export const requiredKycDetails: Record<
   BusinessStructure,

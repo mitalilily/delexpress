@@ -22,7 +22,7 @@ interface StepOneProps {
   setErrors: React.Dispatch<React.SetStateAction<FormErrors>>
 }
 
-const PLUM = '#8A1F43'
+const PLUM = '#7696AC'
 const MINT = '#56C0A5'
 const TEXT_PRIMARY = '#161219'
 const TEXT_SECONDARY = '#6A616A'

@@ -33,7 +33,7 @@ type Section = {
   items: SettingItem[]
 }
 
-const BRAND_PRIMARY = '#0D3B8E'
+const BRAND_PRIMARY = '#5D7E96'
 const BRAND_ACCENT = '#FF7A00'
 const INK = '#102A54'
 const MUTED = '#496189'
