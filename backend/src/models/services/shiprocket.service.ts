@@ -2734,6 +2734,7 @@ export interface InsertB2COrderParams {
   shippingMode?: string | null
   selectedMaxSlabWeight?: number | null
   manifestError?: string | null
+  pickupStatus?: string | null
 }
 
 export async function createB2COrder({
@@ -2757,6 +2758,7 @@ export async function createB2COrder({
   shippingMode,
   selectedMaxSlabWeight,
   manifestError,
+  pickupStatus,
 }: InsertB2COrderParams) {
   const orderAmount = Number(params.order_amount ?? 0)
   const requestedOrderNumber = typeof params.order_number === 'string' ? params.order_number.trim() : ''
@@ -2902,6 +2904,7 @@ export async function createB2COrder({
         charged_slabs: chargedSlabs ?? params.chargedSlabs ?? null,
 
         order_status: status ?? 'booked',
+        pickup_status: pickupStatus ?? null,
 
         is_rto_different: params.is_rto_different === 'yes',
 
@@ -4620,7 +4623,7 @@ export const createB2CShipmentService = async (
         integrationType === 'delhivery' &&
         !isReverseShipment &&
         shipmentData?.deferred_manifest === true
-      const orderStatus = 'booked'
+      const orderStatus = integrationType === 'shadowfax' ? 'pickup_initiated' : 'booked'
       const manifestErrorMessage = null
 
       const newOrder = await createB2COrder({
@@ -4636,6 +4639,7 @@ export const createB2CShipmentService = async (
         giftWrap,
         discount,
         status: orderStatus,
+        pickupStatus: integrationType === 'shadowfax' ? 'pickup_initiated' : null,
         manifestError: manifestErrorMessage,
         integration_type: params?.integration_type!,
         is_external_api,

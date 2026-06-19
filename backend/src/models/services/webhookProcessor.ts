@@ -2075,6 +2075,18 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
   const statusText = event.statusId || event.statusText || internalStatus
   const deliveryMessage = event.remark || event.description || statusText
   const orderKind = isB2B ? 'b2b' : 'b2c'
+  const currentStatus = (order.order_status || '').toLowerCase()
+
+  if (currentStatus === 'pickup_initiated' && internalStatus === 'booked') {
+    console.log(
+      `⏭️ Ignoring Shadowfax booked regression for ${order.order_number}: order is already pickup_initiated`,
+    )
+    return {
+      success: true,
+      ignored: true,
+      reason: 'pickup_initiated_status_regression',
+    }
+  }
 
   const updateData: any = {
     order_status: internalStatus,
