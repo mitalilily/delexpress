@@ -24,7 +24,7 @@ Production base URL:
 
 ## Shadowfax auth
 
-Shadowfax can be configured with Basic Auth in the portal.
+Shadowfax is configured with Basic Auth in the portal and the backend now expects Basic Auth only.
 
 Suggested staging credentials:
 - Username: `expressopro-staging`
@@ -33,12 +33,6 @@ Suggested staging credentials:
 Suggested production credentials:
 - Username: `expressopro-production`
 - Password: `expressopro-shadowfax-production`
-
-Fallback credentials:
-- Username: `expressopro`
-- Password: `expressopro-shadowfax`
-
-The backend also keeps the existing shared-secret header verification in place for legacy integrations.
 
 ## Delhivery routes
 
