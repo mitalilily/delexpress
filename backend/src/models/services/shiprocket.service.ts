@@ -4828,6 +4828,7 @@ export const createB2CShipmentService = async (
         order_number: params.order_number,
         awb_number: shipmentMeta.awb_number,
         status: webhookStatus,
+        pickup_status: webhookStatus === 'pickup_initiated' ? 'pickup_initiated' : null,
         courier_partner: shipmentMeta.courier_name,
         courier_id: shipmentMeta.courier_id,
         shipment_id: shipmentMeta.shipment_id,
@@ -4838,6 +4839,25 @@ export const createB2CShipmentService = async (
         console.error('Failed to send order.created webhook:', err)
         // Don't fail the main flow if webhook fails
       })
+
+      if (webhookStatus === 'pickup_initiated') {
+        sendWebhookEvent(userId, 'order.updated', {
+          order_id: newOrder.id,
+          order_number: params.order_number,
+          awb_number: shipmentMeta.awb_number,
+          status: webhookStatus,
+          pickup_status: 'pickup_initiated',
+          pickup_details: params.pickup ?? null,
+          courier_partner: shipmentMeta.courier_name,
+          courier_id: shipmentMeta.courier_id,
+          shipment_id: shipmentMeta.shipment_id,
+          integration_type: params.integration_type,
+          payment_type: params.payment_type,
+          created_at: new Date().toISOString(),
+        }).catch((err) => {
+          console.error('Failed to send order.updated webhook for pickup initiation:', err)
+        })
+      }
 
       return {
         order: newOrder,
