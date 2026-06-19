@@ -17,6 +17,98 @@ const SHADOWFAX_WEBHOOK_SECRET_HEADERS = [
   'authorization',
 ]
 
+const SHADOWFAX_BASIC_AUTH_DEFAULTS = {
+  staging: {
+    username: 'expressopro-staging',
+    password: 'expressopro-shadowfax-staging',
+  },
+  production: {
+    username: 'expressopro-production',
+    password: 'expressopro-shadowfax-production',
+  },
+  default: {
+    username: 'expressopro',
+    password: 'expressopro-shadowfax',
+  },
+} as const
+
+const normalizeAuthValue = (value?: string | null) => String(value || '').trim()
+
+const resolveShadowfaxAuthConfig = (requestPath: string) => {
+  const normalizedPath = requestPath.toLowerCase()
+
+  if (normalizedPath.includes('/shadowfax/staging')) {
+    return {
+      ...SHADOWFAX_BASIC_AUTH_DEFAULTS.staging,
+      username:
+        normalizeAuthValue(process.env.SHADOWFAX_WEBHOOK_STAGING_USERNAME) ||
+        normalizeAuthValue(process.env.SHADOWFAX_WEBHOOK_BASIC_AUTH_USERNAME) ||
+        SHADOWFAX_BASIC_AUTH_DEFAULTS.staging.username,
+      password:
+        normalizeAuthValue(process.env.SHADOWFAX_WEBHOOK_STAGING_PASSWORD) ||
+        normalizeAuthValue(process.env.SHADOWFAX_WEBHOOK_BASIC_AUTH_PASSWORD) ||
+        SHADOWFAX_BASIC_AUTH_DEFAULTS.staging.password,
+    }
+  }
+
+  if (normalizedPath.includes('/shadowfax/production')) {
+    return {
+      ...SHADOWFAX_BASIC_AUTH_DEFAULTS.production,
+      username:
+        normalizeAuthValue(process.env.SHADOWFAX_WEBHOOK_PRODUCTION_USERNAME) ||
+        normalizeAuthValue(process.env.SHADOWFAX_WEBHOOK_BASIC_AUTH_USERNAME) ||
+        SHADOWFAX_BASIC_AUTH_DEFAULTS.production.username,
+      password:
+        normalizeAuthValue(process.env.SHADOWFAX_WEBHOOK_PRODUCTION_PASSWORD) ||
+        normalizeAuthValue(process.env.SHADOWFAX_WEBHOOK_BASIC_AUTH_PASSWORD) ||
+        SHADOWFAX_BASIC_AUTH_DEFAULTS.production.password,
+    }
+  }
+
+  return {
+    ...SHADOWFAX_BASIC_AUTH_DEFAULTS.default,
+    username:
+      normalizeAuthValue(process.env.SHADOWFAX_WEBHOOK_BASIC_AUTH_USERNAME) ||
+      SHADOWFAX_BASIC_AUTH_DEFAULTS.default.username,
+    password:
+      normalizeAuthValue(process.env.SHADOWFAX_WEBHOOK_BASIC_AUTH_PASSWORD) ||
+      SHADOWFAX_BASIC_AUTH_DEFAULTS.default.password,
+  }
+}
+
+const verifyShadowfaxBasicAuth = (authorizationHeader: string, requestPath: string) => {
+  const normalizedAuthorization = normalizeAuthValue(authorizationHeader)
+  if (!normalizedAuthorization.toLowerCase().startsWith('basic ')) {
+    return { present: false, valid: false }
+  }
+
+  const encodedCredentials = normalizedAuthorization.slice(6).trim()
+  if (!encodedCredentials) {
+    return { present: true, valid: false }
+  }
+
+  let decodedCredentials = ''
+  try {
+    decodedCredentials = Buffer.from(encodedCredentials, 'base64').toString('utf8')
+  } catch {
+    return { present: true, valid: false }
+  }
+
+  const separatorIndex = decodedCredentials.indexOf(':')
+  if (separatorIndex <= 0) {
+    return { present: true, valid: false }
+  }
+
+  const username = decodedCredentials.slice(0, separatorIndex)
+  const password = decodedCredentials.slice(separatorIndex + 1)
+  const expected = resolveShadowfaxAuthConfig(requestPath)
+
+  return {
+    present: true,
+    valid: username === expected.username && password === expected.password,
+  }
+}
+
 const extractShadowfaxEventPayload = (payload: any) => {
   if (payload?.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
     return payload.data
@@ -31,17 +123,28 @@ export const shadowfaxWebhookHandler = async (req: Request, res: Response) => {
   const timestamp = new Date().toISOString()
   const payload = req.body
   const rawBody = (req as any).rawBody || (req.body ? JSON.stringify(req.body) : '')
+  const requestPath = req.originalUrl || req.path || ''
   const receivedSecret = getWebhookHeaderValue(req.headers, SHADOWFAX_WEBHOOK_SECRET_HEADERS)
+  const authorizationHeader = getWebhookHeaderValue(req.headers, ['authorization'])
+  const basicAuthCheck = verifyShadowfaxBasicAuth(authorizationHeader, requestPath)
+
+  if (basicAuthCheck.present && !basicAuthCheck.valid) {
+    console.warn('Shadowfax webhook rejected: invalid basic auth credentials')
+    return res.status(401).json({ success: false, message: 'invalid webhook credentials' })
+  }
+
   if (
+    !basicAuthCheck.present &&
     !verifyWebhookSecret({
       configuredSecret: DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET,
       receivedSecret,
       rawBody,
     })
   ) {
-    console.warn('⚠️ Shadowfax webhook rejected: invalid or missing secret')
+    console.warn('Shadowfax webhook rejected: invalid or missing secret')
     return res.status(401).json({ success: false, message: 'invalid webhook secret' })
   }
+
   const event = extractShadowfaxEventPayload(payload)
   const awb =
     event?.awb ||
@@ -54,7 +157,7 @@ export const shadowfaxWebhookHandler = async (req: Request, res: Response) => {
   const statusId = event?.status_id || event?.statusId || event?.status_code || event?.status || 'unknown'
 
   console.log('='.repeat(80))
-  console.log(`📦 [${timestamp}] Shadowfax Webhook Received`)
+  console.log(`[${timestamp}] Shadowfax Webhook Received`)
   console.log(`   AWB: ${awb || 'N/A'}`)
   console.log(`   Status ID: ${statusId}`)
   console.log(`   IP: ${req.ip || req.socket.remoteAddress || 'unknown'}`)
@@ -92,10 +195,10 @@ export const shadowfaxWebhookHandler = async (req: Request, res: Response) => {
             body: payload,
           },
         })
-        console.warn(`⚠️ Stored Shadowfax webhook for AWB ${awb || 'N/A'} (order not yet created).`)
+        console.warn(`Stored Shadowfax webhook for AWB ${awb || 'N/A'} (order not yet created).`)
       } else {
         console.warn(
-          `⚠️ Duplicate pending Shadowfax webhook skipped for AWB ${awb || 'N/A'} (within dedupe window).`,
+          `Duplicate pending Shadowfax webhook skipped for AWB ${awb || 'N/A'} (within dedupe window).`,
         )
       }
 
@@ -108,7 +211,7 @@ export const shadowfaxWebhookHandler = async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true })
   } catch (err: any) {
-    console.error('❌ Shadowfax webhook processing failed:', err?.message || err)
+    console.error('Shadowfax webhook processing failed:', err?.message || err)
     return res.status(500).json({ success: false, message: 'Internal Server Error' })
   }
 }

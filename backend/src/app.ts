@@ -242,6 +242,10 @@ app.post('/api/webhook/ekart', express.json(), ekartWebhookHandler)
 app.post('/api/webhook/ekart/track', express.json(), ekartWebhookHandler)
 app.post('/api/webhook/shadowfax', express.json(), shadowfaxWebhookHandler)
 app.post('/api/webhook/shadowfax/track', express.json(), shadowfaxWebhookHandler)
+app.post('/api/webhook/shadowfax/staging', express.json(), shadowfaxWebhookHandler)
+app.post('/api/webhook/shadowfax/staging/track', express.json(), shadowfaxWebhookHandler)
+app.post('/api/webhook/shadowfax/production', express.json(), shadowfaxWebhookHandler)
+app.post('/api/webhook/shadowfax/production/track', express.json(), shadowfaxWebhookHandler)
 app.post(
   '/api/webhook/xpressbees',
   express.json({
