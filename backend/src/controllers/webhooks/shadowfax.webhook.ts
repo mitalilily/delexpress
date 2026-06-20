@@ -3,6 +3,11 @@ import { and, eq, gte, isNull } from 'drizzle-orm'
 import { db } from '../../models/client'
 import { processShadowfaxWebhook } from '../../models/services/webhookProcessor'
 import { pending_webhooks } from '../../schema/schema'
+import {
+  DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET,
+  getWebhookHeaderValue,
+  verifyWebhookSecret,
+} from './webhookSecret'
 
 const SHADOWFAX_BASIC_AUTH_DEFAULTS = {
   staging: {
@@ -20,6 +25,15 @@ const SHADOWFAX_BASIC_AUTH_DEFAULTS = {
 } as const
 
 const normalizeAuthValue = (value?: string | null) => String(value || '').trim()
+
+const SHADOWFAX_WEBHOOK_SECRET_HEADERS = [
+  'x-shadowfax-webhook-secret',
+  'x-shadowfax-webhook-signature',
+  'x-webhook-secret',
+  'x-webhook-signature',
+]
+
+type ShadowfaxAuthMode = 'basic-auth' | 'shared-secret' | null
 
 const resolveShadowfaxAuthConfig = (requestPath: string) => {
   const normalizedPath = requestPath.toLowerCase()
@@ -96,6 +110,34 @@ const verifyShadowfaxBasicAuth = (authorizationHeader: string, requestPath: stri
   }
 }
 
+const verifyShadowfaxWebhookCredentials = (
+  req: Request,
+  requestPath: string,
+): { valid: boolean; authMode: ShadowfaxAuthMode } => {
+  const authorizationHeader = String(req.headers.authorization || '').trim()
+  const basicAuthCheck = verifyShadowfaxBasicAuth(authorizationHeader, requestPath)
+  if (basicAuthCheck.present && basicAuthCheck.valid) {
+    return { valid: true, authMode: 'basic-auth' }
+  }
+
+  const receivedSecret = getWebhookHeaderValue(req.headers, SHADOWFAX_WEBHOOK_SECRET_HEADERS)
+  const rawBody = (req as any).rawBody || (req.body ? JSON.stringify(req.body) : '')
+  const webhookSecret =
+    String(process.env.SHADOWFAX_WEBHOOK_SECRET || '').trim() || DEFAULT_EXPRESSOPRO_WEBHOOK_SECRET
+
+  if (
+    verifyWebhookSecret({
+      configuredSecret: webhookSecret,
+      receivedSecret,
+      rawBody,
+    })
+  ) {
+    return { valid: true, authMode: 'shared-secret' }
+  }
+
+  return { valid: false, authMode: null }
+}
+
 const extractShadowfaxEventPayload = (payload: any) => {
   if (payload?.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
     return payload.data
@@ -110,11 +152,16 @@ export const shadowfaxWebhookHandler = async (req: Request, res: Response) => {
   const timestamp = new Date().toISOString()
   const payload = req.body
   const requestPath = req.originalUrl || req.path || ''
-  const authorizationHeader = String(req.headers.authorization || '').trim()
-  const basicAuthCheck = verifyShadowfaxBasicAuth(authorizationHeader, requestPath)
+  const credentials = verifyShadowfaxWebhookCredentials(req, requestPath)
 
-  if (!basicAuthCheck.present || !basicAuthCheck.valid) {
-    console.warn('Shadowfax webhook rejected: invalid basic auth credentials')
+  if (!credentials.valid) {
+    console.warn('Shadowfax webhook rejected: invalid credentials', {
+      requestPath,
+      hasAuthorization: Boolean(req.headers.authorization),
+      hasSharedSecret: Boolean(
+        getWebhookHeaderValue(req.headers, SHADOWFAX_WEBHOOK_SECRET_HEADERS),
+      ),
+    })
     return res.status(401).json({ success: false, message: 'invalid webhook credentials' })
   }
 
@@ -130,7 +177,7 @@ export const shadowfaxWebhookHandler = async (req: Request, res: Response) => {
   const statusId = event?.status_id || event?.statusId || event?.status_code || event?.status || 'unknown'
 
   console.log('='.repeat(80))
-  console.log(`[${timestamp}] Shadowfax Webhook Received`)
+  console.log(`[${timestamp}] Shadowfax Webhook Received via ${credentials.authMode}`)
   console.log(`   AWB: ${awb || 'N/A'}`)
   console.log(`   Status ID: ${statusId}`)
   console.log(`   IP: ${req.ip || req.socket.remoteAddress || 'unknown'}`)

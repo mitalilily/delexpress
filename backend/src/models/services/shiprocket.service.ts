@@ -142,6 +142,17 @@ const summarizeManifestRefs = (values: Array<string | null | undefined>, maxVisi
   return `${normalized.slice(0, maxVisible).join(', ')} +${normalized.length - maxVisible} more`
 }
 
+const resolveShadowfaxFlowMode = (params: { isReverse?: boolean; payment_type?: string }) => {
+  const configuredFlow = String(process.env.SHADOWFAX_FLOW_MODE || '').trim().toLowerCase()
+  if (configuredFlow === 'warehouse' || configuredFlow === 'marketplace') {
+    return configuredFlow
+  }
+
+  return params.isReverse === true || String(params.payment_type || '').trim().toLowerCase() === 'reverse'
+    ? 'warehouse'
+    : 'marketplace'
+}
+
 const getManifestFailureRefundReason = (orderNumber: string | null | undefined) =>
   `Refund for manifest failed order #${String(orderNumber || '').trim() || 'unknown'}`
 
@@ -1480,8 +1491,10 @@ export const fetchAvailableCouriersWithRates = async (
       const destinationPincode = normalizePincode(
         params.destination ?? params.destination_pincode,
       )?.toString()
-      // Shadowfax is being run in warehouse mode across the site.
-      const shadowfaxFlow = 'warehouse'
+      const shadowfaxFlow = resolveShadowfaxFlowMode({
+        isReverse: params.isReverse === true || params.payment_type === 'reverse',
+        payment_type: params.payment_type,
+      })
       const pickupService =
         shadowfaxFlow === 'warehouse' ? 'warehouse_pickup' : 'seller_pickup'
       const deliveryService =
@@ -1491,6 +1504,7 @@ export const fetchAvailableCouriersWithRates = async (
         mode: isCalculator ? 'calculator' : 'standard',
         origin: originPincode,
         destination: destinationPincode,
+        flow: shadowfaxFlow,
         pickupService,
         deliveryService,
       })
@@ -4119,8 +4133,16 @@ export const createB2CShipmentService = async (
       console.log('→ Using Shadowfax create-order API...')
 
       const shadowfax = new ShadowfaxService()
-      // Shadowfax is being run in warehouse mode across the site.
-      const shadowfaxFlow = 'warehouse'
+      const shadowfaxFlow = resolveShadowfaxFlowMode({
+        isReverse: isReverseShipment,
+        payment_type: params.payment_type,
+      })
+      console.log('[Shadowfax] create-order flow resolved', {
+        order_number: params.order_number,
+        flow: shadowfaxFlow,
+        isReverseShipment,
+        envOverride: String(process.env.SHADOWFAX_FLOW_MODE || '').trim() || null,
+      })
       const courierSafeText = (value: unknown, fallback = '') => {
         const cleaned = String(value ?? '')
           .normalize('NFKD')

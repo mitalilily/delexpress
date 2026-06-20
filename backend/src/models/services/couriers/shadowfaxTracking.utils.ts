@@ -36,6 +36,24 @@ const WAREHOUSE_ONLY_STATUS_IDS = new Set([
   'rto_d',
 ])
 
+const PICKUP_INITIATION_HINTS = [
+  'assigned_for_seller_pickup',
+  'assigned for seller pickup',
+  'assigned for pickup',
+  'pickup scheduled',
+  'pickup requested',
+  'pickup request created',
+  'pickup created',
+  'pickup booked',
+  'pickup assigned',
+  'collection scheduled',
+  'collection booked',
+  'manifest generated',
+]
+
+const hasPickupInitiationSignal = (signal: string) =>
+  PICKUP_INITIATION_HINTS.some((hint) => signal.includes(hint))
+
 const MARKETPLACE_STATUS_MAP: Record<string, string> = {
   new: 'booked',
   picked: 'in_transit',
@@ -210,10 +228,11 @@ const mapMarketplaceFallback = (statusId: string, statusText: string) => {
   if (signal.includes('delivered')) return 'delivered'
   if (signal.includes('ofd') || signal.includes('assigned for delivery')) return 'out_for_delivery'
   if (signal.includes('hold') || signal.includes('cid') || signal.includes('delay')) return 'on_hold'
-  if (signal.includes('pickup') || signal.includes('assigned for seller pickup')) {
+  if (signal.includes('pickup') || hasPickupInitiationSignal(signal)) {
     return 'pickup_initiated'
   }
-  if (signal.includes('new') || signal.includes('manifest')) return 'booked'
+  if (signal.includes('new')) return 'booked'
+  if (signal.includes('manifest')) return 'booked'
   if (
     signal.includes('hub') ||
     signal.includes('dc') ||
@@ -252,10 +271,15 @@ const mapWarehouseFallback = (statusId: string, statusText: string) => {
   if (signal.includes('delivered')) return 'delivered'
   if (signal.includes('ofd') || signal.includes('assigned for delivery')) return 'out_for_delivery'
   if (signal.includes('hold') || signal.includes('cid')) return 'on_hold'
-  if (signal.includes('received from client warehouse') || signal.includes('pickup')) {
+  if (
+    signal.includes('received from client warehouse') ||
+    signal.includes('pickup') ||
+    hasPickupInitiationSignal(signal)
+  ) {
     return 'pickup_initiated'
   }
-  if (signal.includes('new') || signal.includes('manifest')) return 'booked'
+  if (signal.includes('new')) return 'booked'
+  if (signal.includes('manifest')) return 'booked'
   return 'in_transit'
 }
 
@@ -306,12 +330,28 @@ export const extractShadowfaxTrackingUpdate = (payload: any): ShadowfaxTrackingU
     body?.status,
     body?.status_name,
     body?.statusName,
+    body?.status_text,
+    body?.statusText,
+    body?.status_description,
+    body?.statusDescription,
+    body?.status_label,
+    body?.statusLabel,
+    body?.tracking_status,
+    body?.trackingStatus,
     body?.remark,
     body?.remarks,
     body?.description,
     body?.message,
     payload?.status,
     payload?.status_name,
+    payload?.status_text,
+    payload?.statusText,
+    payload?.status_description,
+    payload?.statusDescription,
+    payload?.status_label,
+    payload?.statusLabel,
+    payload?.tracking_status,
+    payload?.trackingStatus,
     payload?.remark,
     payload?.remarks,
     payload?.description,
