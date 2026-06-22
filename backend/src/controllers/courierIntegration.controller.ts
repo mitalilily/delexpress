@@ -189,6 +189,7 @@ export const getToken = async (): Promise<string> => {
 
 export const fetchAvailableCouriers = async (req: Request, res: Response) => {
   try {
+    const body = req.body ?? {}
     const {
       origin,
       destination,
@@ -200,7 +201,7 @@ export const fetchAvailableCouriers = async (req: Request, res: Response) => {
       shipment_type,
       number_of_boxes,
       numberOfBoxes,
-    } = req.body
+    } = body
     if (!origin || !destination) {
       return res.status(400).json({
         success: false,
@@ -210,7 +211,7 @@ export const fetchAvailableCouriers = async (req: Request, res: Response) => {
 
     const userId = (req as any).user?.sub
 
-    const orderAmountResult = extractOrderAmountFromBody(req.body)
+    const orderAmountResult = extractOrderAmountFromBody(body)
     if (orderAmountResult.invalid) {
       return res.status(400).json({
         success: false,
@@ -218,7 +219,7 @@ export const fetchAvailableCouriers = async (req: Request, res: Response) => {
       })
     }
 
-    const serviceabilityOptions = buildServiceabilityOptions(req.body)
+    const serviceabilityOptions = buildServiceabilityOptions(body)
 
     const courierOptions = serviceabilityOptions.isCalculator
       ? { userId, planFallbackName: 'Basic' }
@@ -250,6 +251,7 @@ export const fetchAvailableCouriers = async (req: Request, res: Response) => {
 
 export const fetchAvailableCouriersForGuestController = async (req: Request, res: Response) => {
   try {
+    const body = req.body ?? {}
     const {
       origin,
       destination,
@@ -260,7 +262,7 @@ export const fetchAvailableCouriersForGuestController = async (req: Request, res
       height,
       shipment_type,
       isCalculator,
-    } = req.body
+    } = body
 
     // Validate required fields
     if (!origin || !destination) {
@@ -329,7 +331,7 @@ export const fetchAvailableCouriersForGuestController = async (req: Request, res
       })
     }
 
-    const orderAmountResult = extractOrderAmountFromBody(req.body)
+    const orderAmountResult = extractOrderAmountFromBody(body)
     if (orderAmountResult.invalid) {
       return res.status(400).json({
         success: false,
@@ -359,6 +361,7 @@ export const fetchAvailableCouriersForGuestController = async (req: Request, res
 
 export const fetchAvailableCouriersToUser = async (req: Request, res: Response) => {
   try {
+    const body = req.body ?? {}
     const {
       origin,
       destination,
@@ -370,7 +373,7 @@ export const fetchAvailableCouriersToUser = async (req: Request, res: Response) 
       shipment_type,
       number_of_boxes,
       numberOfBoxes,
-    } = req.body
+    } = body
     if (!origin || !destination) {
       return res.status(400).json({
         success: false,
@@ -380,8 +383,8 @@ export const fetchAvailableCouriersToUser = async (req: Request, res: Response) 
 
     const userId = (req as any).user?.sub
 
-    const serviceabilityOptions = buildServiceabilityOptions(req.body) // handles pickupId, reverse flags, etc.
-    const orderAmountResult = extractOrderAmountFromBody(req.body)
+    const serviceabilityOptions = buildServiceabilityOptions(body) // handles pickupId, reverse flags, etc.
+    const orderAmountResult = extractOrderAmountFromBody(body)
     if (orderAmountResult.invalid) {
       return res.status(400).json({
         success: false,

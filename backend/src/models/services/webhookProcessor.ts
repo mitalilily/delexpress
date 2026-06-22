@@ -37,6 +37,7 @@ import { recordNdrEvent } from './ndr.service'
 import { createNotificationService } from './notifications.service'
 import { recordRtoEvent } from './rto.service'
 import { logTrackingEvent } from './trackingEvents.service'
+import { sendSellerShipmentTrackingUpdateEmail } from './shipmentEmail.service'
 import { presignDownload, presignUpload } from './upload.service'
 import {
   formatPickupAddress,
@@ -853,6 +854,13 @@ export async function processEkartWebhookV2(payload: any, tx = db) {
     courier_partner: order.courier_partner,
   })
 
+  await sendSellerShipmentTrackingUpdateEmail({
+    order,
+    trackingStatus: mapped,
+    courierName: order.courier_partner || 'Ekart Logistics',
+    previousStatus: prevStatus,
+  })
+
   return { success: true }
 }
 
@@ -914,6 +922,13 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
         delivery_message: instructions,
         courier_partner: b2bOrder.courier_partner || 'Delhivery',
         order_type: 'b2b',
+      })
+
+      await sendSellerShipmentTrackingUpdateEmail({
+        order: b2bOrder,
+        trackingStatus: b2bStatus,
+        courierName: b2bOrder.courier_partner || 'Delhivery',
+        previousStatus: b2bOrder.order_status || null,
       })
 
       console.log(
@@ -1424,6 +1439,13 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
     courier_partner: order.courier_partner || 'Delhivery',
   })
 
+  await sendSellerShipmentTrackingUpdateEmail({
+    order,
+    trackingStatus: internalStatus,
+    courierName: order.courier_partner || 'Delhivery',
+    previousStatus: currentStatus,
+  })
+
   if (shouldRunManifestSideEffects) {
     try {
       const [freshOrder] = await db.select().from(b2c_orders).where(eq(b2c_orders.id, order.id))
@@ -1649,6 +1671,7 @@ export async function processEkartWebhook(payload: any, tx = db) {
     return { success: false, reason: 'order_not_found' }
   }
 
+  const prevStatus = order.order_status || ''
   const internalStatus = mapEkartStatus(statusRaw)
   const statusLower = internalStatus.toLowerCase()
   const statusText = statusRaw || internalStatus
@@ -1796,6 +1819,13 @@ export async function processEkartWebhook(payload: any, tx = db) {
     }
   }
 
+  await sendSellerShipmentTrackingUpdateEmail({
+    order,
+    trackingStatus: internalStatus,
+    courierName: order.courier_partner || 'Ekart Logistics',
+    previousStatus: prevStatus,
+  })
+
   return { success: true }
 }
 
@@ -1860,6 +1890,7 @@ export async function processXpressbeesWebhook(payload: any, tx = db) {
     return { success: false, reason: 'order_not_found' }
   }
 
+  const previousStatus = order.order_status || ''
   const internalStatus = mapXpressbeesStatus(statusRaw)
   const statusLower = internalStatus.toLowerCase()
   const statusText = statusRaw || internalStatus
@@ -2017,6 +2048,13 @@ export async function processXpressbeesWebhook(payload: any, tx = db) {
   if (internalStatus === 'cancelled') {
     await applyCancellationRefundOnce(tx, order, 'xpressbees_webhook')
   }
+
+  await sendSellerShipmentTrackingUpdateEmail({
+    order,
+    trackingStatus: internalStatus,
+    courierName: order.courier_partner || 'Xpressbees',
+    previousStatus,
+  })
 
   return { success: true }
 }
@@ -2241,6 +2279,13 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
   if (internalStatus === 'cancelled') {
     await applyCancellationRefundOnce(tx, order, 'shadowfax_webhook')
   }
+
+  await sendSellerShipmentTrackingUpdateEmail({
+    order,
+    trackingStatus: internalStatus,
+    courierName: order.courier_partner || 'Shadowfax',
+    previousStatus: currentStatus,
+  })
 
   return { success: true }
 }

@@ -21,6 +21,7 @@ type AttachmentInput = {
   buffer?: Buffer
   filename: string
   mimeType?: string
+  cid?: string
 }
 
 // Create SMTP transporter (Hostinger/custom SMTP if provided, else Gmail service)
@@ -85,6 +86,8 @@ const sendEmail = async (
           filename: a.filename,
           content: buffer,
           contentType: a.mimeType,
+          contentDisposition: a.cid ? 'inline' : undefined,
+          cid: a.cid,
         }
       }),
     )
@@ -208,6 +211,96 @@ const escapeHtml = (unsafe: string) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
 
+const CHOICEMEE_LOGO_CANDIDATES = [
+  path.resolve(__dirname, '../../assets/choicemee-logo.jpeg'),
+  '/var/www/choicemee/app/brand/shipment-email-logo.png',
+  '/var/www/choicemee/app/brand/choiceme-logo.png',
+  '/var/www/choicemee/landing/brand/choicemee-logistics-logo.png',
+  '/var/www/choicemee/admin/brand/choiceme-logo.png',
+]
+
+const resolveLogoPath = () => CHOICEMEE_LOGO_CANDIDATES.find((candidate) => fs.existsSync(candidate)) || null
+
+const buildTrackingStatusLabel = (status: string) => {
+  const normalized = String(status || '').trim().toLowerCase()
+  switch (normalized) {
+    case 'booked':
+      return 'Manifest'
+    case 'pickup_initiated':
+      return 'Pickup initiated'
+    case 'in_transit':
+      return 'In transit'
+    case 'out_for_delivery':
+      return 'Out for delivery'
+    case 'delivered':
+      return 'Delivered'
+    case 'cancelled':
+      return 'Cancelled'
+    case 'ndr':
+      return 'NDR'
+    case 'rto':
+      return 'RTO'
+    case 'rto_in_transit':
+      return 'RTO in transit'
+    case 'rto_delivered':
+      return 'RTO delivered'
+    case 'shipment_created':
+      return 'Shipment created'
+    default:
+      return normalized ? normalized.replace(/_/g, ' ') : 'Updated'
+  }
+}
+
+const formatShipmentAddress = (...parts: Array<string | null | undefined>) =>
+  parts
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(', ')
+
+const resolveProductName = (products: unknown) => {
+  if (!products) return 'Product'
+
+  if (Array.isArray(products)) {
+    const names = products
+      .map((product: any) =>
+        String(product?.productName || product?.name || product?.title || '').trim(),
+      )
+      .filter(Boolean)
+
+    if (names.length > 0) {
+      return names.slice(0, 3).join(', ')
+    }
+  }
+
+  if (typeof products === 'object') {
+    const product = products as Record<string, any>
+    const resolved = String(product.productName || product.name || product.title || '').trim()
+    if (resolved) return resolved
+  }
+
+  return 'Product'
+}
+
+const resolveLogoAttachment = () => {
+  const logoPath = resolveLogoPath()
+  if (!logoPath) return null
+
+  const extension = path.extname(logoPath).toLowerCase()
+  return {
+    path: logoPath,
+    filename: path.basename(logoPath),
+    mimeType:
+      extension === '.png'
+        ? 'image/png'
+        : extension === '.webp'
+          ? 'image/webp'
+          : extension === '.svg'
+            ? 'image/svg+xml'
+            : 'image/jpeg',
+    cid: 'choicemee-logo',
+  } satisfies AttachmentInput
+}
+
 export const sendTempPasswordEmail = async (to: string, tempPassword: string) => {
   const safePassword = escapeHtml(tempPassword)
 
@@ -240,6 +333,137 @@ export const sendTempPasswordEmail = async (to: string, tempPassword: string) =>
   `
 
   await sendEmail(to, 'Your Temporary ExpressoPro Password', html)
+}
+
+export const sendShipmentTrackingUpdateEmail = async (opts: {
+  to: string
+  sellerName?: string
+  orderNumber: string
+  awbNumber?: string | null
+  courierName?: string | null
+  trackingStatus: string
+  consigneeName?: string
+  consigneeAddress?: string | null
+  productName?: string | null
+  phoneNumber?: string | null
+}) => {
+  const {
+    to,
+    sellerName,
+    orderNumber,
+    awbNumber,
+    courierName,
+    trackingStatus,
+    consigneeName,
+    consigneeAddress,
+    productName,
+    phoneNumber,
+  } = opts
+
+  const safeSellerName = escapeHtml(String(sellerName || 'Seller'))
+  const safeOrderNumber = escapeHtml(String(orderNumber || ''))
+  const safeAwbNumber = escapeHtml(String(awbNumber || ''))
+  const safeCourierName = escapeHtml(String(courierName || 'Courier'))
+  const statusLabel = buildTrackingStatusLabel(trackingStatus)
+  const headlineStatus = statusLabel === 'Manifest' ? 'Manifested' : statusLabel
+  const safeConsigneeName = escapeHtml(String(consigneeName || ''))
+  const safeConsigneeAddress = escapeHtml(
+    formatShipmentAddress(consigneeAddress || '') || 'Not available',
+  )
+  const safeProductName = escapeHtml(String(productName || 'Product'))
+  const safePhoneNumber = escapeHtml(String(phoneNumber || ''))
+  const logoAttachment = resolveLogoAttachment()
+
+  const html = `
+    <div style="font-family: Arial, Helvetica, sans-serif; background-color: #f4f6f8; padding: 24px;">
+      <div style="max-width: 720px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 24px; overflow: hidden; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 24px; background: linear-gradient(90deg, #f8fbf8 0%, #edfdf1 100%); border-bottom: 1px solid #dcfce7;">
+          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 12px 16px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);">
+            <img src="cid:choicemee-logo" alt="ChoiceMee Logistics" style="display: block; width: 180px; max-width: 100%; height: auto; object-fit: contain;" />
+          </div>
+          <div style="background: #f97316; color: #ffffff; border-radius: 999px; padding: 12px 20px; font-size: 15px; font-weight: 700; white-space: nowrap;">
+            ${escapeHtml(statusLabel)}
+          </div>
+        </div>
+
+        <div style="padding: 24px; color: #111827;">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: flex-start;">
+            <div style="flex: 1 1 320px;">
+              <p style="margin: 0 0 10px 0; font-size: 23px; line-height: 1.35; font-weight: 800; color: #111827;">
+                Hello ${safeSellerName},
+              </p>
+              <p style="margin: 0; font-size: 18px; line-height: 1.55; font-weight: 700; color: #111827;">
+                Your order #${safeOrderNumber} has been ${escapeHtml(headlineStatus)} successfully.
+              </p>
+            </div>
+
+            <div style="flex: 0 0 220px; text-align: right;">
+              <p style="margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #6b7280;">
+                Order ID
+              </p>
+              <p style="margin: 6px 0 0 0; font-size: 18px; font-weight: 800; color: #111827;">
+                ${safeOrderNumber}
+              </p>
+              ${
+                safeAwbNumber
+                  ? `<p style="margin: 8px 0 0 0; font-size: 15px; color: #374151; font-weight: 600;">AWB ${safeAwbNumber}</p>`
+                  : ''
+              }
+              <p style="margin: 8px 0 0 0; font-size: 14px; color: #6b7280;">
+                Courier: <span style="font-weight: 700; color: #111827;">${safeCourierName}</span>
+              </p>
+            </div>
+          </div>
+
+          <div style="margin-top: 24px; border: 1px solid #e5e7eb; border-radius: 20px; overflow: hidden; background: #fafafa;">
+            <div style="padding: 18px 20px; border-bottom: 1px solid #e5e7eb; background: #ffffff;">
+              <p style="margin: 0; font-size: 20px; line-height: 1.2; font-weight: 800; color: #111827;">
+                Consignee Details
+              </p>
+            </div>
+            <table role="presentation" style="width: 100%; border-collapse: collapse; font-size: 15px; color: #111827;">
+              <tr>
+                <td style="padding: 16px 20px; width: 36%; font-weight: 700; color: #374151; border-bottom: 1px solid #e5e7eb;">Consignee Name</td>
+                <td style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb;">${safeConsigneeName || 'Not available'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 16px 20px; width: 36%; font-weight: 700; color: #374151; border-bottom: 1px solid #e5e7eb;">Address</td>
+                <td style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb;">${safeConsigneeAddress}</td>
+              </tr>
+              <tr>
+                <td style="padding: 16px 20px; width: 36%; font-weight: 700; color: #374151; border-bottom: 1px solid #e5e7eb;">Product Name</td>
+                <td style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb;">${safeProductName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 16px 20px; width: 36%; font-weight: 700; color: #374151;">Phone Number</td>
+                <td style="padding: 16px 20px;">${safePhoneNumber || 'Not available'}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="margin-top: 22px; padding: 16px 18px; border-radius: 18px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412;">
+            <p style="margin: 0; font-size: 14px; line-height: 1.6;">
+              Tracking stage: <strong>${escapeHtml(statusLabel)}</strong>. This update has been shared with the seller for order #${safeOrderNumber}.
+            </p>
+          </div>
+
+          <div style="margin-top: 26px; font-size: 14px; color: #475569;">
+            Regards,
+            <br />
+            <strong>Team ChoiceMee Logistics</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+
+  const attachments = logoAttachment ? [logoAttachment] : undefined
+  await sendEmail(
+    to,
+    `ChoiceMee Logistics tracking update - ${orderNumber} - ${statusLabel}`,
+    html,
+    attachments,
+  )
 }
 
 export const sendInvoiceReadyEmail = async (opts: {

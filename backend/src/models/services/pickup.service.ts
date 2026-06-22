@@ -7,6 +7,7 @@ import { EkartService } from './couriers/ekart.service'
 import { ShadowfaxService } from './couriers/shadowfax.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
 import { applyCancellationRefundOnce } from './webhookProcessor'
+import { sendSellerShipmentTrackingUpdateEmail } from './shipmentEmail.service'
 
 export async function cancelOrderShipment(orderId: string) {
   console.log('🔍 Starting cancellation for orderId:', orderId)
@@ -18,6 +19,7 @@ export async function cancelOrderShipment(orderId: string) {
     throw new Error('Order not found')
   }
 
+  const previousStatus = order.order_status || ''
   console.log('📦 Order found:', {
     orderId: order.id,
     orderNumber: order.order_number,
@@ -127,6 +129,13 @@ export async function cancelOrderShipment(orderId: string) {
       .where(eq(b2c_orders.id, orderId))
 
     await applyCancellationRefundOnce(tx, order, 'pickup_cancel_api')
+  })
+
+  await sendSellerShipmentTrackingUpdateEmail({
+    order,
+    trackingStatus: finalStatus,
+    courierName: order.courier_partner || 'Courier',
+    previousStatus,
   })
 
   console.log(`✅ Order status updated to ${finalStatus} successfully:`, { orderId, integration })
