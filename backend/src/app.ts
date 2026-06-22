@@ -16,6 +16,7 @@ import {
   delhiveryWebhookHandler,
 } from './controllers/webhooks/delhivery.webhook'
 import { ekartWebhookHandler } from './controllers/webhooks/ekart.webhook'
+import { razorpayWebhook } from './controllers/webhooks/razorpay.webhooks'
 import { shadowfaxWebhookHandler } from './controllers/webhooks/shadowfax.webhook'
 import { xpressbeesWebhookHandler } from './controllers/webhooks/xpressbees.webhook'
 import adminCourierRoutes from './routes/adminRoutes/adminCourier.routes'
@@ -185,6 +186,13 @@ app.post(
   '/api/webhook/shopify/orders',
   express.raw({ type: 'application/json' }),
   shopifyOrderWebhookController,
+)
+
+// Razorpay validates its HMAC against the exact raw JSON payload.
+app.post(
+  '/api/payments/wallet/webhook',
+  express.raw({ type: 'application/json' }),
+  razorpayWebhook,
 )
 
 app.use(express.json())

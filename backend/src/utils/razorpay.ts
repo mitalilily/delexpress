@@ -9,41 +9,52 @@ dotenv.config({ path: path.resolve(__dirname, `../../.env.${env}`) })
 
 type RazorpayMode = 'test' | 'live'
 
-const MODE: RazorpayMode =
-  (process.env.RAZORPAY_MODE as RazorpayMode) ??
-  (process.env.NODE_ENV === 'production' ? 'live' : 'test')
+const resolveMode = (): RazorpayMode => {
+  const configuredMode = String(process.env.RAZORPAY_MODE || '').trim().toLowerCase()
+  if (configuredMode === 'test' || configuredMode === 'live') return configuredMode
+  return process.env.NODE_ENV === 'production' ? 'live' : 'test'
+}
 
-const CREDENTIALS: Record<RazorpayMode, { key_id: string; key_secret: string }> = {
+const fromEnv = (key: string) => String(process.env[key] || '').trim()
+
+export const razorpayMode = resolveMode()
+
+const credentialsByMode: Record<RazorpayMode, { key_id: string; key_secret: string }> = {
   test: {
-    key_id: process.env.RAZORPAY_KEY_ID || '',
-    key_secret: process.env.RAZORPAY_KEY_SECRET || '',
+    key_id: fromEnv('RAZORPAY_KEY_ID'),
+    key_secret: fromEnv('RAZORPAY_KEY_SECRET'),
   },
   live: {
-    key_id: process.env.RAZORPAY_KEY_ID_PROD || '',
-    key_secret: process.env.RAZORPAY_KEY_SECRET_PROD || '',
+    key_id: fromEnv('RAZORPAY_KEY_ID_PROD'),
+    key_secret: fromEnv('RAZORPAY_KEY_SECRET_PROD'),
   },
 }
 
-export const isRazorpayConfigured = Boolean(CREDENTIALS[MODE].key_id && CREDENTIALS[MODE].key_secret)
+const activeCredentials = credentialsByMode[razorpayMode]
+
+export const isRazorpayConfigured = Boolean(
+  activeCredentials.key_id && activeCredentials.key_secret,
+)
+export const razorpayKeyId = activeCredentials.key_id
 
 const maskCredential = (value: string) =>
   value ? `${value.slice(0, 4)}...${value.slice(-4)}` : 'missing'
 
 if (!isRazorpayConfigured) {
   console.warn(
-    `[Razorpay] Missing credentials for ${MODE.toUpperCase()} mode. Wallet topups are disabled until env vars are set.`,
+    `[Razorpay] Missing credentials for ${razorpayMode.toUpperCase()} mode. Wallet topups are disabled until env vars are set.`,
   )
 }
 
 export const razorpay = new Razorpay({
-  key_id: CREDENTIALS[MODE].key_id || 'disabled',
-  key_secret: CREDENTIALS[MODE].key_secret || 'disabled',
+  key_id: activeCredentials.key_id || 'disabled',
+  key_secret: activeCredentials.key_secret || 'disabled',
 })
 
 if (isRazorpayConfigured) {
   console.info(
-    `[Razorpay] Initialised in ${MODE.toUpperCase()} mode with key ${maskCredential(
-      CREDENTIALS[MODE].key_id,
+    `[Razorpay] Initialised in ${razorpayMode.toUpperCase()} mode with key ${maskCredential(
+      activeCredentials.key_id,
     )}`,
   )
 }
@@ -51,26 +62,49 @@ if (isRazorpayConfigured) {
 export const razorpayApi = axios.create({
   baseURL: 'https://api.razorpay.com/v1',
   auth: {
-    username:
-      MODE === 'live'
-        ? process.env.RAZORPAY_KEY_ID_PROD || 'disabled'
-        : process.env.RAZORPAY_KEY_ID || 'disabled',
-    password:
-      MODE === 'live'
-        ? process.env.RAZORPAY_KEY_SECRET_PROD || 'disabled'
-        : process.env.RAZORPAY_KEY_SECRET || 'disabled',
+    username: activeCredentials.key_id || 'disabled',
+    password: activeCredentials.key_secret || 'disabled',
   },
 })
 
-export function isValidSig(body: string, sig: string) {
+const getWebhookSecret = () =>
+  razorpayMode === 'live'
+    ? fromEnv('RAZORPAY_WEBHOOK_SECRET_PROD')
+    : fromEnv('RAZORPAY_WEBHOOK_SECRET')
+
+const safeCompare = (expected: string, actual: string) => {
+  const expectedBuffer = Buffer.from(expected)
+  const actualBuffer = Buffer.from(actual)
+
+  return (
+    expectedBuffer.length === actualBuffer.length &&
+    crypto.timingSafeEqual(expectedBuffer, actualBuffer)
+  )
+}
+
+export function isValidSig(body: string | Buffer, sig?: string) {
+  const webhookSecret = getWebhookSecret()
+  if (!webhookSecret || !sig) return false
+
+  const expected = crypto.createHmac('sha256', webhookSecret).update(body).digest('hex')
+  return safeCompare(expected, sig)
+}
+
+export function verifyRazorpayCheckoutSignature({
+  orderId,
+  paymentId,
+  signature,
+}: {
+  orderId: string
+  paymentId: string
+  signature: string
+}) {
+  if (!activeCredentials.key_secret || !orderId || !paymentId || !signature) return false
+
   const expected = crypto
-    .createHmac(
-      'sha256',
-      MODE === 'live'
-        ? process.env.RAZORPAY_WEBHOOK_SECRET_PROD || ''
-        : process.env.RAZORPAY_WEBHOOK_SECRET || '',
-    )
-    .update(body)
+    .createHmac('sha256', activeCredentials.key_secret)
+    .update(`${orderId}|${paymentId}`)
     .digest('hex')
-  return expected === sig
+
+  return safeCompare(expected, signature)
 }

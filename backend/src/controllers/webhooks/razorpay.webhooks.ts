@@ -3,89 +3,98 @@ import { markBankRejected, markBankVerified } from '../../models/services/bankAc
 import { confirmFailure, confirmSuccess } from '../../models/services/walletTopupService'
 import { isValidSig } from '../../utils/razorpay'
 
+const getRawBody = (req: Request) => {
+  if (Buffer.isBuffer(req.body)) return req.body
+  const rawBody = (req as any).rawBody
+  if (Buffer.isBuffer(rawBody)) return rawBody
+  if (typeof rawBody === 'string') return Buffer.from(rawBody, 'utf8')
+  return Buffer.from(JSON.stringify(req.body || {}), 'utf8')
+}
+
 export const razorpayWebhook = async (req: Request, res: Response): Promise<any> => {
   const timestamp = new Date().toISOString()
-  const payload = req.body
-  const event = payload.event
-  const sig = req.headers['x-razorpay-signature'] as string
-  const rawBody = JSON.stringify(payload)
+  const signature = req.headers['x-razorpay-signature'] as string | undefined
+  const rawBody = getRawBody(req)
 
-  console.log('='.repeat(80))
-  console.log(`📦 [${timestamp}] Razorpay Webhook Received`)
-  console.log(`   Event: ${event || 'unknown'}`)
-  console.log(`   IP: ${req.ip || req.socket.remoteAddress || 'unknown'}`)
-  console.log(`   Signature Present: ${!!sig}`)
-  console.log(`   Headers:`, JSON.stringify(req.headers, null, 2))
-  console.log(`   Full Payload:`, JSON.stringify(payload, null, 2))
-  console.log('='.repeat(80))
-
-  if (!isValidSig(rawBody, sig)) {
-    console.error(`❌ Razorpay webhook rejected: Invalid signature`)
+  if (!isValidSig(rawBody, signature)) {
+    console.error(`[${timestamp}] Razorpay webhook rejected: invalid signature`)
     return res.status(400).send('Invalid signature')
   }
 
-  console.log(`✅ Razorpay webhook signature verified`)
+  let payload: any
+  try {
+    payload = JSON.parse(rawBody.toString('utf8'))
+  } catch (error) {
+    console.error(`[${timestamp}] Razorpay webhook rejected: invalid JSON payload`)
+    return res.status(400).send('Invalid JSON')
+  }
+
+  const event = payload?.event
+  const payment = payload?.payload?.payment?.entity
+  const validation = payload?.payload?.fund_account_validation?.entity
+
+  console.log('[Razorpay webhook]', {
+    timestamp,
+    event: event || 'unknown',
+    paymentId: payment?.id || null,
+    orderId: payment?.order_id || null,
+    fundAccountValidationId: validation?.id || null,
+    signaturePresent: Boolean(signature),
+  })
 
   try {
-    console.log(`🔄 Processing Razorpay webhook event: ${event}`)
-
     switch (event) {
       case 'payment.captured': {
-        const pay = payload.payload.payment.entity
-        console.log(
-          `   Processing payment.captured - Order ID: ${pay.order_id}, Payment ID: ${pay.id}, Amount: ${pay.amount}`,
-        )
-        await confirmSuccess(pay.order_id, pay.id, +pay.amount)
-        console.log(`✅ Payment captured successfully for order: ${pay.order_id}`)
+        if (!payment?.order_id || !payment?.id || !payment?.amount) {
+          return res.status(400).send('Invalid payment payload')
+        }
+
+        await confirmSuccess(payment.order_id, payment.id, Number(payment.amount))
         break
       }
 
       case 'payment.failed': {
-        const pay = payload.payload.payment.entity
-        console.log(
-          `   Processing payment.failed - Order ID: ${pay.order_id}, Payment ID: ${pay.id}, Error: ${pay.error_description}`,
+        if (!payment?.order_id) {
+          return res.status(400).send('Invalid payment payload')
+        }
+
+        await confirmFailure(
+          payment.order_id,
+          payment.id || null,
+          payment.error_description || payment.error_reason || 'Payment failed',
         )
-        await confirmFailure(pay.order_id, pay.id, pay.error_description)
-        console.log(`✅ Payment failure recorded for order: ${pay.order_id}`)
         break
       }
 
       case 'fund.account.validation.completed': {
-        const validation = payload.payload.fund_account_validation.entity
-        console.log(
-          `   Processing fund.account.validation.completed - Fund Account ID: ${validation.fund_account_id}, Status: ${validation.status}`,
-        )
+        if (!validation?.fund_account_id) {
+          return res.status(400).send('Invalid validation payload')
+        }
 
         if (validation.status === 'success') {
-          // ✅ Verified bank account
           await markBankVerified(validation.fund_account_id)
-          console.log(`✅ Bank account verified: ${validation.fund_account_id}`)
         } else {
-          // ❌ Rejected
           const reason =
             validation.results?.reason_description ||
             validation.results?.reason ||
-            'Unknown failure'
+            'Bank account validation failed'
           await markBankRejected(validation.fund_account_id, reason)
-          console.log(`❌ Bank account rejected: ${validation.fund_account_id}, Reason: ${reason}`)
         }
-
         break
       }
 
       default:
-        console.warn(`⚠️ Unhandled Razorpay webhook event: ${event}`)
+        console.warn(`[Razorpay webhook] Unhandled event: ${event || 'unknown'}`)
     }
 
-    console.log(`✅ Razorpay webhook processed successfully`)
-    res.json({ received: true })
+    return res.json({ received: true })
   } catch (error: any) {
-    console.error('='.repeat(80))
-    console.error(`❌ [${timestamp}] Razorpay webhook error for event: ${event || 'unknown'}`)
-    console.error(`   Error Message: ${error?.message || error}`)
-    console.error(`   Error Stack:`, error?.stack)
-    console.error(`   Payload:`, JSON.stringify(payload, null, 2))
-    console.error('='.repeat(80))
-    res.status(500).json({ error: 'Internal webhook handler error' })
+    console.error('[Razorpay webhook] Handler error', {
+      timestamp,
+      event: event || 'unknown',
+      message: error?.message || String(error),
+      stack: error?.stack,
+    })
+    return res.status(500).json({ error: 'Internal webhook handler error' })
   }
 }
