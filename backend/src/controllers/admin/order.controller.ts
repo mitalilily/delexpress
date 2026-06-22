@@ -7,7 +7,6 @@ import {
 import { shipNowOrderService } from '../../models/services/orderShipNow.service'
 import { db } from '../../models/client'
 import { recordNdrEvent } from '../../models/services/ndr.service'
-import { sendSellerShipmentTrackingUpdateEmail } from '../../models/services/shipmentEmail.service'
 import { b2c_orders } from '../../models/schema/b2cOrders'
 import { getMerchantSafeOperationalError } from '../../utils/merchantErrorMessages'
 import { buildCsv } from '../../utils/csv'
@@ -171,7 +170,6 @@ export const updateOrderStatusControllerAdmin = async (req: any, res: Response) 
       return res.status(404).json({ success: false, message: 'Order not found' })
     }
 
-    const previousStatus = order.order_status || ''
     const [updated] = await db
       .update(b2c_orders)
       .set({
@@ -196,13 +194,6 @@ export const updateOrderStatusControllerAdmin = async (req: any, res: Response) 
         },
       })
     }
-
-    await sendSellerShipmentTrackingUpdateEmail({
-      order,
-      trackingStatus: status,
-      courierName: order.courier_partner || 'Manual update',
-      previousStatus,
-    })
 
     return res.status(200).json({
       success: true,
