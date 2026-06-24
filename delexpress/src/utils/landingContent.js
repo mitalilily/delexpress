@@ -4,14 +4,16 @@ const defaultMarketingSiteUrl = 'https://expressopro.in/'
 export const clientAppUrl = import.meta.env.VITE_CLIENT_APP_URL?.trim() || defaultClientAppUrl
 export const marketingSiteUrl =
   import.meta.env.VITE_MARKETING_SITE_URL?.trim() || defaultMarketingSiteUrl
-export const orderTrackingUrl = `${clientAppUrl.replace(/\/$/, '')}/tools/order_tracking`
 export const siteRoutes = {
   home: '/',
   features: '/features',
   tools: '/tools',
+  tracking: '/tracking',
+  toolsTracking: '/tools/order_tracking',
   faq: '/faq',
   legal: '/legal',
 }
+export const orderTrackingUrl = siteRoutes.tracking
 
 export const navigationLinks = [
   {
@@ -23,7 +25,7 @@ export const navigationLinks = [
       { label: 'FAQs & Legal', href: siteRoutes.faq },
     ],
   },
-  { label: 'Track Order', href: orderTrackingUrl, external: true },
+  { label: 'Track Order', href: orderTrackingUrl },
   { label: 'Tools', href: siteRoutes.tools },
   { label: 'FAQ', href: siteRoutes.faq },
   { label: 'Legal', href: siteRoutes.legal },

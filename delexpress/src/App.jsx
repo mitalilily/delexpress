@@ -9,6 +9,7 @@ import FeaturesPage from './pages/FeaturesPage'
 import FaqPage from './pages/FaqPage'
 import HomePage from './pages/HomePage'
 import LegalPage from './pages/LegalPage'
+import TrackingPage from './pages/TrackingPage'
 import ToolsPage from './pages/ToolsPage'
 import {
   footerGroups,
@@ -30,6 +31,9 @@ function resolvePage(pathname) {
       return <FeaturesPage />
     case siteRoutes.tools:
       return <ToolsPage />
+    case siteRoutes.tracking:
+    case siteRoutes.toolsTracking:
+      return <TrackingPage />
     case siteRoutes.faq:
       return <FaqPage />
     case siteRoutes.legal:
