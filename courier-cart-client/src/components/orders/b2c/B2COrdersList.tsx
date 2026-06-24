@@ -61,6 +61,7 @@ import ShipNowDialog from '../ShipNowDialog'
 import {
   BULK_MANIFEST_LIMIT,
   downloadFile,
+  downloadMergedPdf,
   type DocumentEntry,
   type DocumentType,
   getActionableErrorMessage,
@@ -71,6 +72,7 @@ import {
   getOrderDocumentLabel,
   isB2CManifestEligible,
   isShopifySyncedOrderReadyForCourier,
+  resolveDocumentEntriesForDownload,
   summarizeMessages,
   summarizeOrderNumbers,
 } from '../bulkActionUtils'
@@ -1030,37 +1032,33 @@ const B2COrdersList = () => {
         ).values(),
       )
 
-      const keyEntries = uniqueEntries.filter(
-        (entry): entry is DocumentEntry & { key: string } => Boolean(entry.key),
-      )
-      const directEntries = uniqueEntries.filter(
-        (entry): entry is DocumentEntry & { url: string } => !entry.key && Boolean(entry.url),
-      )
-      const presignedUrls = keyEntries.length
-        ? await presignDownloads({ keys: keyEntries.map((entry) => String(entry.key)) })
-        : []
+      const { resolvedEntries, unavailableOrders: unresolvedOrders } =
+        await resolveDocumentEntriesForDownload(uniqueEntries, presignDownloads)
 
       let downloadedCount = 0
       let skippedCount = documentEntries.length - uniqueEntries.length
+      const unavailableOrders = [...unresolvedOrders]
+      skippedCount += unresolvedOrders.length
 
-      for (const entry of directEntries) {
-        await downloadFile(String(entry.url), entry.fileName)
-        downloadedCount += 1
-      }
-
-      for (const [index, entry] of keyEntries.entries()) {
-        const resolvedUrl = Array.isArray(presignedUrls) ? presignedUrls[index] : null
-        if (!resolvedUrl) {
-          skippedCount += 1
-          continue
+      if (type === 'label') {
+        const mergedFileName = `bulk-labels-${Date.now()}.pdf`
+        const mergeResult = await downloadMergedPdf(resolvedEntries, mergedFileName)
+        downloadedCount = mergeResult.downloadedCount
+        skippedCount += mergeResult.unavailableOrders.length
+        unavailableOrders.push(...mergeResult.unavailableOrders)
+      } else {
+        for (const entry of resolvedEntries) {
+          await downloadFile(entry.downloadUrl, entry.fileName)
+          downloadedCount += 1
         }
-
-        await downloadFile(resolvedUrl, entry.fileName)
-        downloadedCount += 1
       }
 
       if (!downloadedCount) {
-        const message = `No ${type} files could be downloaded for the selected orders.`
+        const unavailableSummary =
+          unavailableOrders.length > 0
+            ? ` Files are not ready for: ${summarizeOrderNumbers(unavailableOrders)}.`
+            : ''
+        const message = `No ${type} files could be downloaded for the selected orders.${unavailableSummary}`
         setBulkFeedback({
           severity: 'error',
           title: `${type[0].toUpperCase()}${type.slice(1)} download failed`,
@@ -1072,8 +1070,14 @@ const B2COrdersList = () => {
 
       const summaryMessage =
         skippedCount > 0
-          ? `Downloaded ${downloadedCount} ${type} file(s). Skipped ${skippedCount} missing or duplicate file(s).`
-          : `Downloaded ${downloadedCount} ${type} file(s).`
+          ? `${
+              type === 'label'
+                ? `Merged ${downloadedCount} label file(s) into one PDF.`
+                : `Downloaded ${downloadedCount} ${type} file(s).`
+            } Skipped ${skippedCount} missing or duplicate file(s).${unavailableOrders.length ? ` Orders: ${summarizeOrderNumbers(unavailableOrders)}.` : ''}`
+          : type === 'label'
+            ? `Merged ${downloadedCount} label file(s) into one PDF.`
+            : `Downloaded ${downloadedCount} ${type} file(s).`
 
       setBulkFeedback({
         severity: skippedCount > 0 ? 'warning' : 'success',

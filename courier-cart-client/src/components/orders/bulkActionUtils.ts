@@ -1,4 +1,5 @@
 import { saveAs } from 'file-saver'
+import { PDFDocument } from 'pdf-lib'
 
 export type DocumentType = 'label' | 'invoice' | 'manifest'
 
@@ -26,6 +27,10 @@ export type DocumentEntry = {
   url?: string | null
   fileName: string
   orderLabel: string
+}
+
+export type ResolvedDocumentEntry = DocumentEntry & {
+  downloadUrl: string
 }
 
 type ApiLikeError = {
@@ -137,6 +142,96 @@ export const downloadFile = async (url: string, fileName: string) => {
   } catch (error) {
     console.warn('Falling back to browser download for bulk file:', error)
     triggerBrowserDownload(url, fileName)
+  }
+}
+
+type PresignDownloadsFn = (payload: { keys: string[] }) => Promise<string | string[]>
+
+export const resolveDocumentEntriesForDownload = async (
+  entries: DocumentEntry[],
+  presignDownloads: PresignDownloadsFn,
+) => {
+  const keyEntries = entries.filter(
+    (entry): entry is DocumentEntry & { key: string } => Boolean(entry.key),
+  )
+  const directEntries = entries.filter(
+    (entry): entry is DocumentEntry & { url: string } => !entry.key && Boolean(entry.url),
+  )
+
+  const presignedResult = keyEntries.length
+    ? await presignDownloads({ keys: keyEntries.map((entry) => String(entry.key)) })
+    : []
+  const presignedUrls = Array.isArray(presignedResult) ? presignedResult : [presignedResult]
+
+  const resolvedEntries: ResolvedDocumentEntry[] = []
+  const unavailableOrders: string[] = []
+
+  directEntries.forEach((entry) => {
+    resolvedEntries.push({
+      ...entry,
+      downloadUrl: String(entry.url),
+    })
+  })
+
+  keyEntries.forEach((entry, index) => {
+    const resolvedUrl = Array.isArray(presignedUrls) ? presignedUrls[index] : null
+    const downloadUrl = resolvedUrl || (entry.url ? String(entry.url) : null)
+
+    if (!downloadUrl) {
+      unavailableOrders.push(entry.orderLabel)
+      return
+    }
+
+    resolvedEntries.push({
+      ...entry,
+      downloadUrl,
+    })
+  })
+
+  return { resolvedEntries, unavailableOrders }
+}
+
+export const downloadMergedPdf = async (
+  entries: ResolvedDocumentEntry[],
+  fileName: string,
+) => {
+  const mergedPdf = await PDFDocument.create()
+  const unavailableOrders: string[] = []
+  let downloadedCount = 0
+
+  for (const entry of entries) {
+    try {
+      const response = await fetch(entry.downloadUrl)
+      if (!response.ok) {
+        throw new Error(`Download failed with status ${response.status}`)
+      }
+
+      const sourceBytes = await response.arrayBuffer()
+      const sourcePdf = await PDFDocument.load(sourceBytes)
+      const pageIndices = sourcePdf.getPageIndices()
+      const copiedPages = await mergedPdf.copyPages(sourcePdf, pageIndices)
+
+      copiedPages.forEach((page) => mergedPdf.addPage(page))
+      downloadedCount += 1
+    } catch (error) {
+      unavailableOrders.push(entry.orderLabel)
+      console.warn(`Skipping unavailable label for order ${entry.orderLabel}:`, error)
+    }
+  }
+
+  if (!downloadedCount || mergedPdf.getPageCount() === 0) {
+    return {
+      downloadedCount: 0,
+      unavailableOrders,
+    }
+  }
+
+  const mergedBytes = await mergedPdf.save()
+  saveAs(new Blob([mergedBytes], { type: 'application/pdf' }), fileName)
+
+  return {
+    downloadedCount,
+    unavailableOrders,
   }
 }
 

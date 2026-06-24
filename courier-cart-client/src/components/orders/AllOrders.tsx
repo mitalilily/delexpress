@@ -17,6 +17,7 @@ import { statusColorMap } from './b2c/B2COrdersList'
 import {
   BULK_MANIFEST_LIMIT,
   downloadFile,
+  downloadMergedPdf,
   type DocumentEntry,
   type DocumentType,
   getActionableErrorMessage,
@@ -27,6 +28,7 @@ import {
   getOrderDocumentLabel,
   isB2CManifestEligible,
   isShopifySyncedOrderReadyForCourier,
+  resolveDocumentEntriesForDownload,
   summarizeMessages,
   summarizeOrderNumbers,
 } from './bulkActionUtils'
@@ -416,47 +418,30 @@ const AllOrders = () => {
         ).values(),
       )
 
-      const keyEntries = uniqueEntries.filter(
-        (entry): entry is DocumentEntry & { key: string } => Boolean(entry.key),
-      )
-      const directEntries = uniqueEntries.filter(
-        (entry): entry is DocumentEntry & { url: string } => !entry.key && Boolean(entry.url),
-      )
-      const presignedUrls = keyEntries.length
-        ? await presignDownloads({ keys: keyEntries.map((entry) => String(entry.key)) })
-        : []
+      const { resolvedEntries, unavailableOrders: unresolvedOrders } =
+        await resolveDocumentEntriesForDownload(uniqueEntries, presignDownloads)
 
       let downloadedCount = 0
       let skippedCount = documentEntries.length - uniqueEntries.length
-      const unavailableOrders: string[] = []
+      const unavailableOrders = [...unresolvedOrders]
+      skippedCount += unresolvedOrders.length
 
-      for (const entry of directEntries) {
-        try {
-          await downloadFile(String(entry.url), entry.fileName)
-          downloadedCount += 1
-        } catch (error) {
-          skippedCount += 1
-          unavailableOrders.push(entry.orderLabel)
-          console.warn(`Skipping unavailable ${type} file for order ${entry.orderLabel}:`, error)
-        }
-      }
-
-      for (const [index, entry] of keyEntries.entries()) {
-        const resolvedUrl = Array.isArray(presignedUrls) ? presignedUrls[index] : null
-        const downloadUrl = resolvedUrl || (entry.url ? String(entry.url) : null)
-        if (!downloadUrl) {
-          skippedCount += 1
-          unavailableOrders.push(entry.orderLabel)
-          continue
-        }
-
-        try {
-          await downloadFile(downloadUrl, entry.fileName)
-          downloadedCount += 1
-        } catch (error) {
-          skippedCount += 1
-          unavailableOrders.push(entry.orderLabel)
-          console.warn(`Skipping unavailable ${type} file for order ${entry.orderLabel}:`, error)
+      if (type === 'label') {
+        const mergedFileName = `bulk-labels-${Date.now()}.pdf`
+        const mergeResult = await downloadMergedPdf(resolvedEntries, mergedFileName)
+        downloadedCount = mergeResult.downloadedCount
+        skippedCount += mergeResult.unavailableOrders.length
+        unavailableOrders.push(...mergeResult.unavailableOrders)
+      } else {
+        for (const entry of resolvedEntries) {
+          try {
+            await downloadFile(entry.downloadUrl, entry.fileName)
+            downloadedCount += 1
+          } catch (error) {
+            skippedCount += 1
+            unavailableOrders.push(entry.orderLabel)
+            console.warn(`Skipping unavailable ${type} file for order ${entry.orderLabel}:`, error)
+          }
         }
       }
 
@@ -477,8 +462,14 @@ const AllOrders = () => {
 
       const summaryMessage =
         skippedCount > 0
-          ? `Downloaded ${downloadedCount} ${type} file(s). ${skippedCount} file(s) were skipped because they were duplicates or not available yet.${unavailableOrders.length ? ` Orders: ${summarizeOrderNumbers(unavailableOrders)}.` : ''}`
-          : `Downloaded ${downloadedCount} ${type} file(s).`
+          ? `${
+              type === 'label'
+                ? `Merged ${downloadedCount} label file(s) into one PDF.`
+                : `Downloaded ${downloadedCount} ${type} file(s).`
+            } ${skippedCount} file(s) were skipped because they were duplicates or not available yet.${unavailableOrders.length ? ` Orders: ${summarizeOrderNumbers(unavailableOrders)}.` : ''}`
+          : type === 'label'
+            ? `Merged ${downloadedCount} label file(s) into one PDF.`
+            : `Downloaded ${downloadedCount} ${type} file(s).`
 
       setBulkFeedback({
         severity: skippedCount > 0 ? 'warning' : 'success',
