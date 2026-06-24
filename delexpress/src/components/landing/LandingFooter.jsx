@@ -10,14 +10,8 @@ function getFooterLinkHref(link) {
   const anchorMap = {
     Features: siteRoutes.features,
     'Shipping Calculator': siteRoutes.tools,
-    'Courier Partners': siteRoutes.features,
-    Pricing: siteRoutes.tools,
-    'About Us': siteRoutes.home,
-    Careers: siteRoutes.home,
-    Contact: siteRoutes.home,
-    'Help Center': siteRoutes.faq,
-    'Shipping Guide': siteRoutes.features,
-    'API Documentation': siteRoutes.tools,
+    'Track Order': siteRoutes.tracking,
+    FAQ: siteRoutes.faq,
     'Privacy Policy': siteRoutes.legal,
     'Terms of Service': siteRoutes.legal,
   }

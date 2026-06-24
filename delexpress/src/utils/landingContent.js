@@ -362,15 +362,11 @@ export const faqItems = [
 export const footerGroups = [
   {
     title: 'Product',
-    links: ['Features', 'Shipping Calculator', 'Courier Partners', 'Pricing'],
-  },
-  {
-    title: 'Company',
-    links: ['About Us', 'Careers', 'Contact'],
+    links: ['Features', 'Shipping Calculator', 'Track Order'],
   },
   {
     title: 'Resources',
-    links: ['Help Center', 'Shipping Guide', 'API Documentation'],
+    links: ['FAQ'],
   },
   {
     title: 'Legal',
