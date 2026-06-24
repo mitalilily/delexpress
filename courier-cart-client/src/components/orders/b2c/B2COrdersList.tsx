@@ -341,7 +341,10 @@ const ShipmentDetailsDialog = ({
               label="AWB"
               value={
                 order.awb_number ? (
-                  <Link href={`/tracking?awb=${encodeURIComponent(order.awb_number)}`} underline="hover">
+                  <Link
+                    href={`/tools/order_tracking?awb=${encodeURIComponent(order.awb_number)}`}
+                    underline="hover"
+                  >
                     {order.awb_number}
                   </Link>
                 ) : (
@@ -494,7 +497,10 @@ const ShipmentDetailsDialog = ({
       </DialogContent>
       <DialogActions>
         {order.awb_number && (
-          <Button href={`/tracking?awb=${encodeURIComponent(order.awb_number)}`} variant="outlined">
+          <Button
+            href={`/tools/order_tracking?awb=${encodeURIComponent(order.awb_number)}`}
+            variant="outlined"
+          >
             Track AWB
           </Button>
         )}
@@ -1274,7 +1280,11 @@ const B2COrdersList = () => {
       return
     }
 
-    window.open(`/tracking?awb=${encodeURIComponent(awb)}`, '_blank', 'noopener,noreferrer')
+    window.open(
+      `/tools/order_tracking?awb=${encodeURIComponent(awb)}`,
+      '_blank',
+      'noopener,noreferrer',
+    )
   }
 
   const handleSyncLiveStatus = async (row: B2COrder) => {
@@ -1421,7 +1431,7 @@ const B2COrdersList = () => {
       render: (_v, row) =>
         row.awb_number ? (
           <Link
-            href={`/tracking?awb=${encodeURIComponent(row.awb_number)}`}
+            href={`/tools/order_tracking?awb=${encodeURIComponent(row.awb_number)}`}
             underline="hover"
             sx={{ fontWeight: 800, color: '#5D7E96', fontSize: 13 }}
           >

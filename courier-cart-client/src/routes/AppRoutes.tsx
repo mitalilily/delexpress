@@ -21,7 +21,6 @@ const Orders = lazy(() => import('../pages/orders/Orders'))
 const B2COrdersList = lazy(() => import('../components/orders/b2c/B2COrdersList'))
 const B2bOrders = lazy(() => import('../pages/orders/B2bOrders'))
 const CreateOrderWrapper = lazy(() => import('../components/orders/CreateOrderWrapper'))
-const OrderTracking = lazy(() => import('../pages/orders/OrderTracking'))
 
 // Settings
 const Settings = lazy(() => import('../pages/settings/Settings'))
@@ -107,7 +106,7 @@ export default function AppRoutes() {
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
           <Route path="/preview" element={<ClientPreview />} />
-          <Route path="/tracking" element={<OrderTracking />} /> {/* 👈 NEW ROUTE */}
+          <Route path="/tracking" element={<OrderTrackingForm />} />
           {/* onboarding */}
           <Route
             path="/onboarding-questions"

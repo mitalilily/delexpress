@@ -20,6 +20,7 @@ import {
 } from '@mui/material'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
+import { useSearchParams } from 'react-router-dom'
 import {
   FaBoxOpen,
   FaEnvelopeOpenText,
@@ -42,6 +43,7 @@ type FormValues = {
 }
 
 export default function OrderTrackingForm() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [mode, setMode] = useState<'awb' | 'order'>('awb')
   const [error, setError] = useState<string>('')
   const [queryParams, setQueryParams] = useState<{
@@ -63,6 +65,35 @@ export default function OrderTrackingForm() {
       contact: '',
     },
   })
+
+  useEffect(() => {
+    const awb = searchParams.get('awb')?.trim() || ''
+    const orderNumber = searchParams.get('order')?.trim() || ''
+    const contact = searchParams.get('contact')?.trim() || ''
+
+    if (awb) {
+      setMode('awb')
+      reset({ awb, orderNumber: '', contact: '' })
+      setQueryParams((current) =>
+        current?.awb === awb && !current?.orderNumber && !current?.contact ? current : { awb },
+      )
+      return
+    }
+
+    if (orderNumber && contact) {
+      setMode('order')
+      reset({ awb: '', orderNumber, contact })
+      setQueryParams((current) =>
+        current?.orderNumber === orderNumber && current?.contact === contact && !current?.awb
+          ? current
+          : { orderNumber, contact },
+      )
+      return
+    }
+
+    reset({ awb: '', orderNumber: '', contact: '' })
+    setQueryParams(null)
+  }, [reset, searchParams])
 
   const formValues = watch()
 
@@ -104,11 +135,16 @@ export default function OrderTrackingForm() {
     setError('')
 
     if (mode === 'awb') {
-      setQueryParams({ awb: data.awb.trim() })
+      const awb = data.awb.trim()
+      setSearchParams({ awb })
+      setQueryParams({ awb })
     } else {
+      const orderNumber = data.orderNumber.trim()
+      const contact = data.contact.trim()
+      setSearchParams({ order: orderNumber, contact })
       setQueryParams({
-        orderNumber: data.orderNumber.trim(),
-        contact: data.contact.trim(),
+        orderNumber,
+        contact,
       })
     }
   }
@@ -121,6 +157,7 @@ export default function OrderTrackingForm() {
   }, [tracking])
 
   const resetResults = () => {
+    setSearchParams({})
     setQueryParams(null)
     setError('')
   }
