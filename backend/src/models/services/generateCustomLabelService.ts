@@ -113,6 +113,48 @@ const DEFAULT_LABEL_SETTINGS = {
   powered_by: 'ExpressoPro',
 }
 
+const toAmount = (value: unknown) => {
+  const n = Number(value ?? 0)
+  return Number.isFinite(n) ? n : 0
+}
+
+export const computeCustomerFacingLabelAmounts = (order: any, products: any[]) => {
+  const paymentType = (order.payment_type ?? order.order_type ?? order.type ?? '')
+    .toString()
+    .toLowerCase()
+
+  const customerFacingSubtotal = products.reduce((sum: number, p: any) => {
+    const qty = toAmount(p?.qty ?? p?.quantity ?? 1)
+    const price = toAmount(p?.price)
+    const discount = toAmount(p?.discount)
+    return sum + Math.max(0, price * qty - discount)
+  }, 0)
+
+  const additionalCharges = toAmount(order.other_charges)
+  const shippingChargeTotal =
+    toAmount((order as any).total_shipping_charges) ||
+    toAmount(order.shipping_charges) + additionalCharges
+  const codCharge = paymentType === 'cod' ? toAmount(order.cod_charges) : 0
+  const customerFacingTotal = Math.max(
+    customerFacingSubtotal +
+      shippingChargeTotal +
+      toAmount(order.transaction_fee) +
+      toAmount(order.gift_wrap) +
+      codCharge -
+      (toAmount(order.discount) + toAmount(order.prepaid_amount)),
+    0,
+  )
+
+  return {
+    paymentType,
+    customerFacingSubtotal,
+    shippingChargeTotal,
+    additionalCharges,
+    codCharge,
+    customerFacingTotal,
+  }
+}
+
 function mergeSettings(prefs: any) {
   if (!prefs) return DEFAULT_LABEL_SETTINGS
   return {
@@ -248,24 +290,12 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
   const showPlatformBranding = Boolean(settings.powered_by?.toString().trim())
   const charLimit = Math.max(10, Number(settings.char_limit ?? 25))
   const maxItems = Math.max(1, Number(settings.max_items ?? 3))
-  const toAmount = (value: unknown) => {
-    const n = Number(value ?? 0)
-    return Number.isFinite(n) ? n : 0
-  }
-  const customerFacingSubtotal = products.reduce((sum: number, p: any) => {
-    const qty = toAmount(p?.qty ?? p?.quantity ?? 1)
-    const price = toAmount(p?.price)
-    const discount = toAmount(p?.discount)
-    return sum + Math.max(0, price * qty - discount)
-  }, 0)
-  const customerFacingTotal = Math.max(
-    customerFacingSubtotal +
-      toAmount(order.shipping_charges) +
-      toAmount(order.transaction_fee) +
-      toAmount(order.gift_wrap) -
-      (toAmount(order.discount) + toAmount(order.prepaid_amount)),
-    0,
-  )
+  const {
+    customerFacingSubtotal,
+    customerFacingTotal,
+    additionalCharges,
+    codCharge,
+  } = computeCustomerFacingLabelAmounts(order, products)
 
   // For Delhivery, prefer barcode_img coming from provider APIs (if stored on order);
   // otherwise fall back to a locally generated AWB barcode.
@@ -687,6 +717,12 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
     const codCollectible = paymentType === 'cod' ? (codCollectibleRaw > 0 ? codCollectibleRaw : orderValue) : 0
 
     const summaryParts = [`Order Value: ${formatCurrency(orderValue)}`]
+    if (additionalCharges > 0) {
+      summaryParts.push(`Additional Charges: ${formatCurrency(additionalCharges)}`)
+    }
+    if (paymentType === 'cod' && codCharge > 0) {
+      summaryParts.push(`COD Fee: ${formatCurrency(codCharge)}`)
+    }
     summaryParts.push(
       paymentType === 'cod'
         ? `Collect on Delivery: ${formatCurrency(codCollectible)}`

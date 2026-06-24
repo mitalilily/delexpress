@@ -305,7 +305,9 @@ const ShipmentDetailsDialog = ({
   const totalCustomerCharge = Math.max(
     Number(order.order_amount ?? 0) +
       Number(order.shipping_charges ?? 0) +
+      Number(order.other_charges ?? 0) +
       Number(order.transaction_fee ?? 0) +
+      (String(order.order_type || '').toLowerCase() === 'cod' ? Number(order.cod_charges ?? 0) : 0) +
       Number(order.gift_wrap ?? 0) -
       (Number(order.discount ?? 0) + Number(order.prepaid_amount ?? 0)),
     0,
@@ -1452,7 +1454,11 @@ const B2COrdersList = () => {
         const customerTotal = Math.max(
           Number(row.order_amount ?? 0) +
             Number(row.shipping_charges ?? 0) +
+            Number(row.other_charges ?? 0) +
             Number(row.transaction_fee ?? 0) +
+            (String(row.order_type || '').toLowerCase() === 'cod'
+              ? Number(row.cod_charges ?? 0)
+              : 0) +
             Number(row.gift_wrap ?? 0) -
             (Number(row.discount ?? 0) + Number(row.prepaid_amount ?? 0)),
           0,
@@ -1461,10 +1467,12 @@ const B2COrdersList = () => {
           <Stack spacing={0.25}>
             <Typography sx={{ fontSize: 13, fontWeight: 800 }}>{asMoney(customerTotal)}</Typography>
             <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
-              Ship {asMoney(row.shipping_charges)} | Fee {asMoney(row.transaction_fee)}
+              Ship {asMoney(row.shipping_charges)} | Other {asMoney(row.other_charges)} | Fee {asMoney(row.transaction_fee)}
             </Typography>
             <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
-              Gift {asMoney(row.gift_wrap)} | Disc {asMoney(row.discount)}
+              {String(row.order_type || '').toLowerCase() === 'cod'
+                ? `COD ${asMoney(row.cod_charges)} | `
+                : ''}Gift {asMoney(row.gift_wrap)} | Disc {asMoney(row.discount)}
             </Typography>
           </Stack>
         )

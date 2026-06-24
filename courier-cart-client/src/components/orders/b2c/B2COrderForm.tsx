@@ -171,8 +171,8 @@ const buildDefaultValues = (
     giftWrap: toNumber(sourceOrder.gift_wrap, 0),
     discount: toNumber(sourceOrder.discount, 0),
     prepaidAmount: orderType === 'prepaid' ? toNumber(sourceOrder.prepaid_amount, 0) : 0,
-    courierCod: 0,
-    otherCharges: 0,
+    courierCod: orderType === 'cod' ? toNumber(sourceOrder.cod_charges, 0) : 0,
+    otherCharges: toNumber(sourceOrder.other_charges, 0),
     forwardCharges: 0,
     courierPartner: '',
     courierPartnerId: '',
@@ -227,10 +227,12 @@ export default function B2COrderFormSteps({
   }, [sourceOrder?.id, reset])
 
   const shippingCharges = Number(watch('shippingCharges') || 0)
+  const otherCharges = Number(watch('otherCharges') || 0)
   const transactionFee = Number(watch('transactionFee') || 0)
   const giftWrap = Number(watch('giftWrap') || 0)
   const discount = Number(watch('discount') || 0)
   const prepaidAmount = Number(watch('prepaidAmount') || 0)
+  const courierCod = Number(watch('courierCod') || 0)
   const orderType = watch('orderType') || getDefaultOrderType()
 
   // Ensure orderType is valid based on payment options
@@ -261,7 +263,14 @@ export default function B2COrderFormSteps({
 
   // Calculate total order value (customer-facing)
   // Includes: subtotal + shipping + transaction_fee + gift_wrap - discount
-  const totalOrderValue = subtotal + shippingCharges + transactionFee + giftWrap - discount
+  const totalOrderValue =
+    subtotal +
+    shippingCharges +
+    otherCharges +
+    transactionFee +
+    giftWrap +
+    (orderType === 'cod' ? courierCod : 0) -
+    discount
   const totalCollectable = totalOrderValue - prepaidAmount
 
   const onSubmit = async (data: B2CFormData) => {
@@ -298,6 +307,7 @@ export default function B2COrderFormSteps({
         package_breadth: data.breadth,
         package_height: data.height,
         shipping_charges: Number(data?.shippingCharges ?? 0), // What seller charges customer
+        other_charges: Number(data?.otherCharges ?? 0),
         freight_charges: Number(data?.forwardCharges ?? 0), // What platform charges seller (based on rate card)
         courier_cost: data?.courierCost ? Number(data.courierCost) : undefined, // Estimated courier cost from serviceability (what platform pays courier)
         prepaid_amount: data?.prepaidAmount,
