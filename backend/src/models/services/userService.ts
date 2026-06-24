@@ -157,12 +157,17 @@ export const findUserById = async (id: string) => {
 
 export const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
+const emailMatches = (email: string) => {
+  const normalizedEmail = normalizeEmail(email)
+  return sql`lower(trim(${users.email})) = ${normalizedEmail}`
+}
+
 export const findUserByEmail = async (email: string, tx: Tx = db) => {
   const normalizedEmail = normalizeEmail(email)
   if (!normalizedEmail) return null
 
   return await tx.query.users.findFirst({
-    where: (users) => sql`lower(trim(${users.email})) = ${normalizedEmail}`,
+    where: () => emailMatches(normalizedEmail),
   })
 }
 
@@ -175,7 +180,7 @@ export const updateUserByEmail = async (email: string, updateData: Partial<User>
   const [updatedUser] = await tx
     .update(users)
     .set(updateData)
-    .where(eq(users.email, email))
+    .where(emailMatches(email))
     .returning()
   return updatedUser
 }
@@ -192,7 +197,7 @@ export const updateUserVerificationToken = async (
       emailVerificationToken: token,
       emailVerificationTokenExpiresAt: expiresAt,
     })
-    .where(eq(users.email, email))
+    .where(emailMatches(email))
     .returning()
   return updatedUser
 }
@@ -210,8 +215,7 @@ export const updateUserOtp = async (phone: string, otp: string, otpExpiresAt: Da
 
 // updateUserOtpByEmail.ts - for email-based OTP
 export const updateUserOtpByEmail = async (email: string, otp: string, otpExpiresAt: Date) => {
-  const normalized = email.trim().toLowerCase()
-  return await db.update(users).set({ otp, otpExpiresAt }).where(eq(users.email, normalized))
+  return await db.update(users).set({ otp, otpExpiresAt }).where(emailMatches(email))
 }
 
 /**
@@ -225,7 +229,7 @@ export const markEmailVerified = async (email: string, tx: any = db) => {
     const [updatedUser] = await tx
       .update(users)
       .set({ emailVerified: true })
-      .where(eq(users.email, normalized))
+      .where(emailMatches(normalized))
       .returning({ id: users.id })
 
     if (!updatedUser) {
@@ -294,11 +298,10 @@ export const clearUserOtp = async (phone: string) => {
 
 // clearUserOtpByEmail.ts - for email-based OTP
 export const clearUserOtpByEmail = async (email: string) => {
-  const normalized = email.trim().toLowerCase()
   return await db
     .update(users)
     .set({ otp: null, otpExpiresAt: null })
-    .where(eq(users.email, normalized))
+    .where(emailMatches(email))
 }
 
 export const clearUserEmailToken = async (email: string) => {
@@ -308,7 +311,7 @@ export const clearUserEmailToken = async (email: string) => {
       emailVerificationToken: null,
       emailVerificationTokenExpiresAt: null,
     })
-    .where(eq(users.email, email))
+    .where(emailMatches(email))
 }
 
 export const updateUserChannelIntegration = async (

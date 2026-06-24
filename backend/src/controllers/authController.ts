@@ -251,6 +251,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
 
   try {
     const normalizedEmail = email.trim().toLowerCase()
+    const normalizedOtp = String(otp).trim()
     const user = await findUserByEmail(normalizedEmail)
 
     if (user && user.role === 'employee') {
@@ -278,7 +279,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
       })
     }
 
-    if (user.otp !== otp) {
+    if (user.otp !== normalizedOtp) {
       return res.status(400).json({ error: 'Incorrect OTP' })
     }
 
