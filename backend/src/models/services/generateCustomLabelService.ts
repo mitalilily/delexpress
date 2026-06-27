@@ -286,15 +286,11 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
   const includeSku = isEnabled(settings.product_info?.skuCode)
   const includeDimension = isEnabled(settings.product_info?.dimension)
   const includeDeadWeight = isEnabled(settings.product_info?.deadWeight)
-  const showOrderValueSection = isEnabled(settings.product_info?.otherCharges)
   const showPlatformBranding = Boolean(settings.powered_by?.toString().trim())
   const charLimit = Math.max(10, Number(settings.char_limit ?? 25))
   const maxItems = Math.max(1, Number(settings.max_items ?? 3))
   const {
-    customerFacingSubtotal,
     customerFacingTotal,
-    additionalCharges,
-    codCharge,
   } = computeCustomerFacingLabelAmounts(order, products)
 
   // For Delhivery, prefer barcode_img coming from provider APIs (if stored on order);
@@ -706,37 +702,6 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
     })
   }
 
-  if (showOrderValueSection) {
-    const orderValue =
-      customerFacingTotal > 0
-        ? customerFacingTotal
-        : toAmount(order.order_amount) > 0
-          ? toAmount(order.order_amount)
-          : customerFacingSubtotal
-    const codCollectibleRaw = toAmount(order.cod_amount ?? order.order_amount)
-    const codCollectible = paymentType === 'cod' ? (codCollectibleRaw > 0 ? codCollectibleRaw : orderValue) : 0
-
-    const summaryParts = [`Order Value: ${formatCurrency(orderValue)}`]
-    if (additionalCharges > 0) {
-      summaryParts.push(`Additional Charges: ${formatCurrency(additionalCharges)}`)
-    }
-    if (paymentType === 'cod' && codCharge > 0) {
-      summaryParts.push(`COD Fee: ${formatCurrency(codCharge)}`)
-    }
-    summaryParts.push(
-      paymentType === 'cod'
-        ? `Collect on Delivery: ${formatCurrency(codCollectible)}`
-        : 'Payment: PREPAID',
-    )
-
-    pageContent.push({
-      text: summaryParts.join(' | '),
-      fontSize: 7,
-      margin: [0, 0, 0, 4],
-      color: '#334155',
-    })
-  }
-
   if (showRto && rto.address) {
     pageContent.push({
       table: {
@@ -756,45 +721,6 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
     })
   }
 
-  const additionalBarcodes: any[] = []
-  if (showOrderBarcode && images.orderBarcode) {
-    additionalBarcodes.push({
-      stack: [
-        { text: 'Order Barcode', fontSize: 6, alignment: 'center', color: '#64748b' },
-        { image: 'orderBarcode', width: 88, alignment: 'center', margin: [0, 1, 0, 0] },
-      ],
-    })
-  }
-  if (showInvoiceBarcode && images.invoiceBarcode) {
-    additionalBarcodes.push({
-      stack: [
-        { text: 'Invoice Barcode', fontSize: 6, alignment: 'center', color: '#64748b' },
-        { image: 'invoiceBarcode', width: 88, alignment: 'center', margin: [0, 1, 0, 0] },
-      ],
-    })
-  }
-  if (additionalBarcodes.length > 0) {
-    pageContent.push({
-      stack: [
-        {
-          text: 'Reference Barcodes',
-          fontSize: 7,
-          color: primaryColor,
-          bold: true,
-          margin: [0, 0, 0, 2],
-        },
-        {
-          table: {
-            widths: additionalBarcodes.map(() => '*'),
-            body: [additionalBarcodes],
-          },
-          layout: 'noBorders',
-        },
-      ],
-      margin: [0, 1, 0, 5],
-    })
-  }
-
   if (showTerms) {
     pageContent.push({
       text: 'T&C: Inspect shipment before accepting. Report issues immediately to support.',
@@ -804,6 +730,31 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
       margin: [0, 1, 0, 2],
     })
   }
+
+  pageContent.push({
+    table: {
+      widths: ['*'],
+      body: [
+        [
+          {
+            text: "Please reach out to the brand's support team with a proper unboxing video in case of any complaints / issues.",
+            fontSize: 6.5,
+            color: '#111827',
+            margin: [0, 1, 0, 1],
+          },
+        ],
+      ],
+    },
+    layout: {
+      hLineColor: () => '#111827',
+      vLineColor: () => '#111827',
+      paddingLeft: () => 6,
+      paddingRight: () => 6,
+      paddingTop: () => 4,
+      paddingBottom: () => 4,
+    },
+    margin: [0, 2, 0, 4],
+  })
 
   if (showPlatformBranding) {
     const footerStack: any[] = []

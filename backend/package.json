@@ -19,7 +19,9 @@
     "sync:xpressbees-couriers": "ts-node src/scripts/syncXpressbeesCouriers.ts",
     "sync:expressfly-couriers": "ts-node src/scripts/syncExpressflyCouriers.ts",
     "sync:shadowfax-couriers": "ts-node src/scripts/syncShadowfaxCouriers.ts",
-    "restore:delhivery-express-surface": "ts-node src/scripts/restoreDelhiveryExpressSurface.ts"
+    "sync:shadowfax-surface-rate-cards": "ts-node src/scripts/syncShadowfaxSurfaceRateCards.ts",
+    "restore:delhivery-express-surface": "ts-node src/scripts/restoreDelhiveryExpressSurface.ts",
+    "fix:expressopro-cod-wallet-debits": "ts-node src/scripts/fixExpressoproCodWalletDebits.ts"
   },
   "keywords": [],
   "author": "",

@@ -49,6 +49,7 @@ import { resolveInvoiceNumber } from './invoiceNumber.service'
 import { syncShopifyStatusForLocalOrder } from './shopify.service'
 import {
   computeB2CFreightForOrder,
+  debitManifestSuccessChargeIfNeeded,
   getCancellationRefundReason,
   getOrderRefundOutstanding,
   ORIGINAL_WALLET_DEBIT_REASONS,
@@ -1282,6 +1283,8 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
           console.warn(`⚠️ Order ${order.order_number} not found in transaction`)
           return
         }
+
+        await debitManifestSuccessChargeIfNeeded({ tx: innerTx, order: freshOrder })
 
         // Labels will be generated during manifest generation, not during webhook processing
 

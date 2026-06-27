@@ -313,13 +313,107 @@ const refundManifestFailureChargeOnce = async ({
   })
 }
 
-const debitManifestSuccessChargeIfNeeded = async ({ tx, order }: { tx: any; order: any }) => {
-  const [wallet] = await tx.select().from(wallets).where(eq(wallets.userId, order.user_id)).limit(1)
-  if (!wallet?.id) {
-    throw new Error(`Wallet not found for user ${order.user_id}`)
+const resolveManifestSuccessOrderForDebit = async ({ tx, order }: { tx: any; order: any }) => {
+  const isCodOrder = String(order.order_type || '').toLowerCase() === 'cod'
+  const isDelhiveryOrder = String(order.integration_type || '').toLowerCase() === 'delhivery'
+  const currentCodCharges = Number(order.cod_charges ?? 0)
+
+  if (!isCodOrder || !isDelhiveryOrder || currentCodCharges > 0) {
+    return order
   }
 
-  const expectedDebit = getExpectedWalletDebitFromOrder(order)
+  const originPincode = String(order.pickup_details?.pincode || '').trim()
+  const destinationPincode = String(order.pincode || '').trim()
+  const courierId = Number(order.courier_id ?? 0)
+  const weightG = normalizeServiceabilityWeightToGrams(order.weight)
+  const resolvedShippingMode =
+    order.shipping_mode ??
+    (isDelhiveryOrder && Number.isFinite(courierId) && courierId > 0
+      ? getDelhiveryShippingModeByCourierId(courierId)
+      : null)
+
+  if (!originPincode || !destinationPincode || !Number.isFinite(courierId) || courierId <= 0 || weightG <= 0) {
+    return order
+  }
+
+  try {
+    const recomputedFreight = await computeB2CFreightForOrder({
+      userId: order.user_id,
+      courierId,
+      serviceProvider: order.integration_type,
+      mode: resolvedShippingMode ?? null,
+      selectedMaxSlabWeight: order.selected_max_slab_weight ?? null,
+      destinationPincode,
+      originPincode,
+      orderAmount: Number(order.order_amount ?? 0),
+      weightG,
+      lengthCm: Number(order.length ?? 0),
+      breadthCm: Number(order.breadth ?? 0),
+      heightCm: Number(order.height ?? 0),
+      isReverse: false,
+    })
+
+    const resolvedCodCharges = Number(recomputedFreight.effective_cod_charges ?? 0)
+    if (!Number.isFinite(resolvedCodCharges) || resolvedCodCharges <= 0) {
+      return order
+    }
+
+    if (Math.abs(resolvedCodCharges - currentCodCharges) <= 0.009) {
+      return {
+        ...order,
+        cod_charges: resolvedCodCharges,
+      }
+    }
+
+    await tx
+      .update(b2c_orders)
+      .set({
+        cod_charges: resolvedCodCharges,
+        updated_at: new Date(),
+      })
+      .where(eq(b2c_orders.id, order.id))
+
+    console.log('Recovered missing COD charge before manifest-success debit', {
+      order_number: order.order_number,
+      previous_cod_charges: currentCodCharges,
+      resolved_cod_charges: resolvedCodCharges,
+    })
+
+    return {
+      ...order,
+      cod_charges: resolvedCodCharges,
+    }
+  } catch (error: any) {
+    console.warn('Unable to recompute COD charge before manifest-success debit', {
+      order_number: order.order_number,
+      message: error?.message || error,
+    })
+    return order
+  }
+}
+
+export const debitManifestSuccessChargeIfNeeded = async ({ tx, order }: { tx: any; order: any }) => {
+  const normalizedOrder = await resolveManifestSuccessOrderForDebit({ tx, order })
+  const isDelhiveryCodOrder =
+    String(normalizedOrder.order_type || '').toLowerCase() === 'cod' &&
+    String(normalizedOrder.integration_type || '').toLowerCase() === 'delhivery'
+  const hadMissingStoredCod = Number(order.cod_charges ?? 0) <= 0
+  const hasResolvedCod = Number(normalizedOrder.cod_charges ?? 0) > 0
+
+  if (isDelhiveryCodOrder && hadMissingStoredCod && !hasResolvedCod) {
+    console.warn('Skipping manifest-success debit because COD charges could not be recovered', {
+      order_number: normalizedOrder.order_number,
+      order_id: normalizedOrder.id,
+    })
+    return
+  }
+
+  const [wallet] = await tx.select().from(wallets).where(eq(wallets.userId, normalizedOrder.user_id)).limit(1)
+  if (!wallet?.id) {
+    throw new Error(`Wallet not found for user ${normalizedOrder.user_id}`)
+  }
+
+  const expectedDebit = getExpectedWalletDebitFromOrder(normalizedOrder)
   if (expectedDebit <= 0) {
     return
   }
@@ -331,7 +425,7 @@ const debitManifestSuccessChargeIfNeeded = async ({ tx, order }: { tx: any; orde
       reason: walletTransactions.reason,
     })
     .from(walletTransactions)
-    .where(and(eq(walletTransactions.wallet_id, wallet.id), eq(walletTransactions.ref, order.id)))
+    .where(and(eq(walletTransactions.wallet_id, wallet.id), eq(walletTransactions.ref, normalizedOrder.id)))
 
   const totalOriginalDebit = transactions
     .filter(
@@ -345,7 +439,7 @@ const debitManifestSuccessChargeIfNeeded = async ({ tx, order }: { tx: any; orde
     .filter(
       (transaction: any) =>
         transaction.type === 'credit' &&
-        String(transaction.reason ?? '') === getManifestFailureRefundReason(order.order_number),
+        String(transaction.reason ?? '') === getManifestFailureRefundReason(normalizedOrder.order_number),
     )
     .reduce((sum: number, transaction: any) => sum + Number(transaction.amount ?? 0), 0)
 
@@ -360,16 +454,18 @@ const debitManifestSuccessChargeIfNeeded = async ({ tx, order }: { tx: any; orde
     walletId: wallet.id,
     amount: amountToDebit,
     type: 'debit',
-    ref: order.id,
-    reason: getWalletDebitReasonFromOrder(order.order_type),
+    ref: normalizedOrder.id,
+    reason: getWalletDebitReasonFromOrder(normalizedOrder.order_type),
     currency: wallet.currency ?? 'INR',
     meta: {
-      order_number: order.order_number,
-      payment_type: order.order_type,
-      freight_charges: Number(order.freight_charges ?? 0),
-      other_charges: Number(order.other_charges ?? 0),
+      order_number: normalizedOrder.order_number,
+      payment_type: normalizedOrder.order_type,
+      freight_charges: Number(normalizedOrder.freight_charges ?? 0),
+      other_charges: Number(normalizedOrder.other_charges ?? 0),
       cod_charges:
-        String(order.order_type || '').toLowerCase() === 'cod' ? Number(order.cod_charges ?? 0) : 0,
+        String(normalizedOrder.order_type || '').toLowerCase() === 'cod'
+          ? Number(normalizedOrder.cod_charges ?? 0)
+          : 0,
       triggered_by: 'manifest_success',
       debit_recovery_after_refund: totalManifestRefund > 0,
       total_wallet_debit: amountToDebit,
@@ -2747,6 +2843,7 @@ export interface InsertB2COrderParams {
   chargedSlabs?: number
   shippingMode?: string | null
   selectedMaxSlabWeight?: number | null
+  resolvedCodCharges?: number | null
   manifestError?: string | null
   pickupStatus?: string | null
 }
@@ -2771,6 +2868,7 @@ export async function createB2COrder({
   chargedSlabs,
   shippingMode,
   selectedMaxSlabWeight,
+  resolvedCodCharges,
   manifestError,
   pickupStatus,
 }: InsertB2COrderParams) {
@@ -2869,7 +2967,7 @@ export async function createB2COrder({
   const pickupDetails = normalizeJsonValue(params.pickup) ?? {}
   const rtoDetails = normalizeJsonValue(params.rto)
   const isCodOrder = params.payment_type === 'cod'
-  const storedCodCharges = isCodOrder ? Number(params?.cod_charges ?? 0) : 0
+  const storedCodCharges = isCodOrder ? Number(resolvedCodCharges ?? params?.cod_charges ?? 0) : 0
 
   try {
     const orderValues: any = {
@@ -4670,6 +4768,7 @@ export const createB2CShipmentService = async (
         chargedSlabs: slabbedFreight.slabs ?? undefined,
         shippingMode: selectedDelhiveryShippingMode ?? null,
         selectedMaxSlabWeight,
+        resolvedCodCharges: isCodOrder ? codCharges : 0,
       })
 
       if (selectedDelhiveryShippingMode && selectedDelhiveryCourierId !== null) {
