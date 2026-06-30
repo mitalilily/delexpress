@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, ilike, lte, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, lt, lte, or, sql } from 'drizzle-orm'
 import { db } from '../client'
 import { wallets, walletTransactions } from '../schema/wallet'
 import { userProfiles } from '../schema/userProfile'
@@ -9,6 +9,22 @@ interface GetAllWalletsParams {
   limit?: number
   search?: string
   sortBy?: 'balance' | 'createdAt' | 'updatedAt' | 'email' | 'companyName'
+  sortOrder?: 'asc' | 'desc'
+}
+
+interface GetWalletMonthlySummaryParams {
+  page?: number
+  limit?: number
+  search?: string
+  month?: string
+  sortBy?:
+    | 'month'
+    | 'totalAmount'
+    | 'transactionCount'
+    | 'lastTransactionAt'
+    | 'email'
+    | 'companyName'
+    | 'type'
   sortOrder?: 'asc' | 'desc'
 }
 
@@ -166,6 +182,132 @@ export const getWalletTransactionsByUserId = async ({
     totalCount,
     page,
     limit,
+  }
+}
+
+const normalizeSummaryMonth = (value?: string) => {
+  if (typeof value === 'string' && /^\d{4}-\d{2}$/.test(value.trim())) {
+    return value.trim()
+  }
+
+  const now = new Date()
+  const year = now.getUTCFullYear()
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0')
+  return `${year}-${month}`
+}
+
+export const getWalletMonthlySummary = async ({
+  page = 1,
+  limit = 20,
+  search = '',
+  month,
+  sortBy = 'lastTransactionAt',
+  sortOrder = 'desc',
+}: GetWalletMonthlySummaryParams) => {
+  const offset = (page - 1) * limit
+  const resolvedMonth = normalizeSummaryMonth(month)
+  const monthStart = new Date(`${resolvedMonth}-01T00:00:00.000Z`)
+  const monthEnd = new Date(monthStart)
+  monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1)
+
+  const filters: any[] = [
+    gte(walletTransactions.created_at, monthStart),
+    lt(walletTransactions.created_at, monthEnd),
+  ]
+
+  if (search.trim()) {
+    const pattern = `%${search.trim()}%`
+    filters.push(
+      or(
+        ilike(sql`coalesce(${userProfiles.companyInfo} ->> 'brandName', '')`, pattern),
+        ilike(sql`coalesce(${userProfiles.companyInfo} ->> 'contactPerson', '')`, pattern),
+        ilike(sql`coalesce(${userProfiles.companyInfo} ->> 'contactEmail', '')`, pattern),
+        ilike(sql`coalesce(${userProfiles.companyInfo} ->> 'businessName', '')`, pattern),
+        ilike(users.email, pattern),
+      ),
+    )
+  }
+
+  const filter = and(...filters)
+  const companyNameExpr = sql<string>`coalesce(${userProfiles.companyInfo} ->> 'brandName', ${userProfiles.companyInfo} ->> 'businessName', '')`
+  const monthExpr = sql<string>`to_char(date_trunc('month', ${walletTransactions.created_at}), 'YYYY-MM')`
+  const totalAmountExpr = sql<string>`coalesce(sum(${walletTransactions.amount}), 0)::text`
+  const transactionCountExpr = sql<number>`count(*)::int`
+  const lastTransactionAtExpr = sql<Date>`max(${walletTransactions.created_at})`
+
+  const summarySubquery = db
+    .select({
+      userId: wallets.userId,
+      type: walletTransactions.type,
+      month: monthExpr,
+    })
+    .from(walletTransactions)
+    .innerJoin(wallets, eq(walletTransactions.wallet_id, wallets.id))
+    .innerJoin(users, eq(wallets.userId, users.id))
+    .innerJoin(userProfiles, eq(users.id, userProfiles.userId))
+    .where(filter)
+    .groupBy(wallets.userId, walletTransactions.type, monthExpr)
+    .as('wallet_monthly_summary')
+
+  const totalCountResult = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(summarySubquery)
+
+  const totalCount = Number(totalCountResult[0]?.count || 0)
+
+  const sortColumns: Record<string, any> = {
+    month: monthExpr,
+    totalAmount: totalAmountExpr,
+    transactionCount: transactionCountExpr,
+    lastTransactionAt: lastTransactionAtExpr,
+    email: users.email,
+    companyName: companyNameExpr,
+    type: walletTransactions.type,
+  }
+  const sortColumn = sortColumns[sortBy] ?? lastTransactionAtExpr
+  const orderBy = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn)
+
+  const rows = await db
+    .select({
+      userId: wallets.userId,
+      walletId: wallets.id,
+      month: monthExpr,
+      type: walletTransactions.type,
+      totalAmount: totalAmountExpr,
+      transactionCount: transactionCountExpr,
+      lastTransactionAt: lastTransactionAtExpr,
+      userEmail: users.email,
+      userRole: users.role,
+      companyInfo: userProfiles.companyInfo,
+      walletBalance: wallets.balance,
+      walletCurrency: wallets.currency,
+    })
+    .from(walletTransactions)
+    .innerJoin(wallets, eq(walletTransactions.wallet_id, wallets.id))
+    .innerJoin(users, eq(wallets.userId, users.id))
+    .innerJoin(userProfiles, eq(users.id, userProfiles.userId))
+    .where(filter)
+    .groupBy(
+      wallets.userId,
+      wallets.id,
+      walletTransactions.type,
+      monthExpr,
+      users.email,
+      users.role,
+      userProfiles.companyInfo,
+      wallets.balance,
+      wallets.currency,
+    )
+    .orderBy(orderBy, asc(users.email), asc(walletTransactions.type))
+    .limit(limit)
+    .offset(offset)
+
+  return {
+    data: rows,
+    totalCount,
+    page,
+    limit,
+    month: resolvedMonth,
   }
 }
 

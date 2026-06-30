@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import {
   getAllWallets,
+  getWalletMonthlySummary,
   getWalletByUserId,
   getWalletTransactionsByUserId,
 } from '../../models/services/adminWallet.service'
@@ -28,6 +29,40 @@ export const listWallets = async (req: Request, res: Response): Promise<any> => 
   } catch (error) {
     console.error('Error fetching wallets:', error)
     res.status(500).json({ success: false, message: 'Server error fetching wallets' })
+  }
+}
+
+export const listWalletMonthlySummary = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const page = parseInt((req.query.page as string) || '1')
+    const limit = parseInt((req.query.limit as string) || '20')
+    const search = (req.query.search as string) || ''
+    const month = (req.query.month as string) || undefined
+    const sortBy =
+      (req.query.sortBy as
+        | 'month'
+        | 'totalAmount'
+        | 'transactionCount'
+        | 'lastTransactionAt'
+        | 'email'
+        | 'companyName'
+        | 'type'
+        | undefined) || 'lastTransactionAt'
+    const sortOrder = (req.query.sortOrder as 'asc' | 'desc' | undefined) || 'desc'
+
+    const result = await getWalletMonthlySummary({
+      page,
+      limit,
+      search,
+      month,
+      sortBy,
+      sortOrder,
+    })
+
+    res.status(200).json({ success: true, ...result })
+  } catch (error) {
+    console.error('Error fetching wallet monthly summary:', error)
+    res.status(500).json({ success: false, message: 'Server error fetching wallet monthly summary' })
   }
 }
 

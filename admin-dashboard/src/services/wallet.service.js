@@ -6,6 +6,19 @@ export const listAdminWallets = async ({ page = 1, limit = 20, search = '', sort
   return data
 }
 
+export const listAdminWalletMonthlySummary = async ({
+  page = 1,
+  limit = 20,
+  search = '',
+  month,
+  sortBy = 'lastTransactionAt',
+  sortOrder = 'desc',
+} = {}) => {
+  const params = { page, limit, search, month, sortBy, sortOrder }
+  const { data } = await apiClient.get('/admin/wallets/monthly-summary', { params })
+  return data
+}
+
 export const getAdminWallet = async (userId) => {
   const { data } = await apiClient.get(`/admin/wallets/${userId}`)
   return data

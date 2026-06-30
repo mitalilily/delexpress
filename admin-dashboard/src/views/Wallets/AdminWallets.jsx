@@ -33,8 +33,9 @@ import SortControls from 'components/SortControls'
 import TableFilters from 'components/Tables/TableFilters'
 import {
   useAdjustWalletBalance,
-  useAdminWallets,
+  useAdminWalletMonthlySummary,
   useAdminWalletTransactions,
+  useAdminWallets,
 } from 'hooks/useWallet'
 import { useState } from 'react'
 import { useHistory } from 'react-router-dom/cjs/react-router-dom.min'
@@ -49,18 +50,53 @@ const walletFilterOptions = [
   },
 ]
 
+const getCurrentMonthInput = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+const getMonthRange = (monthValue) => {
+  if (!monthValue) {
+    return { dateFrom: null, dateTo: null }
+  }
+
+  const start = new Date(`${monthValue}-01T00:00:00`)
+  const end = new Date(start)
+  end.setMonth(end.getMonth() + 1)
+  end.setMilliseconds(end.getMilliseconds() - 1)
+
+  return {
+    dateFrom: start,
+    dateTo: end,
+  }
+}
+
+const formatMonthLabel = (monthValue) => {
+  if (!monthValue) return '—'
+  const monthDate = new Date(`${monthValue}-01T00:00:00`)
+  if (Number.isNaN(monthDate.getTime())) return monthValue
+  return monthDate.toLocaleDateString('en-IN', {
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
 export default function AdminWallets() {
   const history = useHistory()
   const toast = useToast()
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
   const [search, setSearch] = useState('')
-  const [sortBy, setSortBy] = useState('updatedAt')
-  const [sortOrder, setSortOrder] = useState('desc')
+  const [viewMode, setViewMode] = useState('wallets')
+  const [summaryMonth, setSummaryMonth] = useState(getCurrentMonthInput())
+  const [walletSortBy, setWalletSortBy] = useState('updatedAt')
+  const [walletSortOrder, setWalletSortOrder] = useState('desc')
+  const [summarySortBy, setSummarySortBy] = useState('lastTransactionAt')
+  const [summarySortOrder, setSummarySortOrder] = useState('desc')
   const [selectedUserId, setSelectedUserId] = useState(null)
   const [selectedWallet, setSelectedWallet] = useState(null)
+  const [selectedTransactionContext, setSelectedTransactionContext] = useState(null)
 
-  // Modals
   const {
     isOpen: isTransactionsOpen,
     onOpen: onTransactionsOpen,
@@ -68,14 +104,12 @@ export default function AdminWallets() {
   } = useDisclosure()
   const { isOpen: isAdjustOpen, onOpen: onAdjustOpen, onClose: onAdjustClose } = useDisclosure()
 
-  // Transactions modal state
   const [transactionsPage, setTransactionsPage] = useState(1)
   const [transactionsLimit] = useState(50)
   const [transactionType, setTransactionType] = useState('')
   const [transactionDateFrom, setTransactionDateFrom] = useState(null)
   const [transactionDateTo, setTransactionDateTo] = useState(null)
 
-  // Adjust wallet form
   const [adjustForm, setAdjustForm] = useState({
     type: 'credit',
     amount: '',
@@ -83,13 +117,47 @@ export default function AdminWallets() {
     notes: '',
   })
 
-  const { data: walletsData, isLoading } = useAdminWallets({
-    page,
-    limit,
-    search,
-    sortBy,
-    sortOrder,
-  })
+  const walletSortOptions = [
+    { value: 'balance', label: 'Balance' },
+    { value: 'updatedAt', label: 'Last Updated' },
+    { value: 'createdAt', label: 'Created At' },
+    { value: 'email', label: 'Email' },
+    { value: 'companyName', label: 'Company Name' },
+  ]
+
+  const summarySortOptions = [
+    { value: 'lastTransactionAt', label: 'Last Transaction' },
+    { value: 'totalAmount', label: 'Total Amount' },
+    { value: 'transactionCount', label: 'Transaction Count' },
+    { value: 'month', label: 'Month' },
+    { value: 'email', label: 'Email' },
+    { value: 'companyName', label: 'Company Name' },
+    { value: 'type', label: 'Type' },
+  ]
+
+  const { data: walletsData, isLoading: walletsLoading } = useAdminWallets(
+    {
+      page,
+      limit,
+      search,
+      sortBy: walletSortBy,
+      sortOrder: walletSortOrder,
+    },
+    viewMode === 'wallets',
+  )
+
+  const { data: monthlySummaryData, isLoading: monthlySummaryLoading } =
+    useAdminWalletMonthlySummary(
+      {
+        page,
+        limit,
+        search,
+        month: summaryMonth,
+        sortBy: summarySortBy,
+        sortOrder: summarySortOrder,
+      },
+      viewMode === 'monthly',
+    )
 
   const { data: transactionsData, isLoading: transactionsLoading } = useAdminWalletTransactions(
     selectedUserId,
@@ -106,26 +174,71 @@ export default function AdminWallets() {
   const adjustMutation = useAdjustWalletBalance()
 
   const wallets = walletsData?.data || []
-  const totalCount = walletsData?.totalCount || 0
+  const monthlySummaryRows = monthlySummaryData?.data || []
+  const isMonthlyMode = viewMode === 'monthly'
+  const tableData = isMonthlyMode ? monthlySummaryRows : wallets
+  const totalCount = isMonthlyMode ? monthlySummaryData?.totalCount || 0 : walletsData?.totalCount || 0
+  const isLoading = isMonthlyMode ? monthlySummaryLoading : walletsLoading
 
-  const handleSortByChange = (e) => {
-    setSortBy(e)
-    setPage(1)
+  const formatBalance = (balance) => {
+    const num = parseFloat(balance || 0)
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+    }).format(num)
   }
 
-  const handleSortOrderChange = (e) => {
-    setSortOrder(e)
-    setPage(1)
+  const formatDate = (date) => {
+    if (!date) return '—'
+    return new Date(date).toLocaleString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  const getCompanyName = (companyInfo) => {
+    if (!companyInfo) return '—'
+    return companyInfo.brandName || companyInfo.businessName || companyInfo.name || '—'
+  }
+
+  const getContactPerson = (companyInfo) => {
+    if (!companyInfo) return '—'
+    return companyInfo.contactPerson || '—'
+  }
+
+  const openTransactionsModal = (walletLikeRow, options = {}) => {
+    const normalizedWallet = {
+      ...walletLikeRow,
+      balance: walletLikeRow.balance ?? walletLikeRow.walletBalance ?? 0,
+      currency: walletLikeRow.currency || walletLikeRow.walletCurrency || 'INR',
+    }
+
+    setSelectedUserId(walletLikeRow.userId)
+    setSelectedWallet(normalizedWallet)
+    setTransactionsPage(1)
+    setTransactionType(options.type || '')
+    setTransactionDateFrom(options.dateFrom || null)
+    setTransactionDateTo(options.dateTo || null)
+    setSelectedTransactionContext(options.contextLabel || null)
+    onTransactionsOpen()
   }
 
   const handleViewTransactions = (wallet) => {
-    setSelectedUserId(wallet.userId)
-    setSelectedWallet(wallet)
-    setTransactionsPage(1)
-    setTransactionType('')
-    setTransactionDateFrom(null)
-    setTransactionDateTo(null)
-    onTransactionsOpen()
+    openTransactionsModal(wallet)
+  }
+
+  const handleViewMonthlyDetails = (summaryRow) => {
+    const { dateFrom, dateTo } = getMonthRange(summaryRow.month)
+    openTransactionsModal(summaryRow, {
+      type: summaryRow.type,
+      dateFrom,
+      dateTo,
+      contextLabel: `${summaryRow.type === 'credit' ? 'Credits' : 'Debits'} for ${formatMonthLabel(summaryRow.month)}`,
+    })
   }
 
   const handleAdjustWallet = (wallet) => {
@@ -191,49 +304,89 @@ export default function AdminWallets() {
     history.push(`/admin/users-management/${userId}/overview`)
   }
 
-  const captions = ['User', 'Email', 'Balance', 'Currency', 'Last Updated', 'Actions']
-  const columnKeys = ['user', 'userEmail', 'balance', 'currency', 'updatedAt', 'actions']
-
-  const formatBalance = (balance) => {
-    const num = parseFloat(balance || 0)
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 2,
-    }).format(num)
+  const handleSortByChange = (value) => {
+    if (isMonthlyMode) {
+      setSummarySortBy(value)
+    } else {
+      setWalletSortBy(value)
+    }
+    setPage(1)
   }
 
-  const formatDate = (date) => {
-    if (!date) return '—'
-    return new Date(date).toLocaleString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+  const handleSortOrderChange = (value) => {
+    if (isMonthlyMode) {
+      setSummarySortOrder(value)
+    } else {
+      setWalletSortOrder(value)
+    }
+    setPage(1)
   }
 
-  const getCompanyName = (companyInfo) => {
-    if (!companyInfo) return '—'
-    return companyInfo.brandName || companyInfo.businessName || companyInfo.name || '—'
-  }
-
-  const getContactPerson = (companyInfo) => {
-    if (!companyInfo) return '—'
-    return companyInfo.contactPerson || '—'
-  }
+  const walletCaptions = ['User', 'Email', 'Balance', 'Currency', 'Last Updated', 'Actions']
+  const walletColumnKeys = ['user', 'userEmail', 'balance', 'currency', 'updatedAt', 'actions']
+  const summaryCaptions = [
+    'Month',
+    'User',
+    'Email',
+    'Type',
+    'Total Amount',
+    'Transactions',
+    'Last Transaction',
+    'Actions',
+  ]
+  const summaryColumnKeys = [
+    'month',
+    'user',
+    'userEmail',
+    'type',
+    'totalAmount',
+    'transactionCount',
+    'lastTransactionAt',
+    'actions',
+  ]
 
   return (
     <Flex direction="column" pt={{ base: '120px', md: '75px' }}>
-      <TableFilters
-        filters={walletFilterOptions}
-        values={{ search }}
-        onApply={(finalFilters) => {
-          setSearch(finalFilters.search || '')
-          setPage(1)
-        }}
-      />
+      <Stack spacing={4} mb={4}>
+        <TableFilters
+          filters={walletFilterOptions}
+          values={{ search }}
+          onApply={(finalFilters) => {
+            setSearch(finalFilters.search || '')
+            setPage(1)
+          }}
+        />
+
+        <Flex gap={4} flexWrap="wrap" alignItems="flex-end">
+          <FormControl maxW="240px">
+            <FormLabel fontSize="sm">View</FormLabel>
+            <Select
+              value={viewMode}
+              onChange={(e) => {
+                setViewMode(e.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="wallets">Current Wallet Balances</option>
+              <option value="monthly">Monthly Credits & Debits</option>
+            </Select>
+          </FormControl>
+
+          {isMonthlyMode && (
+            <FormControl maxW="220px">
+              <FormLabel fontSize="sm">Month</FormLabel>
+              <Input
+                type="month"
+                value={summaryMonth}
+                onChange={(e) => {
+                  setSummaryMonth(e.target.value || getCurrentMonthInput())
+                  setPage(1)
+                }}
+              />
+            </FormControl>
+          )}
+        </Flex>
+      </Stack>
 
       <GenericTable
         paginated
@@ -242,53 +395,65 @@ export default function AdminWallets() {
         setPage={setPage}
         sortByComponent={
           <SortControls
-            sortBy={sortBy}
-            sortOrder={sortOrder}
+            sortBy={isMonthlyMode ? summarySortBy : walletSortBy}
+            sortOrder={isMonthlyMode ? summarySortOrder : walletSortOrder}
             onSortByChange={handleSortByChange}
             onSortOrderChange={handleSortOrderChange}
-            sortOptions={[
-              { value: 'balance', label: 'Balance' },
-              { value: 'updatedAt', label: 'Last Updated' },
-              { value: 'createdAt', label: 'Created At' },
-              { value: 'email', label: 'Email' },
-              { value: 'companyName', label: 'Company Name' },
-            ]}
+            sortOptions={isMonthlyMode ? summarySortOptions : walletSortOptions}
           />
         }
         totalCount={totalCount}
         perPage={limit}
         setPerPage={setLimit}
-        title="Wallets Management"
-        data={wallets}
-        captions={captions}
-        columnKeys={columnKeys}
-        renderActions={(row) => (
-          <HStack spacing={2}>
-            <Tooltip label="View Transactions">
-              <Button
-                size="sm"
-                colorScheme="blue"
-                leftIcon={<IconEye size={16} />}
-                onClick={() => handleViewTransactions(row)}
-              >
-                Transactions
+        title={isMonthlyMode ? `Monthly Wallet Summary - ${formatMonthLabel(summaryMonth)}` : 'Wallets Management'}
+        data={tableData}
+        captions={isMonthlyMode ? summaryCaptions : walletCaptions}
+        columnKeys={isMonthlyMode ? summaryColumnKeys : walletColumnKeys}
+        renderActions={(row) =>
+          isMonthlyMode ? (
+            <HStack spacing={2}>
+              <Tooltip label="View Monthly Details">
+                <Button
+                  size="sm"
+                  colorScheme="blue"
+                  leftIcon={<IconEye size={16} />}
+                  onClick={() => handleViewMonthlyDetails(row)}
+                >
+                  View Details
+                </Button>
+              </Tooltip>
+              <Button size="sm" colorScheme="teal" onClick={() => handleViewUser(row.userId)}>
+                View User
               </Button>
-            </Tooltip>
-            <Tooltip label="Adjust Balance">
-              <Button
-                size="sm"
-                colorScheme="purple"
-                leftIcon={<IconAdjustments size={16} />}
-                onClick={() => handleAdjustWallet(row)}
-              >
-                Adjust
+            </HStack>
+          ) : (
+            <HStack spacing={2}>
+              <Tooltip label="View Transactions">
+                <Button
+                  size="sm"
+                  colorScheme="blue"
+                  leftIcon={<IconEye size={16} />}
+                  onClick={() => handleViewTransactions(row)}
+                >
+                  Transactions
+                </Button>
+              </Tooltip>
+              <Tooltip label="Adjust Balance">
+                <Button
+                  size="sm"
+                  colorScheme="purple"
+                  leftIcon={<IconAdjustments size={16} />}
+                  onClick={() => handleAdjustWallet(row)}
+                >
+                  Adjust
+                </Button>
+              </Tooltip>
+              <Button size="sm" colorScheme="teal" onClick={() => handleViewUser(row.userId)}>
+                View User
               </Button>
-            </Tooltip>
-            <Button size="sm" colorScheme="teal" onClick={() => handleViewUser(row.userId)}>
-              View User
-            </Button>
-          </HStack>
-        )}
+            </HStack>
+          )
+        }
         renderers={{
           user: (value, row) => {
             const companyName = getCompanyName(row?.companyInfo)
@@ -324,10 +489,23 @@ export default function AdminWallets() {
           },
           currency: (value) => <Text>{value || 'INR'}</Text>,
           updatedAt: (value) => <Text fontSize="sm">{formatDate(value)}</Text>,
+          month: (value) => <Text fontWeight="semibold">{formatMonthLabel(value)}</Text>,
+          type: (value) => (
+            <StatusBadge
+              status={String(value || '').toUpperCase()}
+              type={value === 'credit' ? 'success' : 'error'}
+            />
+          ),
+          totalAmount: (value, row) => (
+            <Text fontWeight="bold" color={row.type === 'credit' ? 'green.500' : 'red.500'}>
+              {formatBalance(value)}
+            </Text>
+          ),
+          transactionCount: (value) => <Text>{value || 0}</Text>,
+          lastTransactionAt: (value) => <Text fontSize="sm">{formatDate(value)}</Text>,
         }}
       />
 
-      {/* Transactions Modal */}
       <CustomModal
         isOpen={isTransactionsOpen}
         onClose={onTransactionsClose}
@@ -344,12 +522,16 @@ export default function AdminWallets() {
                 {formatBalance(selectedWallet.balance)}
               </Text>
             )}
+            {selectedTransactionContext && (
+              <Text fontSize="xs" color="blue.500" fontWeight="medium">
+                Showing {selectedTransactionContext}
+              </Text>
+            )}
           </VStack>
         }
         footer={<Button onClick={onTransactionsClose}>Close</Button>}
       >
         <VStack spacing={4} align="stretch">
-          {/* Filters */}
           <Flex gap={4} flexWrap="wrap">
             <FormControl flex="1" minW="200px">
               <FormLabel fontSize="sm">Transaction Type</FormLabel>
@@ -389,7 +571,6 @@ export default function AdminWallets() {
             </FormControl>
           </Flex>
 
-          {/* Transactions Table */}
           {transactionsLoading ? (
             <VStack spacing={4} align="stretch">
               <Skeleton height="40px" />
@@ -447,7 +628,6 @@ export default function AdminWallets() {
             </TableContainer>
           )}
 
-          {/* Pagination */}
           {transactionsData?.totalCount > transactionsLimit && (
             <Flex justify="space-between" align="center">
               <Text fontSize="sm" color="gray.500">
@@ -458,7 +638,7 @@ export default function AdminWallets() {
               <HStack>
                 <Button
                   size="sm"
-                  onClick={() => setTransactionsPage((p) => Math.max(1, p - 1))}
+                  onClick={() => setTransactionsPage((currentPage) => Math.max(1, currentPage - 1))}
                   isDisabled={transactionsPage === 1}
                 >
                   Previous
@@ -469,7 +649,7 @@ export default function AdminWallets() {
                 </Text>
                 <Button
                   size="sm"
-                  onClick={() => setTransactionsPage((p) => p + 1)}
+                  onClick={() => setTransactionsPage((currentPage) => currentPage + 1)}
                   isDisabled={
                     transactionsPage >=
                     Math.ceil((transactionsData?.totalCount || 0) / transactionsLimit)
@@ -483,7 +663,6 @@ export default function AdminWallets() {
         </VStack>
       </CustomModal>
 
-      {/* Adjust Wallet Modal */}
       <CustomModal
         isOpen={isAdjustOpen}
         onClose={onAdjustClose}

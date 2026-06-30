@@ -3,15 +3,35 @@ import {
   adjustAdminWalletBalance,
   getAdminWallet,
   getAdminWalletTransactions,
+  listAdminWalletMonthlySummary,
   listAdminWallets,
 } from 'services/wallet.service'
 
-export function useAdminWallets(params) {
+export function useAdminWallets(params, enabled = true) {
   const { page = 1, limit = 20, search = '', sortBy = 'updatedAt', sortOrder = 'desc' } = params || {}
   return useQuery({
     queryKey: ['admin-wallets', page, limit, search, sortBy, sortOrder],
     queryFn: () => listAdminWallets({ page, limit, search, sortBy, sortOrder }),
     keepPreviousData: true,
+    enabled,
+  })
+}
+
+export function useAdminWalletMonthlySummary(params, enabled = true) {
+  const {
+    page = 1,
+    limit = 20,
+    search = '',
+    month,
+    sortBy = 'lastTransactionAt',
+    sortOrder = 'desc',
+  } = params || {}
+
+  return useQuery({
+    queryKey: ['admin-wallet-monthly-summary', page, limit, search, month, sortBy, sortOrder],
+    queryFn: () => listAdminWalletMonthlySummary({ page, limit, search, month, sortBy, sortOrder }),
+    keepPreviousData: true,
+    enabled,
   })
 }
 
