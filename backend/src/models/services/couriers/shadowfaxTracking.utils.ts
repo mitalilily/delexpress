@@ -126,6 +126,40 @@ const pickString = (...values: unknown[]) => {
   return ''
 }
 
+const getShadowfaxBody = (payload: any) => {
+  if (payload?.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
+    return payload.data
+  }
+  if (Array.isArray(payload?.data) && payload.data.length > 0) {
+    return payload.data[0]
+  }
+  return payload
+}
+
+const getShadowfaxOrderDetails = (payload: any) => {
+  const body = getShadowfaxBody(payload)
+  const orderDetails =
+    body?.order_details && typeof body.order_details === 'object'
+      ? body.order_details
+      : payload?.order_details && typeof payload.order_details === 'object'
+        ? payload.order_details
+        : payload?.data?.order_details && typeof payload.data.order_details === 'object'
+          ? payload.data.order_details
+          : null
+
+  return orderDetails
+}
+
+const getShadowfaxTrackingDetails = (payload: any) => {
+  const body = getShadowfaxBody(payload)
+
+  if (Array.isArray(body?.tracking_details)) return body.tracking_details
+  if (Array.isArray(payload?.tracking_details)) return payload.tracking_details
+  if (Array.isArray(payload?.data?.tracking_details)) return payload.data.tracking_details
+
+  return []
+}
+
 const normalizeStatusId = (value: unknown) =>
   String(value || '')
     .trim()
@@ -226,7 +260,13 @@ const mapMarketplaceFallback = (statusId: string, statusText: string) => {
     return 'rto_in_transit'
   }
   if (signal.includes('delivered')) return 'delivered'
-  if (signal.includes('ofd') || signal.includes('assigned for delivery')) return 'out_for_delivery'
+  if (
+    signal.includes('ofd') ||
+    signal.includes('assigned for delivery') ||
+    signal.includes('out for delivery')
+  ) {
+    return 'out_for_delivery'
+  }
   if (signal.includes('hold') || signal.includes('cid') || signal.includes('delay')) return 'on_hold'
   if (signal.includes('pickup') || hasPickupInitiationSignal(signal)) {
     return 'pickup_initiated'
@@ -269,7 +309,13 @@ const mapWarehouseFallback = (statusId: string, statusText: string) => {
   if (signal.includes('rto')) return 'rto'
   if (signal.includes('in_transit_return')) return 'rto_in_transit'
   if (signal.includes('delivered')) return 'delivered'
-  if (signal.includes('ofd') || signal.includes('assigned for delivery')) return 'out_for_delivery'
+  if (
+    signal.includes('ofd') ||
+    signal.includes('assigned for delivery') ||
+    signal.includes('out for delivery')
+  ) {
+    return 'out_for_delivery'
+  }
   if (signal.includes('hold') || signal.includes('cid')) return 'on_hold'
   if (
     signal.includes('received from client warehouse') ||
@@ -309,22 +355,35 @@ export const mapShadowfaxStatusToInternal = (
 }
 
 export const extractShadowfaxTrackingUpdate = (payload: any): ShadowfaxTrackingUpdate => {
-  const body = payload?.data && typeof payload.data === 'object' ? payload.data : payload
+  const body = getShadowfaxBody(payload)
+  const orderDetails = getShadowfaxOrderDetails(payload)
+  const trackingDetails = getShadowfaxTrackingDetails(payload)
+  const latestTrackingEvent =
+    trackingDetails.length > 0 ? trackingDetails[trackingDetails.length - 1] : null
+
   const statusId = pickString(
     body?.status_id,
     body?.statusId,
     body?.status_code,
     body?.statusCode,
-    body?.status,
-    body?.current_status,
     body?.state,
     payload?.status_id,
     payload?.statusId,
     payload?.status_code,
     payload?.statusCode,
+    payload?.state,
+    latestTrackingEvent?.status_id,
+    latestTrackingEvent?.statusId,
+    latestTrackingEvent?.status_code,
+    latestTrackingEvent?.statusCode,
+    latestTrackingEvent?.status,
+    latestTrackingEvent?.current_status,
+    body?.status,
+    body?.current_status,
     payload?.status,
     payload?.current_status,
-    payload?.state,
+    orderDetails?.status,
+    orderDetails?.status_display,
   )
   const statusText = pickString(
     body?.status,
@@ -356,6 +415,12 @@ export const extractShadowfaxTrackingUpdate = (payload: any): ShadowfaxTrackingU
     payload?.remarks,
     payload?.description,
     payload?.message,
+    latestTrackingEvent?.remarks,
+    latestTrackingEvent?.remark,
+    latestTrackingEvent?.status,
+    latestTrackingEvent?.status_id,
+    orderDetails?.status_display,
+    orderDetails?.status,
   )
   const flow = getFlow(payload, statusId, statusText)
 
@@ -376,6 +441,10 @@ export const extractShadowfaxTrackingUpdate = (payload: any): ShadowfaxTrackingU
         payload?.tracking_number,
         payload?.tracking_id,
         payload?.order_awb,
+        latestTrackingEvent?.awb_number,
+        latestTrackingEvent?.awb,
+        orderDetails?.awb_number,
+        orderDetails?.awb,
       ) || null,
     referenceNo:
       pickString(
@@ -392,6 +461,11 @@ export const extractShadowfaxTrackingUpdate = (payload: any): ShadowfaxTrackingU
         payload?.orderId,
         payload?.order_number,
         payload?.shipment_id,
+        latestTrackingEvent?.reference_no,
+        latestTrackingEvent?.referenceNo,
+        orderDetails?.client_order_id,
+        orderDetails?.order_id,
+        orderDetails?.order_number,
       ) || null,
     statusId: statusId || 'unknown',
     statusText: statusText || statusId || 'unknown',
@@ -405,6 +479,10 @@ export const extractShadowfaxTrackingUpdate = (payload: any): ShadowfaxTrackingU
         payload?.remarks,
         payload?.reason,
         payload?.message,
+        latestTrackingEvent?.remarks,
+        latestTrackingEvent?.remark,
+        latestTrackingEvent?.status,
+        orderDetails?.status_display,
       ) || null,
     description:
       pickString(
@@ -414,6 +492,7 @@ export const extractShadowfaxTrackingUpdate = (payload: any): ShadowfaxTrackingU
         payload?.description,
         payload?.desc,
         payload?.details,
+        orderDetails?.status_display,
       ) || null,
     location:
       pickString(
@@ -425,6 +504,9 @@ export const extractShadowfaxTrackingUpdate = (payload: any): ShadowfaxTrackingU
         payload?.hub,
         payload?.hub_name,
         payload?.facility_name,
+        latestTrackingEvent?.location,
+        orderDetails?.destination_hub,
+        orderDetails?.pickup_details?.city,
       ) || null,
     eventTime:
       pickString(
@@ -436,6 +518,11 @@ export const extractShadowfaxTrackingUpdate = (payload: any): ShadowfaxTrackingU
         payload?.eventTime,
         payload?.timestamp,
         payload?.updated_at,
+        body?.event_timestamp,
+        payload?.event_timestamp,
+        latestTrackingEvent?.created,
+        latestTrackingEvent?.updated_at,
+        orderDetails?.updated_at,
       ) || null,
     internalStatus: mapShadowfaxStatusToInternal(statusId, statusText, flow),
     raw: payload,

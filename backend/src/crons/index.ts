@@ -10,11 +10,13 @@ import {
 } from './weightReconciliationEmails'
 import { pollDelhiveryTracking } from './delhiveryTracking'
 import { pollEkartTracking } from './ekartTracking'
+import { pollShadowfaxTracking } from './shadowfaxTracking'
 
 let isWalletReconciliationRunning = false
 let isPendingWebhookRunActive = false
 let isDelhiveryTrackingRunActive = false
 let isEkartTrackingRunActive = false
+let isShadowfaxTrackingRunActive = false
 
 if (isRazorpayConfigured) {
   cron.schedule('*/20 * * * *', async () => {
@@ -104,6 +106,22 @@ cron.schedule('*/15 * * * *', async () => {
     console.error('[Cron] Ekart tracking poll failed:', err instanceof Error ? err.message : err)
   } finally {
     isEkartTrackingRunActive = false
+  }
+})
+
+cron.schedule('*/15 * * * *', async () => {
+  if (isShadowfaxTrackingRunActive) {
+    console.log('[Cron] Shadowfax tracking poll skipped because a previous run is still active')
+    return
+  }
+  isShadowfaxTrackingRunActive = true
+  console.log('[Cron] Shadowfax tracking poll')
+  try {
+    await pollShadowfaxTracking()
+  } catch (err) {
+    console.error('[Cron] Shadowfax tracking poll failed:', err instanceof Error ? err.message : err)
+  } finally {
+    isShadowfaxTrackingRunActive = false
   }
 })
 
