@@ -383,6 +383,8 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
       const [updatedRemittance] = await tx
         .update(codRemittances)
         .set({
+          // Persist the actual payout amount so admin summaries and exports reflect what was paid.
+          remittableAmount: amountToCredit.toString(),
           status: 'credited',
           creditedAt: settledDate || new Date(),
           walletTransactionId: null,
