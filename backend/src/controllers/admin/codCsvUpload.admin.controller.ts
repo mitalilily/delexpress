@@ -142,10 +142,13 @@ export const previewCourierSettlementCsv = async (req: any, res: Response): Prom
           .select()
           .from(codRemittances)
           .where(
-            or(
-              eq(codRemittances.awbNumber, awbRaw),
-              ilike(codRemittances.awbNumber, awbRaw),
-              sql`UPPER(REPLACE(COALESCE(${codRemittances.awbNumber}, ''), ' ', '')) = ${awbNumber}`,
+            and(
+              eq(codRemittances.remittanceType, 'cod'),
+              or(
+                eq(codRemittances.awbNumber, awbRaw),
+                ilike(codRemittances.awbNumber, awbRaw),
+                sql`UPPER(REPLACE(COALESCE(${codRemittances.awbNumber}, ''), ' ', '')) = ${awbNumber}`,
+              ),
             ),
           )
           .limit(1)
@@ -155,7 +158,12 @@ export const previewCourierSettlementCsv = async (req: any, res: Response): Prom
           ;[remittance] = await db
             .select()
             .from(codRemittances)
-            .where(ilike(codRemittances.orderNumber, csvOrderNumber))
+            .where(
+              and(
+                eq(codRemittances.remittanceType, 'cod'),
+                ilike(codRemittances.orderNumber, csvOrderNumber),
+              ),
+            )
             .limit(1)
         }
 
@@ -419,7 +427,7 @@ export const debugCodRemittances = async (req: any, res: Response): Promise<any>
     const sampleRemittances = await db
       .select()
       .from(codRemittances)
-      .where(eq(codRemittances.status, 'pending'))
+      .where(and(eq(codRemittances.remittanceType, 'cod'), eq(codRemittances.status, 'pending')))
       .limit(10)
 
     // Get total counts

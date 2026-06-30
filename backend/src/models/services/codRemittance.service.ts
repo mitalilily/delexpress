@@ -7,6 +7,10 @@ import { codRemittances } from '../schema/codRemittance'
 import { getInvoiceStatement } from './invoiceStatement.service'
 
 const DEFAULT_RAZORPAY_PAYOUT_MODE = 'IMPS'
+export const COD_REMITTANCE_TYPE = 'cod'
+export const CANCELLATION_REMITTANCE_TYPE = 'cancellation'
+
+export type CodRemittanceType = typeof COD_REMITTANCE_TYPE | typeof CANCELLATION_REMITTANCE_TYPE
 
 const toRazorpayPaise = (amount: number) => Math.round(amount * 100)
 
@@ -101,6 +105,15 @@ const createCodRazorpayPayout = async ({
     .toUpperCase()
 
   try {
+    const payoutPurpose =
+      remittance.remittanceType === CANCELLATION_REMITTANCE_TYPE
+        ? 'Cancellation refund payout'
+        : 'COD remittance payout'
+    const referencePrefix =
+      remittance.remittanceType === CANCELLATION_REMITTANCE_TYPE ? 'cancel' : 'cod'
+    const narrationPrefix =
+      remittance.remittanceType === CANCELLATION_REMITTANCE_TYPE ? 'CANCEL' : 'COD'
+
     const { data } = await razorpayApi.post('/payouts', {
       account_number: sourceAccount,
       fund_account_id: fundAccountId,
@@ -109,15 +122,17 @@ const createCodRazorpayPayout = async ({
       mode: payoutMode,
       purpose: 'payout',
       queue_if_low_balance: true,
-      reference_id: `cod_${remittance.id}`,
-      narration: `COD ${remittance.orderNumber}`.slice(0, 30),
+      reference_id: `${referencePrefix}_${remittance.id}`,
+      narration: `${narrationPrefix} ${remittance.orderNumber}`.slice(0, 30),
       notes: {
         remittanceId: remittance.id,
         orderId: remittance.orderId,
         orderNumber: remittance.orderNumber,
+        remittanceType: remittance.remittanceType || COD_REMITTANCE_TYPE,
         courierPartner: remittance.courierPartner || 'Unknown',
         utrNumber: utrNumber || '',
         creditedBy: creditedBy || 'system',
+        purpose: payoutPurpose,
       },
     })
 
@@ -188,6 +203,7 @@ export async function createCodRemittance(params: {
         eq(codRemittances.userId, userId),
         eq(codRemittances.orderId, orderId),
         eq(codRemittances.orderType, orderType),
+        eq(codRemittances.remittanceType, COD_REMITTANCE_TYPE),
       ),
     )
     .limit(1)
@@ -208,6 +224,7 @@ export async function createCodRemittance(params: {
       orderType,
       orderNumber,
       awbNumber: awbNumber || null,
+      remittanceType: COD_REMITTANCE_TYPE,
       courierPartner: courierPartner || null,
       codAmount: codAmount.toString(),
       codCharges: normalizedCodCharges.toString(),
@@ -225,6 +242,91 @@ export async function createCodRemittance(params: {
 
   console.log(
     `📦 COD Remittance created (PENDING): ₹${remittableAmount} for order ${orderNumber}. Waiting for courier settlement.`,
+  )
+
+  return { remittance, created: true }
+}
+
+export async function createCancellationRemittance(params: {
+  orderId: string
+  orderType: 'b2c' | 'b2b'
+  userId: string
+  orderNumber: string
+  awbNumber?: string | null
+  courierPartner?: string | null
+  refundAmount: number
+  source: string
+  queuedAt?: Date
+  notes?: string
+  tx?: any
+}): Promise<{ remittance: any; created: boolean }> {
+  const {
+    orderId,
+    orderType,
+    userId,
+    orderNumber,
+    awbNumber,
+    courierPartner,
+    refundAmount,
+    source,
+    queuedAt,
+    notes,
+    tx,
+  } = params
+
+  if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+    throw new Error('Cancellation refund amount must be greater than 0.')
+  }
+
+  const executor = tx ?? db
+
+  const [existingRemittance] = await executor
+    .select()
+    .from(codRemittances)
+    .where(
+      and(
+        eq(codRemittances.userId, userId),
+        eq(codRemittances.orderId, orderId),
+        eq(codRemittances.orderType, orderType),
+        eq(codRemittances.remittanceType, CANCELLATION_REMITTANCE_TYPE),
+      ),
+    )
+    .limit(1)
+
+  if (existingRemittance) {
+    console.log(
+      `ℹ️ Cancellation refund remittance already exists for order ${orderNumber} (status: ${existingRemittance.status})`,
+    )
+    return { remittance: existingRemittance, created: false }
+  }
+
+  const queueNote =
+    notes ||
+    `Cancellation refund queued from ${source}. Pay the seller only after the courier reverses this cancellation amount back to the platform.`
+
+  const [remittance] = await executor
+    .insert(codRemittances)
+    .values({
+      userId,
+      orderId,
+      orderType,
+      orderNumber,
+      awbNumber: awbNumber || null,
+      remittanceType: CANCELLATION_REMITTANCE_TYPE,
+      courierPartner: courierPartner || null,
+      codAmount: refundAmount.toString(),
+      codCharges: '0',
+      shippingCharges: '0',
+      deductions: '0',
+      remittableAmount: refundAmount.toString(),
+      status: 'pending',
+      collectedAt: queuedAt || new Date(),
+      notes: queueNote,
+    })
+    .returning()
+
+  console.log(
+    `📦 Cancellation refund remittance created (PENDING): ₹${refundAmount} for order ${orderNumber}. Awaiting courier reversal before payout.`,
   )
 
   return { remittance, created: true }
@@ -292,7 +394,8 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
 
       // 5. Auto-create COD offsets for pending invoices (optional automation)
       let autoOffsetInvoiceId: string | null = null
-      try {
+      if (remittance.remittanceType !== CANCELLATION_REMITTANCE_TYPE) {
+        try {
         const pendingInvoices = await tx
           .select()
           .from(billingInvoices)
@@ -325,13 +428,14 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
             `💰 Auto-created COD offset: ₹${amountToCredit} for invoice ${targetInvoice.invoiceNo}`,
           )
         }
-      } catch (offsetErr) {
-        // Don't fail the credit transaction if offset creation fails
-        console.error('Failed to auto-create COD offset:', offsetErr)
+        } catch (offsetErr) {
+          // Don't fail the credit transaction if offset creation fails
+          console.error('Failed to auto-create COD offset:', offsetErr)
+        }
       }
 
       console.log(
-        `COD Remittance sent via Razorpay payout ${payout.id}: Rs ${amountToCredit} for order ${remittance.orderNumber}`,
+        `${remittance.remittanceType === CANCELLATION_REMITTANCE_TYPE ? 'Cancellation refund' : 'COD remittance'} sent via Razorpay payout ${payout.id}: Rs ${amountToCredit} for order ${remittance.orderNumber}`,
       )
 
       return {
@@ -384,12 +488,23 @@ export async function getCodRemittances(
     toDate?: Date
     page?: number
     limit?: number
+    remittanceType?: CodRemittanceType
   } = {},
 ) {
-  const { status, fromDate, toDate, page = 1, limit = 20 } = filters
+  const {
+    status,
+    fromDate,
+    toDate,
+    page = 1,
+    limit = 20,
+    remittanceType = COD_REMITTANCE_TYPE,
+  } = filters
   const offset = (page - 1) * limit
 
-  const conditions = [eq(codRemittances.userId, userId)]
+  const conditions = [
+    eq(codRemittances.userId, userId),
+    eq(codRemittances.remittanceType, remittanceType),
+  ]
 
   if (status) {
     conditions.push(eq(codRemittances.status, status as any))
@@ -436,7 +551,13 @@ export async function getCodRemittanceStats(userId: string) {
       totalAmount: sql<number>`COALESCE(SUM(${codRemittances.remittableAmount}), 0)`,
     })
     .from(codRemittances)
-    .where(and(eq(codRemittances.userId, userId), eq(codRemittances.status, 'credited')))
+    .where(
+      and(
+        eq(codRemittances.userId, userId),
+        eq(codRemittances.remittanceType, COD_REMITTANCE_TYPE),
+        eq(codRemittances.status, 'credited'),
+      ),
+    )
 
   // Total pending remittances (Next Remittance/Total Due)
   const [pendingStats] = await db
@@ -445,13 +566,25 @@ export async function getCodRemittanceStats(userId: string) {
       totalAmount: sql<number>`COALESCE(SUM(${codRemittances.remittableAmount}), 0)`,
     })
     .from(codRemittances)
-    .where(and(eq(codRemittances.userId, userId), eq(codRemittances.status, 'pending')))
+    .where(
+      and(
+        eq(codRemittances.userId, userId),
+        eq(codRemittances.remittanceType, COD_REMITTANCE_TYPE),
+        eq(codRemittances.status, 'pending'),
+      ),
+    )
 
   // Get last credited remittance
   const [lastRemittance] = await db
     .select()
     .from(codRemittances)
-    .where(and(eq(codRemittances.userId, userId), eq(codRemittances.status, 'credited')))
+    .where(
+      and(
+        eq(codRemittances.userId, userId),
+        eq(codRemittances.remittanceType, COD_REMITTANCE_TYPE),
+        eq(codRemittances.status, 'credited'),
+      ),
+    )
     .orderBy(desc(codRemittances.creditedAt))
     .limit(1)
 
@@ -492,7 +625,12 @@ export async function getCodDashboardSummary(userId: string) {
   const recentRemittances = await db
     .select()
     .from(codRemittances)
-    .where(eq(codRemittances.userId, userId))
+    .where(
+      and(
+        eq(codRemittances.userId, userId),
+        eq(codRemittances.remittanceType, COD_REMITTANCE_TYPE),
+      ),
+    )
     .orderBy(desc(codRemittances.createdAt))
     .limit(10)
 

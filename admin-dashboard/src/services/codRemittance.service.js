@@ -2,8 +2,10 @@ import apiClient from './axios' // your pre-configured axios instance
 /**
  * Get platform-wide COD statistics
  */
-export const getCodPlatformStats = async () => {
-  const response = await apiClient.get('/admin/cod-remittance/stats')
+export const getCodPlatformStats = async (remittanceType = 'cod') => {
+  const response = await apiClient.get('/admin/cod-remittance/stats', {
+    params: { remittanceType },
+  })
   return response.data
 }
 
@@ -11,9 +13,9 @@ export const getCodPlatformStats = async () => {
  * Get all COD remittances (all users)
  */
 export const getAllCodRemittances = async (params = {}) => {
-  const { page = 1, limit = 50, status, fromDate, toDate, search } = params
+  const { page = 1, limit = 50, status, fromDate, toDate, search, remittanceType } = params
   const response = await apiClient.get('/admin/cod-remittance/remittances', {
-    params: { page, limit, status, fromDate, toDate, search },
+    params: { page, limit, status, fromDate, toDate, search, remittanceType },
   })
   return response.data
 }
@@ -21,8 +23,10 @@ export const getAllCodRemittances = async (params = {}) => {
 /**
  * Get user-specific COD remittances
  */
-export const getUserCodRemittances = async (userId) => {
-  const response = await apiClient.get(`/admin/cod-remittance/users/${userId}/remittances`)
+export const getUserCodRemittances = async (userId, remittanceType = 'cod') => {
+  const response = await apiClient.get(`/admin/cod-remittance/users/${userId}/remittances`, {
+    params: { remittanceType },
+  })
   return response.data
 }
 
@@ -54,9 +58,9 @@ export const updateRemittanceNotes = async (remittanceId, notes) => {
  * Export all COD remittances as CSV
  */
 export const exportAllCodRemittances = async (params = {}) => {
-  const { status, fromDate, toDate } = params
+  const { status, fromDate, toDate, remittanceType } = params
   const response = await apiClient.get('/admin/cod-remittance/remittances/export', {
-    params: { status, fromDate, toDate },
+    params: { status, fromDate, toDate, remittanceType },
     responseType: 'blob',
   })
 

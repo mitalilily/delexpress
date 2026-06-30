@@ -93,9 +93,12 @@ const remittanceFilterOptions = [
   },
 ]
 
+const REMITTANCE_TYPE_OPTIONS = ['cod', 'cancellation']
+
 export default function AdminCodRemittancePage() {
   const history = useHistory()
   const toast = useToast()
+  const [activeRemittanceType, setActiveRemittanceType] = useState('cod')
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(20)
   const [filters, setFilters] = useState({})
@@ -148,14 +151,21 @@ export default function AdminCodRemittancePage() {
   } = useDisclosure()
 
   // Hooks
-  const { data: stats, isLoading: statsLoading } = useCodPlatformStats()
+  const isCancellationTab = activeRemittanceType === 'cancellation'
+  const amountLabel = isCancellationTab ? 'Refund Amount' : 'COD Amount'
+  const dueLabel = isCancellationTab ? 'Total Refunds Pending' : 'Total Pending'
+  const payoutsLabel = isCancellationTab ? "Today's Refund Payouts" : "Today's Payouts"
+  const totalPayoutsLabel = isCancellationTab ? 'Total Refund Payouts' : 'Total Payouts'
+
+  const { data: stats, isLoading: statsLoading } = useCodPlatformStats(activeRemittanceType)
   const { data: remittanceData, isLoading: remittancesLoading } = useAllCodRemittances({
     page,
     limit: perPage,
+    remittanceType: activeRemittanceType,
     ...filters,
   })
   const { data: sellerRemittanceData, isLoading: sellerRemittancesLoading } =
-    useUserCodRemittances(bulkSellerId)
+    useUserCodRemittances(bulkSellerId, 'cod')
   const manualSettlementMutation = useManualMarkSettlement()
   const updateNotesMutation = useUpdateRemittanceNotes()
   const previewCsvMutation = usePreviewCourierSettlement()
@@ -169,6 +179,11 @@ export default function AdminCodRemittancePage() {
       (sellerRemittanceData?.data?.remittances || []).filter((item) => item.status === 'pending'),
     [sellerRemittanceData],
   )
+
+  useEffect(() => {
+    setPage(1)
+    setFilters({})
+  }, [activeRemittanceType])
 
   useEffect(() => {
     if (!bulkSellerId) {
@@ -188,7 +203,7 @@ export default function AdminCodRemittancePage() {
   // Handlers
   const handleExport = async () => {
     try {
-      await exportAllCodRemittances(filters)
+      await exportAllCodRemittances({ ...filters, remittanceType: activeRemittanceType })
     } catch (error) {
       console.error('Export failed:', error)
     }
@@ -232,7 +247,9 @@ export default function AdminCodRemittancePage() {
     setManualTotalDeductions(remittance?.deductions ? String(remittance.deductions) : '')
     setManualSettlementAmount(remittance?.remittableAmount ? String(remittance.remittableAmount) : '')
     setManualSettlementUtr('')
-    setManualSettlementNotes('Settlement marked by admin')
+    setManualSettlementNotes(
+      isCancellationTab ? 'Cancellation refund paid by admin' : 'Settlement marked by admin',
+    )
     onCreditOpen()
   }
 
@@ -252,7 +269,9 @@ export default function AdminCodRemittancePage() {
         settledDate: manualSettlementDate,
         utrNumber: manualSettlementUtr || undefined,
         settledAmount: manualSettlementAmount ? Number(manualSettlementAmount) : undefined,
-        notes: manualSettlementNotes || 'Settlement marked by admin',
+        notes:
+          manualSettlementNotes ||
+          (isCancellationTab ? 'Cancellation refund paid by admin' : 'Settlement marked by admin'),
       }
 
       if (payload.settledAmount !== undefined && (!Number.isFinite(payload.settledAmount) || payload.settledAmount <= 0)) {
@@ -613,11 +632,11 @@ export default function AdminCodRemittancePage() {
     'Order',
     'User',
     'Courier',
-    'COD Amount',
-    'Deductions',
-    'Remittable',
+    amountLabel,
+    ...(isCancellationTab ? [] : ['Deductions']),
+    isCancellationTab ? 'Payable Refund' : 'Remittable',
     'Status',
-    'Collected',
+    isCancellationTab ? 'Queued On' : 'Collected',
     'Payout Date',
     'Actions',
   ]
@@ -627,7 +646,7 @@ export default function AdminCodRemittancePage() {
     'userEmail',
     'courierPartner',
     'codAmount',
-    'deductions',
+    ...(isCancellationTab ? [] : ['deductions']),
     'remittableAmount',
     'status',
     'collectedAt',
@@ -671,7 +690,7 @@ export default function AdminCodRemittancePage() {
         <Card>
           <Stat>
             <StatLabel fontSize="sm" color="gray.500" fontWeight="bold" mb="4px">
-              Total Pending
+              {dueLabel}
             </StatLabel>
             <StatNumber fontSize="2xl" fontWeight="bold" color="orange.500">
               ₹{stats?.data?.totalPending?.amount?.toLocaleString('en-IN') || 0}
@@ -685,7 +704,7 @@ export default function AdminCodRemittancePage() {
         <Card>
           <Stat>
             <StatLabel fontSize="sm" color="gray.500" fontWeight="bold" mb="4px">
-              Today's Payouts
+              {payoutsLabel}
             </StatLabel>
             <StatNumber fontSize="2xl" fontWeight="bold" color="green.500">
               ₹{stats?.data?.todayCredited?.amount?.toLocaleString('en-IN') || 0}
@@ -699,7 +718,7 @@ export default function AdminCodRemittancePage() {
         <Card>
           <Stat>
             <StatLabel fontSize="sm" color="gray.500" fontWeight="bold" mb="4px">
-              Total Payouts
+              {totalPayoutsLabel}
             </StatLabel>
             <StatNumber fontSize="2xl" fontWeight="bold" color="blue.500">
               ₹{stats?.data?.totalCredited?.amount?.toLocaleString('en-IN') || 0}
@@ -725,6 +744,17 @@ export default function AdminCodRemittancePage() {
         </Card>
       </SimpleGrid>
 
+      <Tabs
+        index={REMITTANCE_TYPE_OPTIONS.indexOf(activeRemittanceType)}
+        onChange={(index) => setActiveRemittanceType(REMITTANCE_TYPE_OPTIONS[index] || 'cod')}
+        mb="20px"
+      >
+        <TabList>
+          <Tab>COD Remittances</Tab>
+          <Tab>Cancellation Refunds</Tab>
+        </TabList>
+      </Tabs>
+
       {/* Filters */}
       <TableFilters
         filters={remittanceFilterOptions}
@@ -737,19 +767,38 @@ export default function AdminCodRemittancePage() {
 
       {/* Actions */}
       <Flex mb="20px" gap={3}>
-        <Button colorScheme="green" size="sm" onClick={handleOpenBulkSettlement}>
-          Bulk Settle Seller
-        </Button>
-        <Button colorScheme="purple" size="sm" onClick={onCsvUploadOpen}>
-          Upload Settlement CSV
-        </Button>
-        <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
-          Download Template
-        </Button>
+        {!isCancellationTab && (
+          <Button colorScheme="green" size="sm" onClick={handleOpenBulkSettlement}>
+            Bulk Settle Seller
+          </Button>
+        )}
+        {!isCancellationTab && (
+          <Button colorScheme="purple" size="sm" onClick={onCsvUploadOpen}>
+            Upload Settlement CSV
+          </Button>
+        )}
+        {!isCancellationTab && (
+          <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+            Download Template
+          </Button>
+        )}
         <Button colorScheme="teal" size="sm" onClick={handleExport}>
           Export CSV
         </Button>
       </Flex>
+
+      {isCancellationTab && (
+        <Alert status="info" borderRadius="md" mb="20px">
+          <AlertIcon />
+          <Box>
+            <AlertTitle fontSize="sm">Manual cancellation refunds only</AlertTitle>
+            <AlertDescription fontSize="xs">
+              These entries are created when a cancelled order is owed back to the seller. Pay them
+              only after the courier returns the cancellation amount to the platform.
+            </AlertDescription>
+          </Box>
+        </Alert>
+      )}
 
       {/* Table */}
       <GenericTable
@@ -760,16 +809,16 @@ export default function AdminCodRemittancePage() {
         totalCount={totalCount}
         perPage={perPage}
         setPerPage={setPerPage}
-        title="COD Remittances (All Users)"
+        title={`${isCancellationTab ? 'Cancellation Refunds' : 'COD Remittances'} (All Users)`}
         data={remittances}
         captions={captions}
         columnKeys={columnKeys}
         renderActions={(row) => (
           <HStack spacing={2}>
             {row.status === 'pending' && (
-              <Tooltip label="Mark settlement">
+              <Tooltip label={isCancellationTab ? 'Mark refund paid' : 'Mark settlement'}>
                 <Button size="xs" colorScheme="green" onClick={() => handleOpenCredit(row)}>
-                  Settle
+                  {isCancellationTab ? 'Pay Refund' : 'Settle'}
                 </Button>
               </Tooltip>
             )}
@@ -819,7 +868,13 @@ export default function AdminCodRemittancePage() {
           ),
           status: (value) => (
             <StatusBadge
-              status={value === 'pending' ? 'PENDING' : 'PAID VIA RAZORPAY'}
+              status={
+                value === 'pending'
+                  ? isCancellationTab
+                    ? 'REFUND PENDING'
+                    : 'PENDING'
+                  : 'PAID VIA RAZORPAY'
+              }
               type={value === 'pending' ? 'warning' : 'success'}
             />
           ),
@@ -870,10 +925,16 @@ export default function AdminCodRemittancePage() {
       <Modal isOpen={isCreditOpen} onClose={onCreditClose}>
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>Manual COD Settlement</ModalHeader>
+          <ModalHeader>
+            {isCancellationTab ? 'Manual Cancellation Refund Payout' : 'Manual COD Settlement'}
+          </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <Text mb="12px">Please review the COD settlement breakup before marking settlement:</Text>
+            <Text mb="12px">
+              {isCancellationTab
+                ? 'Please review the cancellation refund before marking this payout.'
+                : 'Please review the COD settlement breakup before marking settlement:'}
+            </Text>
             <Box p="12px" bg="gray.50" borderRadius="md" mb="12px">
               <Text fontSize="sm" fontWeight="600">
                 Order: {selectedRemittance?.orderNumber}
@@ -885,83 +946,124 @@ export default function AdminCodRemittancePage() {
               </Text>
             </Box>
 
-            <Box p="12px" border="1px solid" borderColor="gray.200" borderRadius="md" mb="12px">
-              <Flex align="center" justify="space-between" mb="6px">
-                <Text fontSize="sm" color="gray.700">
-                  COD Collected
-                </Text>
-                <Input
-                  type="number"
-                  step="0.01"
-                  size="sm"
-                  width="180px"
-                  value={manualCodAmount}
-                  onChange={(e) => setManualCodAmount(e.target.value)}
-                  onBlur={() => setManualCodAmount(String(toAmount(manualCodAmount) || ''))}
-                />
-              </Flex>
-              <Flex align="center" justify="space-between" mb="6px">
-                <Text fontSize="sm" color="gray.700">
-                  Less: Freight Charges
-                </Text>
-                <Input
-                  type="number"
-                  step="0.01"
-                  size="sm"
-                  width="180px"
-                  color="red.500"
-                  value={manualFreightCharges}
-                  onChange={(e) => setManualFreightCharges(e.target.value)}
-                  onBlur={() => setManualFreightCharges(String(toAmount(manualFreightCharges) || ''))}
-                />
-              </Flex>
-              <Flex align="center" justify="space-between" mb="6px">
-                <Text fontSize="sm" color="gray.700">
-                  Less: COD Charges
-                </Text>
-                <Input
-                  type="number"
-                  step="0.01"
-                  size="sm"
-                  width="180px"
-                  color="red.500"
-                  value={manualCodCharges}
-                  onChange={(e) => setManualCodCharges(e.target.value)}
-                  onBlur={() => setManualCodCharges(String(toAmount(manualCodCharges) || ''))}
-                />
-              </Flex>
-              <Flex align="center" justify="space-between" mb="6px">
-                <Text fontSize="sm" color="gray.700">
-                  Total Deductions
-                </Text>
-                <Input
-                  type="number"
-                  step="0.01"
-                  size="sm"
-                  width="180px"
-                  color="red.600"
-                  value={manualTotalDeductions}
-                  onChange={(e) => setManualTotalDeductions(e.target.value)}
-                  onBlur={() => setManualTotalDeductions(String(toAmount(manualTotalDeductions) || ''))}
-                />
-              </Flex>
-              <Flex align="center" justify="space-between" pt="8px" borderTop="1px solid" borderColor="gray.200">
-                <Text fontSize="sm" fontWeight="700">
-                  Net Settlement Amount
-                </Text>
-                <Input
-                  type="number"
-                  step="0.01"
-                  size="sm"
-                  width="180px"
-                  fontWeight="700"
-                  color="green.600"
-                  value={manualSettlementAmount}
-                  onChange={(e) => setManualSettlementAmount(e.target.value)}
-                  onBlur={() => setManualSettlementAmount(String(toAmount(manualSettlementAmount) || ''))}
-                />
-              </Flex>
-            </Box>
+            {isCancellationTab ? (
+              <Box p="12px" border="1px solid" borderColor="gray.200" borderRadius="md" mb="12px">
+                <Flex align="center" justify="space-between" mb="6px">
+                  <Text fontSize="sm" color="gray.700">
+                    Refund Amount
+                  </Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    size="sm"
+                    width="180px"
+                    value={manualCodAmount}
+                    onChange={(e) => setManualCodAmount(e.target.value)}
+                    onBlur={() => setManualCodAmount(String(toAmount(manualCodAmount) || ''))}
+                  />
+                </Flex>
+                <Flex
+                  align="center"
+                  justify="space-between"
+                  pt="8px"
+                  borderTop="1px solid"
+                  borderColor="gray.200"
+                >
+                  <Text fontSize="sm" fontWeight="700">
+                    Refund Payout Amount
+                  </Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    size="sm"
+                    width="180px"
+                    fontWeight="700"
+                    color="green.600"
+                    value={manualSettlementAmount}
+                    onChange={(e) => setManualSettlementAmount(e.target.value)}
+                    onBlur={() => setManualSettlementAmount(String(toAmount(manualSettlementAmount) || ''))}
+                  />
+                </Flex>
+              </Box>
+            ) : (
+              <Box p="12px" border="1px solid" borderColor="gray.200" borderRadius="md" mb="12px">
+                <Flex align="center" justify="space-between" mb="6px">
+                  <Text fontSize="sm" color="gray.700">
+                    COD Collected
+                  </Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    size="sm"
+                    width="180px"
+                    value={manualCodAmount}
+                    onChange={(e) => setManualCodAmount(e.target.value)}
+                    onBlur={() => setManualCodAmount(String(toAmount(manualCodAmount) || ''))}
+                  />
+                </Flex>
+                <Flex align="center" justify="space-between" mb="6px">
+                  <Text fontSize="sm" color="gray.700">
+                    Less: Freight Charges
+                  </Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    size="sm"
+                    width="180px"
+                    color="red.500"
+                    value={manualFreightCharges}
+                    onChange={(e) => setManualFreightCharges(e.target.value)}
+                    onBlur={() => setManualFreightCharges(String(toAmount(manualFreightCharges) || ''))}
+                  />
+                </Flex>
+                <Flex align="center" justify="space-between" mb="6px">
+                  <Text fontSize="sm" color="gray.700">
+                    Less: COD Charges
+                  </Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    size="sm"
+                    width="180px"
+                    color="red.500"
+                    value={manualCodCharges}
+                    onChange={(e) => setManualCodCharges(e.target.value)}
+                    onBlur={() => setManualCodCharges(String(toAmount(manualCodCharges) || ''))}
+                  />
+                </Flex>
+                <Flex align="center" justify="space-between" mb="6px">
+                  <Text fontSize="sm" color="gray.700">
+                    Total Deductions
+                  </Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    size="sm"
+                    width="180px"
+                    color="red.600"
+                    value={manualTotalDeductions}
+                    onChange={(e) => setManualTotalDeductions(e.target.value)}
+                    onBlur={() => setManualTotalDeductions(String(toAmount(manualTotalDeductions) || ''))}
+                  />
+                </Flex>
+                <Flex align="center" justify="space-between" pt="8px" borderTop="1px solid" borderColor="gray.200">
+                  <Text fontSize="sm" fontWeight="700">
+                    Net Settlement Amount
+                  </Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    size="sm"
+                    width="180px"
+                    fontWeight="700"
+                    color="green.600"
+                    value={manualSettlementAmount}
+                    onChange={(e) => setManualSettlementAmount(e.target.value)}
+                    onBlur={() => setManualSettlementAmount(String(toAmount(manualSettlementAmount) || ''))}
+                  />
+                </Flex>
+              </Box>
+            )}
 
             <Box p="10px" bg="orange.50" borderRadius="md" mb="12px">
               <Text fontSize="xs" color="orange.800">
@@ -1014,7 +1116,7 @@ export default function AdminCodRemittancePage() {
               onClick={handleManualSettlement}
               isLoading={manualSettlementMutation.isPending}
             >
-              Confirm Settlement
+              {isCancellationTab ? 'Confirm Refund Payout' : 'Confirm Settlement'}
             </Button>
           </ModalFooter>
         </ModalContent>

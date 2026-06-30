@@ -7,6 +7,8 @@ import {
 import { shipNowOrderService } from '../../models/services/orderShipNow.service'
 import { db } from '../../models/client'
 import { recordNdrEvent } from '../../models/services/ndr.service'
+import { queueCancellationRefundRemittanceOnce } from '../../models/services/webhookProcessor'
+import { b2b_orders } from '../../models/schema/b2bOrders'
 import { b2c_orders } from '../../models/schema/b2cOrders'
 import { getMerchantSafeOperationalError } from '../../utils/merchantErrorMessages'
 import { buildCsv } from '../../utils/csv'
@@ -165,25 +167,58 @@ export const updateOrderStatusControllerAdmin = async (req: any, res: Response) 
       return res.status(400).json({ success: false, message: 'Status is required' })
     }
 
-    const [order] = await db.select().from(b2c_orders).where(eq(b2c_orders.id, orderId)).limit(1)
+    const [b2cOrder] = await db.select().from(b2c_orders).where(eq(b2c_orders.id, orderId)).limit(1)
+    const [b2bOrder] = b2cOrder
+      ? [undefined]
+      : await db.select().from(b2b_orders).where(eq(b2b_orders.id, orderId)).limit(1)
+    const order = b2cOrder || b2bOrder
+
     if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found' })
     }
 
-    const [updated] = await db
-      .update(b2c_orders)
-      .set({
-        order_status: status,
-        updated_at: new Date(),
-      })
-      .where(eq(b2c_orders.id, orderId))
-      .returning()
+    let updated: any
+    if (b2cOrder) {
+      if (status === 'cancelled') {
+        await db.transaction(async (tx) => {
+          const [row] = await tx
+            .update(b2c_orders)
+            .set({
+              order_status: status,
+              updated_at: new Date(),
+            })
+            .where(eq(b2c_orders.id, orderId))
+            .returning()
 
-    if (status === 'ndr' || status === 'undelivered') {
+          updated = row
+          await queueCancellationRefundRemittanceOnce(tx, b2cOrder, 'admin_status_update')
+        })
+      } else {
+        ;[updated] = await db
+          .update(b2c_orders)
+          .set({
+            order_status: status,
+            updated_at: new Date(),
+          })
+          .where(eq(b2c_orders.id, orderId))
+          .returning()
+      }
+    } else {
+      ;[updated] = await db
+        .update(b2b_orders)
+        .set({
+          order_status: status,
+          updated_at: new Date(),
+        })
+        .where(eq(b2b_orders.id, orderId))
+        .returning()
+    }
+
+    if (b2cOrder && (status === 'ndr' || status === 'undelivered')) {
       await recordNdrEvent({
-        orderId: order.id,
-        userId: order.user_id,
-        awbNumber: order.awb_number || undefined,
+        orderId: b2cOrder.id,
+        userId: b2cOrder.user_id,
+        awbNumber: b2cOrder.awb_number || undefined,
         status,
         reason: reason || null,
         remarks: remarks || null,

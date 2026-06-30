@@ -5,7 +5,16 @@ import { db } from '../../models/client'
 import { codRemittances } from '../../models/schema/codRemittance'
 import { users } from '../../models/schema/users'
 import { wallets } from '../../models/schema/wallet'
-import { initiateCodRemittancePayout } from '../../models/services/codRemittance.service'
+import {
+  CANCELLATION_REMITTANCE_TYPE,
+  COD_REMITTANCE_TYPE,
+  initiateCodRemittancePayout,
+} from '../../models/services/codRemittance.service'
+
+const resolveRemittanceType = (value: unknown) =>
+  String(value || '').trim().toLowerCase() === CANCELLATION_REMITTANCE_TYPE
+    ? CANCELLATION_REMITTANCE_TYPE
+    : COD_REMITTANCE_TYPE
 
 /**
  * Admin: Get all COD remittances across all users
@@ -13,9 +22,10 @@ import { initiateCodRemittancePayout } from '../../models/services/codRemittance
 export const getAllCodRemittances = async (req: any, res: Response): Promise<any> => {
   try {
     const { status, fromDate, toDate, search, page = 1, limit = 50 } = req.query
+    const remittanceType = resolveRemittanceType(req.query.remittanceType)
 
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string)
-    const conditions = []
+    const conditions = [eq(codRemittances.remittanceType, remittanceType)]
 
     if (status) {
       conditions.push(eq(codRemittances.status, status as any))
@@ -37,7 +47,7 @@ export const getAllCodRemittances = async (req: any, res: Response): Promise<any
           like(codRemittances.orderNumber, `%${search}%`),
           like(codRemittances.awbNumber, `%${search}%`),
           like(users.email, `%${search}%`),
-        ),
+        ) as any,
       )
     }
 
@@ -52,6 +62,7 @@ export const getAllCodRemittances = async (req: any, res: Response): Promise<any
         orderType: codRemittances.orderType,
         orderNumber: codRemittances.orderNumber,
         awbNumber: codRemittances.awbNumber,
+        remittanceType: codRemittances.remittanceType,
         courierPartner: codRemittances.courierPartner,
         codAmount: codRemittances.codAmount,
         codCharges: codRemittances.codCharges,
@@ -98,6 +109,8 @@ export const getAllCodRemittances = async (req: any, res: Response): Promise<any
  */
 export const getCodPlatformStats = async (req: any, res: Response): Promise<any> => {
   try {
+    const remittanceType = resolveRemittanceType(req.query.remittanceType)
+
     // Total credited remittances
     const [creditedStats] = await db
       .select({
@@ -105,7 +118,12 @@ export const getCodPlatformStats = async (req: any, res: Response): Promise<any>
         totalAmount: sql<number>`COALESCE(SUM(${codRemittances.remittableAmount}), 0)`,
       })
       .from(codRemittances)
-      .where(eq(codRemittances.status, 'credited'))
+      .where(
+        and(
+          eq(codRemittances.remittanceType, remittanceType),
+          eq(codRemittances.status, 'credited'),
+        ),
+      )
 
     // Total pending remittances
     const [pendingStats] = await db
@@ -114,13 +132,23 @@ export const getCodPlatformStats = async (req: any, res: Response): Promise<any>
         totalAmount: sql<number>`COALESCE(SUM(${codRemittances.remittableAmount}), 0)`,
       })
       .from(codRemittances)
-      .where(eq(codRemittances.status, 'pending'))
+      .where(
+        and(
+          eq(codRemittances.remittanceType, remittanceType),
+          eq(codRemittances.status, 'pending'),
+        ),
+      )
 
     // Unique users with pending remittances
     const [usersWithPending] = await db
       .select({ count: sql<number>`COUNT(DISTINCT ${codRemittances.userId})` })
       .from(codRemittances)
-      .where(eq(codRemittances.status, 'pending'))
+      .where(
+        and(
+          eq(codRemittances.remittanceType, remittanceType),
+          eq(codRemittances.status, 'pending'),
+        ),
+      )
 
     // Today's credited remittances
     const today = new Date()
@@ -132,7 +160,13 @@ export const getCodPlatformStats = async (req: any, res: Response): Promise<any>
         totalAmount: sql<number>`COALESCE(SUM(${codRemittances.remittableAmount}), 0)`,
       })
       .from(codRemittances)
-      .where(and(eq(codRemittances.status, 'credited'), gte(codRemittances.creditedAt, today)))
+      .where(
+        and(
+          eq(codRemittances.remittanceType, remittanceType),
+          eq(codRemittances.status, 'credited'),
+          gte(codRemittances.creditedAt, today),
+        ),
+      )
 
     return res.json({
       success: true,
@@ -164,6 +198,7 @@ export const getCodPlatformStats = async (req: any, res: Response): Promise<any>
 export const getUserCodRemittances = async (req: any, res: Response): Promise<any> => {
   try {
     const { userId } = req.params
+    const remittanceType = resolveRemittanceType(req.query.remittanceType)
 
     if (!userId) {
       return res.status(400).json({ success: false, message: 'User ID required' })
@@ -180,7 +215,12 @@ export const getUserCodRemittances = async (req: any, res: Response): Promise<an
     const remittances = await db
       .select()
       .from(codRemittances)
-      .where(eq(codRemittances.userId, userId))
+      .where(
+        and(
+          eq(codRemittances.userId, userId),
+          eq(codRemittances.remittanceType, remittanceType),
+        ),
+      )
       .orderBy(desc(codRemittances.createdAt))
       .limit(50)
 
@@ -191,7 +231,13 @@ export const getUserCodRemittances = async (req: any, res: Response): Promise<an
         totalAmount: sql<number>`COALESCE(SUM(${codRemittances.remittableAmount}), 0)`,
       })
       .from(codRemittances)
-      .where(and(eq(codRemittances.userId, userId), eq(codRemittances.status, 'credited')))
+      .where(
+        and(
+          eq(codRemittances.userId, userId),
+          eq(codRemittances.remittanceType, remittanceType),
+          eq(codRemittances.status, 'credited'),
+        ),
+      )
 
     const [pendingStats] = await db
       .select({
@@ -199,7 +245,13 @@ export const getUserCodRemittances = async (req: any, res: Response): Promise<an
         totalAmount: sql<number>`COALESCE(SUM(${codRemittances.remittableAmount}), 0)`,
       })
       .from(codRemittances)
-      .where(and(eq(codRemittances.userId, userId), eq(codRemittances.status, 'pending')))
+      .where(
+        and(
+          eq(codRemittances.userId, userId),
+          eq(codRemittances.remittanceType, remittanceType),
+          eq(codRemittances.status, 'pending'),
+        ),
+      )
 
     // Get wallet balance
     const [wallet] = await db.select().from(wallets).where(eq(wallets.userId, userId))
@@ -257,7 +309,7 @@ export const manualCreditWallet = async (req: any, res: Response): Promise<any> 
 
     return res.json({
       success: true,
-      message: 'COD remittance Razorpay payout initiated successfully',
+      message: 'Remittance payout initiated successfully',
       data: updated,
     })
   } catch (error: any) {
@@ -303,8 +355,9 @@ export const updateRemittanceNotes = async (req: any, res: Response): Promise<an
 export const exportAllCodRemittances = async (req: any, res: Response): Promise<any> => {
   try {
     const { status, fromDate, toDate } = req.query
+    const remittanceType = resolveRemittanceType(req.query.remittanceType)
 
-    const conditions = []
+    const conditions = [eq(codRemittances.remittanceType, remittanceType)]
 
     if (status) {
       conditions.push(eq(codRemittances.status, status as any))
@@ -324,6 +377,7 @@ export const exportAllCodRemittances = async (req: any, res: Response): Promise<
       .select({
         orderNumber: codRemittances.orderNumber,
         awbNumber: codRemittances.awbNumber,
+        remittanceType: codRemittances.remittanceType,
         userEmail: users.email,
         // userName: users.name,
         courierPartner: codRemittances.courierPartner,
@@ -343,6 +397,7 @@ export const exportAllCodRemittances = async (req: any, res: Response): Promise<
     const headers = [
       'Order Number',
       'AWB',
+      'Entry Type',
       'User Email',
       'User Name',
       'Courier',
@@ -357,6 +412,7 @@ export const exportAllCodRemittances = async (req: any, res: Response): Promise<
     const rows = remittances.map((r: any) => [
       r.orderNumber,
       r.awbNumber || 'N/A',
+      r.remittanceType,
       r.userEmail || 'N/A',
       r.userName || 'N/A',
       r.courierPartner || 'N/A',

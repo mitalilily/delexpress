@@ -7,6 +7,11 @@ export const codRemittanceStatusEnum = pgEnum('cod_remittance_status', [
   'credited', // Amount paid out to merchant
 ])
 
+export const codRemittanceTypeEnum = pgEnum('cod_remittance_type', [
+  'cod',
+  'cancellation',
+])
+
 /**
  * COD Remittances Table - SIMPLIFIED VERSION
  * Tracks individual COD order remittances from courier to merchant
@@ -24,6 +29,7 @@ export const codRemittances = pgTable('cod_remittances', {
   orderType: varchar('order_type', { length: 10 }).notNull(), // 'b2c' | 'b2b'
   orderNumber: varchar('order_number', { length: 50 }).notNull(),
   awbNumber: varchar('awb_number', { length: 100 }),
+  remittanceType: codRemittanceTypeEnum('remittance_type').default('cod').notNull(),
 
   // Courier info
   courierPartner: varchar('courier_partner', { length: 50 }),

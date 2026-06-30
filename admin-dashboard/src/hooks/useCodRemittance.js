@@ -13,10 +13,10 @@ import {
 /**
  * Hook to fetch platform-wide COD stats
  */
-export const useCodPlatformStats = () => {
+export const useCodPlatformStats = (remittanceType = 'cod') => {
   return useQuery({
-    queryKey: ['codPlatformStats'],
-    queryFn: getCodPlatformStats,
+    queryKey: ['codPlatformStats', remittanceType],
+    queryFn: () => getCodPlatformStats(remittanceType),
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
 }
@@ -35,10 +35,10 @@ export const useAllCodRemittances = (params) => {
 /**
  * Hook to fetch user-specific COD remittances
  */
-export const useUserCodRemittances = (userId) => {
+export const useUserCodRemittances = (userId, remittanceType = 'cod') => {
   return useQuery({
-    queryKey: ['userCodRemittances', userId],
-    queryFn: () => getUserCodRemittances(userId),
+    queryKey: ['userCodRemittances', userId, remittanceType],
+    queryFn: () => getUserCodRemittances(userId, remittanceType),
     enabled: !!userId,
     staleTime: 1000 * 60 * 2,
   })

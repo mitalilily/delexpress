@@ -223,7 +223,9 @@ export const getMerchantDashboardStats = async (userId: string) => {
       credited: sql<number>`COALESCE(SUM(CASE WHEN status = 'credited' THEN remittable_amount::numeric ELSE 0 END), 0)`,
     })
     .from(codRemittances)
-    .where(eq(codRemittances.userId, userId))
+    .where(
+      and(eq(codRemittances.userId, userId), eq(codRemittances.remittanceType, 'cod')),
+    )
 
   // Get support tickets
   const tickets = await db
@@ -316,6 +318,7 @@ export const getMerchantDashboardStats = async (userId: string) => {
     .where(
       and(
         eq(codRemittances.userId, userId),
+        eq(codRemittances.remittanceType, 'cod'),
         eq(codRemittances.status, 'credited'),
         sql`${codRemittances.creditedAt} >= ${thisMonthStart}`,
       ),
