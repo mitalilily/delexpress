@@ -1,9 +1,126 @@
-import { and, desc, eq, gte, ilike, lte, or, sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { db } from '../client'
 import { rto_events } from '../schema/rto'
 import { b2c_orders } from '../schema/b2cOrders'
 import { sendWebhookEvent } from '../../services/webhookDelivery.service'
 import { buildCsv } from '../../utils/csv'
+
+type RtoListFilters = {
+  userId?: string
+  orderId?: string
+  search?: string
+  fromDate?: string
+  toDate?: string
+}
+
+const parseOptionalDate = (value?: string) => {
+  const parsed = value ? new Date(value) : null
+  return parsed && !Number.isNaN(parsed.getTime()) ? parsed : null
+}
+
+const getQueryRows = <T = Record<string, unknown>>(result: unknown): T[] => {
+  if (Array.isArray(result)) return result as T[]
+  if (result && typeof result === 'object' && Array.isArray((result as any).rows)) {
+    return (result as any).rows as T[]
+  }
+  return []
+}
+
+const buildRtoWhereSql = (filters: RtoListFilters) => {
+  const { userId, orderId, search = '', fromDate, toDate } = filters
+  const clauses: any[] = []
+
+  if (userId) clauses.push(sql`e.user_id = ${userId}`)
+  if (orderId) clauses.push(sql`e.order_id = ${orderId}`)
+
+  const trimmedSearch = search.trim()
+  if (trimmedSearch) {
+    const searchTerm = `%${trimmedSearch}%`
+    clauses.push(sql`(
+      e.awb_number ILIKE ${searchTerm}
+      OR e.order_id::text ILIKE ${searchTerm}
+      OR coalesce(e.reason, '') ILIKE ${searchTerm}
+      OR coalesce(e.remarks, '') ILIKE ${searchTerm}
+    )`)
+  }
+
+  const parsedFrom = parseOptionalDate(fromDate)
+  const parsedTo = parseOptionalDate(toDate)
+  if (parsedFrom) clauses.push(sql`e.created_at >= ${parsedFrom}`)
+  if (parsedTo) clauses.push(sql`e.created_at <= ${parsedTo}`)
+
+  return clauses.length ? sql`WHERE ${sql.join(clauses, sql` AND `)}` : sql``
+}
+
+const buildDedupedRtoCte = (whereSql: any) => sql`
+  WITH deduped_rto_events AS (
+    SELECT
+      e.id,
+      e.awb_number,
+      e.order_id,
+      e.user_id,
+      e.status,
+      e.reason,
+      e.remarks,
+      e.rto_charges,
+      e.payload,
+      e.created_at,
+      e.updated_at,
+      o.courier_partner,
+      row_number() OVER (
+        PARTITION BY
+          e.order_id,
+          coalesce(lower(btrim(e.status)), ''),
+          coalesce(lower(btrim(e.reason)), ''),
+          coalesce(lower(btrim(e.remarks)), ''),
+          coalesce(e.rto_charges::text, '')
+        ORDER BY e.created_at DESC, e.id DESC
+      ) AS row_rank
+    FROM rto_events e
+    LEFT JOIN b2c_orders o ON o.id = e.order_id
+    ${whereSql}
+  )
+`
+
+async function listDedupedRtoEvents(filters: RtoListFilters, page: number, limit: number) {
+  const offset = (page - 1) * limit
+  const whereSql = buildRtoWhereSql(filters)
+  const dedupedCte = buildDedupedRtoCte(whereSql)
+
+  const rowsResult = await db.execute(sql`
+    ${dedupedCte}
+    SELECT
+      id,
+      awb_number,
+      order_id,
+      user_id,
+      status,
+      reason,
+      remarks,
+      rto_charges,
+      payload,
+      created_at,
+      updated_at,
+      courier_partner
+    FROM deduped_rto_events
+    WHERE row_rank = 1
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `)
+
+  const countResult = await db.execute(sql`
+    ${dedupedCte}
+    SELECT count(*)::int AS total_count
+    FROM deduped_rto_events
+    WHERE row_rank = 1
+  `)
+
+  return {
+    rows: getQueryRows(rowsResult),
+    totalCount: Number(getQueryRows<{ total_count: number }>(countResult)[0]?.total_count || 0),
+  }
+}
 
 export async function recordRtoEvent(params: {
   orderId: string
@@ -31,7 +148,6 @@ export async function recordRtoEvent(params: {
     })
     .returning()
 
-  // 🔔 Send webhook event for RTO
   sendWebhookEvent(userId, 'order.rto', {
     order_id: orderId,
     awb_number: awbNumber,
@@ -42,7 +158,6 @@ export async function recordRtoEvent(params: {
     created_at: inserted.created_at?.toISOString() || new Date().toISOString(),
   }).catch((err) => {
     console.error('Failed to send RTO webhook event:', err)
-    // Don't fail the main flow if webhook fails
   })
 
   return inserted
@@ -54,44 +169,17 @@ export async function listRtoEvents(
   params?: { page?: number; limit?: number; search?: string; fromDate?: string; toDate?: string },
 ) {
   const { page = 1, limit = 20, search = '', fromDate, toDate } = params || {}
-  const whereBase = orderId
-    ? and(eq(rto_events.user_id, userId), eq(rto_events.order_id, orderId))
-    : eq(rto_events.user_id, userId)
-
-  const searchWhere = search
-    ? or(
-        ilike(rto_events.awb_number, `%${search}%`),
-        sql`(${rto_events.order_id}::text) ILIKE ${`%${search}%`}`,
-        ilike(rto_events.reason, `%${search}%`),
-        ilike(rto_events.remarks, `%${search}%`),
-      )
-    : undefined
-
-  const dateWhere = fromDate || toDate
-    ? and(
-        fromDate ? gte(rto_events.created_at, new Date(fromDate)) : sql`true`,
-        toDate ? lte(rto_events.created_at, new Date(toDate)) : sql`true`,
-      )
-    : undefined
-
-  const where = searchWhere || dateWhere ? and(whereBase, searchWhere || sql`true`, dateWhere || sql`true`) : whereBase
-
-  const offset = (page - 1) * limit
-
-  const rows = await db
-    .select()
-    .from(rto_events)
-    .where(where)
-    .orderBy(desc(rto_events.created_at))
-    .limit(limit)
-    .offset(offset)
-
-  const [{ count }] = (await db
-    .select({ count: sql<number>`count(*)` })
-    .from(rto_events)
-    .where(where)) as unknown as Array<{ count: number }>
-
-  return { rows, totalCount: Number(count) || 0 }
+  return listDedupedRtoEvents(
+    {
+      userId,
+      orderId,
+      search,
+      fromDate,
+      toDate,
+    },
+    page,
+    limit,
+  )
 }
 
 export async function listRtoEventsAdmin(
@@ -99,42 +187,16 @@ export async function listRtoEventsAdmin(
   params?: { page?: number; limit?: number; search?: string; fromDate?: string; toDate?: string },
 ) {
   const { page = 1, limit = 20, search = '', fromDate, toDate } = params || {}
-
-  const whereBase = orderId ? eq(rto_events.order_id, orderId) : sql`true`
-  const searchWhere = search
-    ? or(
-        ilike(rto_events.awb_number, `%${search}%`),
-        sql`(${rto_events.order_id}::text) ILIKE ${`%${search}%`}`,
-        ilike(rto_events.reason, `%${search}%`),
-        ilike(rto_events.remarks, `%${search}%`),
-      )
-    : undefined
-
-  const dateWhere = fromDate || toDate
-    ? and(
-        fromDate ? gte(rto_events.created_at, new Date(fromDate)) : sql`true`,
-        toDate ? lte(rto_events.created_at, new Date(toDate)) : sql`true`,
-      )
-    : undefined
-
-  const where = searchWhere || dateWhere ? and(whereBase, searchWhere || sql`true`, dateWhere || sql`true`) : whereBase
-
-  const offset = (page - 1) * limit
-
-  const rows = await db
-    .select()
-    .from(rto_events)
-    .where(where)
-    .orderBy(desc(rto_events.created_at))
-    .limit(limit)
-    .offset(offset)
-
-  const [{ count }] = (await db
-    .select({ count: sql<number>`count(*)` })
-    .from(rto_events)
-    .where(where)) as unknown as Array<{ count: number }>
-
-  return { rows, totalCount: Number(count) || 0 }
+  return listDedupedRtoEvents(
+    {
+      orderId,
+      search,
+      fromDate,
+      toDate,
+    },
+    page,
+    limit,
+  )
 }
 
 export async function adminRtoKpis(params?: {
@@ -142,59 +204,46 @@ export async function adminRtoKpis(params?: {
   fromDate?: string
   toDate?: string
 }) {
-  const { search = '', fromDate, toDate } = params || {}
+  const whereSql = buildRtoWhereSql(params || {})
+  const dedupedCte = buildDedupedRtoCte(whereSql)
 
-  const searchWhere = search
-    ? or(
-        ilike(rto_events.awb_number, `%${search}%`),
-        sql`(${rto_events.order_id}::text) ILIKE ${`%${search}%`}`,
-        ilike(rto_events.reason, `%${search}%`),
-        ilike(rto_events.remarks, `%${search}%`),
-      )
-    : sql`true`
+  const totalsResult = await db.execute(sql`
+    ${dedupedCte}
+    SELECT
+      count(*)::int AS total,
+      coalesce(sum(rto_charges), 0)::numeric AS total_charges
+    FROM deduped_rto_events
+    WHERE row_rank = 1
+  `)
+  const byStatusResult = await db.execute(sql`
+    ${dedupedCte}
+    SELECT status, count(*)::int AS count
+    FROM deduped_rto_events
+    WHERE row_rank = 1
+    GROUP BY status
+    ORDER BY count DESC, status ASC
+  `)
+  const byCourierResult = await db.execute(sql`
+    ${dedupedCte}
+    SELECT coalesce(courier_partner, 'Unknown') AS courier, count(*)::int AS count
+    FROM deduped_rto_events
+    WHERE row_rank = 1
+    GROUP BY coalesce(courier_partner, 'Unknown')
+    ORDER BY count DESC, courier ASC
+  `)
 
-  const dateWhere = fromDate || toDate
-    ? and(
-        fromDate ? gte(rto_events.created_at, new Date(fromDate)) : sql`true`,
-        toDate ? lte(rto_events.created_at, new Date(toDate)) : sql`true`,
-      )
-    : sql`true`
-
-  // Totals
-  const [{ total }] = (await db
-    .select({ total: sql<number>`count(*)` })
-    .from(rto_events)
-    .where(and(searchWhere, dateWhere))) as unknown as Array<{ total: number }>
-
-  // By status
-  const byStatus = await db
-    .select({ status: rto_events.status, count: sql<number>`count(*)` })
-    .from(rto_events)
-    .where(and(searchWhere, dateWhere))
-    .groupBy(rto_events.status)
-
-  // Sum charges
-  const [{ sumCharges }] = (await db
-    .select({ sumCharges: sql<number>`coalesce(sum(${rto_events.rto_charges}), 0)` })
-    .from(rto_events)
-    .where(and(searchWhere, dateWhere))) as unknown as Array<{ sumCharges: number }>
-
-  // By courier (join orders)
-  const byCourier = await db
-    .select({
-      courier: b2c_orders.courier_partner,
-      count: sql<number>`count(*)`,
-    })
-    .from(rto_events)
-    .leftJoin(b2c_orders, eq(b2c_orders.id, rto_events.order_id))
-    .where(and(searchWhere, dateWhere))
-    .groupBy(b2c_orders.courier_partner)
+  const totals = getQueryRows<{ total: number; total_charges: number }>(totalsResult)[0]
+  const byStatus = getQueryRows<{ status: string; count: number }>(byStatusResult)
+  const byCourier = getQueryRows<{ courier: string; count: number }>(byCourierResult)
 
   return {
-    total: Number(total) || 0,
-    totalCharges: Number(sumCharges) || 0,
-    byStatus: byStatus.map((r: any) => ({ status: r.status, count: Number(r.count) || 0 })),
-    byCourier: byCourier.map((r: any) => ({ courier: r.courier || 'Unknown', count: Number(r.count) || 0 })),
+    total: Number(totals?.total || 0),
+    totalCharges: Number(totals?.total_charges || 0),
+    byStatus: byStatus.map((row) => ({ status: row.status, count: Number(row.count || 0) })),
+    byCourier: byCourier.map((row) => ({
+      courier: row.courier || 'Unknown',
+      count: Number(row.count || 0),
+    })),
   }
 }
 
@@ -203,41 +252,16 @@ export async function adminRtoExport(params?: {
   fromDate?: string
   toDate?: string
 }) {
-  const { search = '', fromDate, toDate } = params || {}
+  const rows = (await listDedupedRtoEvents(
+    {
+      search: params?.search || '',
+      fromDate: params?.fromDate,
+      toDate: params?.toDate,
+    },
+    1,
+    100000,
+  )) as { rows: any[]; totalCount: number }
 
-  const searchWhere = search
-    ? or(
-        ilike(rto_events.awb_number, `%${search}%`),
-        sql`(${rto_events.order_id}::text) ILIKE ${`%${search}%`}`,
-        ilike(rto_events.reason, `%${search}%`),
-        ilike(rto_events.remarks, `%${search}%`),
-      )
-    : sql`true`
-
-  const dateWhere = fromDate || toDate
-    ? and(
-        fromDate ? gte(rto_events.created_at, new Date(fromDate)) : sql`true`,
-        toDate ? lte(rto_events.created_at, new Date(toDate)) : sql`true`,
-      )
-    : sql`true`
-
-  const rows = await db
-    .select({
-      created_at: rto_events.created_at,
-      awb_number: rto_events.awb_number,
-      order_id: rto_events.order_id,
-      status: rto_events.status,
-      reason: rto_events.reason,
-      remarks: rto_events.remarks,
-      rto_charges: rto_events.rto_charges,
-      courier_partner: b2c_orders.courier_partner,
-    })
-    .from(rto_events)
-    .leftJoin(b2c_orders, eq(b2c_orders.id, rto_events.order_id))
-    .where(and(searchWhere, dateWhere))
-    .orderBy(desc(rto_events.created_at))
-
-  // Build CSV
   const headers = [
     'Created At',
     'AWB',
@@ -248,7 +272,7 @@ export async function adminRtoExport(params?: {
     'RTO Charges',
     'Courier',
   ]
-  const rowsData = (rows as any[]).map((r) => [
+  const rowsData = rows.rows.map((r) => [
     r.created_at ? new Date(r.created_at).toISOString() : '',
     r.awb_number || '',
     r.order_id || '',

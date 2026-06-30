@@ -87,6 +87,14 @@ export const getAdminDashboardStats = async () => {
     }
     const getOrderTimestamp = (order) =>
       getFirstValidDate(order.order_date, order.orderDate, order.created_at, order.createdAt)
+    const getDeliveredTimestamp = (order) => {
+      for (const value of [order.delivered_at, order.deliveredAt]) {
+        if (!value) continue
+        const parsed = new Date(value)
+        if (!Number.isNaN(parsed.getTime())) return parsed
+      }
+      return null
+    }
     const isSameLocalDay = (date, target) =>
       date.getFullYear() === target.getFullYear() &&
       date.getMonth() === target.getMonth() &&
@@ -116,13 +124,8 @@ export const getAdminDashboardStats = async () => {
     })
     const deliveredToday = orders.filter((o) => {
       const status = (o.order_status || o.orderStatus || '').toLowerCase()
-      const deliveredDate = getFirstValidDate(
-        o.delivered_at,
-        o.deliveredAt,
-        o.updated_at,
-        o.updatedAt,
-      )
-      return status === 'delivered' && !Number.isNaN(deliveredDate.getTime()) && isSameLocalDay(deliveredDate, today)
+      const deliveredDate = getDeliveredTimestamp(o)
+      return status === 'delivered' && deliveredDate && isSameLocalDay(deliveredDate, today)
     })
     const activeNdrOrders = orders.filter((o) => {
       const status = (o.order_status || o.orderStatus || '').toLowerCase()
@@ -191,6 +194,10 @@ export const getAdminDashboardStats = async () => {
       const revenue = freightCharge > 0 && courierCost > 0 ? freightCharge - courierCost : 0
       return sum + revenue
     }, 0)
+    const todayFreightCharges = todayOrders.reduce((sum, o) => {
+      const freightCharge = Number(o.freight_charges) || Number(o.freightCharges) || 0
+      return sum + freightCharge
+    }, 0)
 
     // Total shipping charges collected (what sellers charge customers - shown on labels)
     // Database field is shipping_charges (with 's')
@@ -223,6 +230,21 @@ export const getAdminDashboardStats = async () => {
       }
       return sum
     }, 0)
+    const ordersWithFreightChargesCount = orders.filter(
+      (o) => (Number(o.freight_charges) || Number(o.freightCharges) || 0) > 0,
+    ).length
+    const ordersWithCourierCostCount = orders.filter((o) => {
+      const freightCharge = Number(o.freight_charges) || Number(o.freightCharges) || 0
+      const courierCost = Number(o.courier_cost) || Number(o.courierCost) || 0
+      return freightCharge > 0 && courierCost > 0
+    }).length
+    const revenueMode =
+      ordersWithFreightChargesCount > 0 &&
+      ordersWithCourierCostCount === ordersWithFreightChargesCount
+        ? 'net_revenue'
+        : 'freight_billed'
+    const todayDisplayAmount = revenueMode === 'net_revenue' ? todayRevenue : todayFreightCharges
+    const totalDisplayAmount = revenueMode === 'net_revenue' ? totalRevenue : totalFreightCharges
 
     const codOrders = orders.filter(
       (o) =>
@@ -245,34 +267,30 @@ export const getAdminDashboardStats = async () => {
     })
     const deliverySuccessRate =
       operationalBaseCount > 0 ? Math.round((deliveredOrders.length / operationalBaseCount) * 100) : 0
-    const ndrOrdersAffected = Number(ndrKpis?.ordersAffected || activeNdrOrders.length)
+    const ndrOrdersAffected = activeNdrOrders.length
     const ndrRate =
       operationalBaseCount > 0 ? Math.round((ndrOrdersAffected / operationalBaseCount) * 100) : 0
     const rtoOrders = orders.filter((o) => {
       const status = (o.order_status || o.orderStatus || '').toLowerCase()
       return status.includes('rto') || status === 'returned_to_origin'
     })
-    const rtoOrdersCount = Number(rtoKpis?.total || rtoOrders.length)
+    const rtoOrdersCount = rtoOrders.length
     const rtoRate =
       operationalBaseCount > 0 ? Math.round((rtoOrdersCount / operationalBaseCount) * 100) : 0
 
     // Calculate average delivery time
     const deliveredOrdersWithDates = deliveredOrders.filter((o) => {
       const created = getOrderTimestamp(o)
-      const delivered = getFirstValidDate(o.delivered_at, o.deliveredAt, o.updated_at, o.updatedAt)
-      return !Number.isNaN(created.getTime()) && !Number.isNaN(delivered.getTime())
+      const delivered = getDeliveredTimestamp(o)
+      return !Number.isNaN(created.getTime()) && delivered
     })
     const avgDeliveryTime =
       deliveredOrdersWithDates.length > 0
         ? Math.round(
             deliveredOrdersWithDates.reduce((sum, o) => {
               const created = getOrderTimestamp(o)
-              const delivered = getFirstValidDate(
-                o.delivered_at,
-                o.deliveredAt,
-                o.updated_at,
-                o.updatedAt,
-              )
+              const delivered = getDeliveredTimestamp(o)
+              if (!delivered) return sum
               return sum + Math.floor((delivered - created) / (1000 * 60 * 60 * 24))
             }, 0) / deliveredOrdersWithDates.length,
           )
@@ -313,6 +331,7 @@ export const getAdminDashboardStats = async () => {
           ndr: 0,
           rto: 0,
           revenue: 0,
+          displayAmount: 0,
           avgDeliveryTime: 0,
           deliveryTimes: [],
         }
@@ -343,8 +362,8 @@ export const getAdminDashboardStats = async () => {
       if (status === 'delivered') {
         acc[courierName].delivered += 1
         const created = getOrderTimestamp(o)
-        const delivered = getFirstValidDate(o.delivered_at, o.deliveredAt, o.updated_at, o.updatedAt)
-        if (!Number.isNaN(created.getTime()) && !Number.isNaN(delivered.getTime())) {
+        const delivered = getDeliveredTimestamp(o)
+        if (!Number.isNaN(created.getTime()) && delivered) {
           const days = Math.floor((delivered - created) / (1000 * 60 * 60 * 24))
           acc[courierName].deliveryTimes.push(days)
         }
@@ -368,6 +387,10 @@ export const getAdminDashboardStats = async () => {
               courier.deliveryTimes.reduce((a, b) => a + b, 0) / courier.deliveryTimes.length,
             )
           : 0
+      courier.displayAmount =
+        revenueMode === 'net_revenue'
+          ? Number(courier.revenue || 0)
+          : Number(courier.freightCharges || 0)
     })
 
     // ========== GEOGRAPHIC INSIGHTS ==========
@@ -438,15 +461,20 @@ export const getAdminDashboardStats = async () => {
         return sum + shippingCharge
       }, 0)
 
-      // Calculate revenue for this day (freight_charges - courier_cost)
-      revenueByDate[dateStr] = dayOrders.reduce((sum, o) => {
-        const freightCharge = Number(o.freight_charges) || Number(o.freightCharges) || 0
-        const courierCost = Number(o.courier_cost) || Number(o.courierCost) || 0
-        if (freightCharge > 0 && courierCost > 0) {
-          return sum + (freightCharge - courierCost)
-        }
-        return sum
-      }, 0)
+      revenueByDate[dateStr] =
+        revenueMode === 'net_revenue'
+          ? dayOrders.reduce((sum, o) => {
+              const freightCharge = Number(o.freight_charges) || Number(o.freightCharges) || 0
+              const courierCost = Number(o.courier_cost) || Number(o.courierCost) || 0
+              if (freightCharge > 0 && courierCost > 0) {
+                return sum + (freightCharge - courierCost)
+              }
+              return sum
+            }, 0)
+          : dayOrders.reduce((sum, o) => {
+              const freightCharge = Number(o.freight_charges) || Number(o.freightCharges) || 0
+              return sum + freightCharge
+            }, 0)
     }
 
     // ========== USERS ==========
@@ -526,8 +554,12 @@ export const getAdminDashboardStats = async () => {
         },
         // Financial Overview
         financial: {
+          revenueMode,
+          todayDisplayAmount,
+          totalDisplayAmount,
           todayShippingCharges, // Today's shipping charges (what sellers show on labels)
           todayRevenue, // Today's revenue (freight_charges - courier_cost)
+          todayFreightCharges,
           totalShippingCharges, // Total shipping charges (what sellers charge customers)
           totalFreightCharges, // Total freight charges (what platform charges sellers)
           totalCourierCosts, // Total courier costs (what platform pays to couriers)

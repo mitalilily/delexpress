@@ -96,7 +96,7 @@ export async function exportAdminNdr(params = {}) {
   window.URL.revokeObjectURL(url)
 }
 
-export async function getAdminNdrKpis() {
-  const { data } = await api.get('/admin/ndr/kpis')
+export async function getAdminNdrKpis(params = {}) {
+  const { data } = await api.get('/admin/ndr/kpis', { params })
   return data
 }

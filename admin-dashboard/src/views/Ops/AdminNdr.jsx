@@ -129,11 +129,19 @@ export default function AdminNdr() {
   useEffect(() => {
     ;(async () => {
       try {
-        const resp = await getAdminNdrKpis()
+        const resp = await getAdminNdrKpis({
+          search: filters.search || undefined,
+          fromDate: filters.fromDate || undefined,
+          toDate: filters.toDate || undefined,
+          courier: filters.courier || undefined,
+          integration_type: filters.integration_type || undefined,
+          attempt_count: filters.attempt_count ? Number(filters.attempt_count) : undefined,
+          status: filters.status || undefined,
+        })
         setKpis(resp?.data || null)
       } catch (e) {}
     })()
-  }, [])
+  }, [filters])
 
   const actionsBar = (
     <HStack>

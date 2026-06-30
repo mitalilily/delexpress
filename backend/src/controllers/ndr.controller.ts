@@ -1,10 +1,14 @@
-import { and, eq, ilike, sql } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { Response } from 'express'
 import { db } from '../models/client'
 import { b2c_orders } from '../models/schema/b2cOrders'
-import { ndr_events } from '../models/schema/ndr'
-import { getNdrTimeline, listNdrEvents, listNdrEventsAdmin } from '../models/services/ndr.service'
-import { buildCsv } from '../utils/csv'
+import {
+  adminNdrExport,
+  getAdminNdrKpisData,
+  getNdrTimeline,
+  listNdrEvents,
+  listNdrEventsAdmin,
+} from '../models/services/ndr.service'
 
 export const getMyNdrEvents = async (req: any, res: Response) => {
   try {
@@ -123,68 +127,19 @@ export const getMyNdrTimeline = async (req: any, res: Response) => {
 
 export const exportAdminNdrCsv = async (req: any, res: Response) => {
   try {
-    const { search, fromDate, toDate, courier, integration_type, attempt_count, status } =
+    const { orderId, search, fromDate, toDate, courier, integration_type, attempt_count, status } =
       req.query as any
+    const csv = await adminNdrExport({
+      orderId: orderId || undefined,
+      search: search || undefined,
+      fromDate: fromDate || undefined,
+      toDate: toDate || undefined,
+      courier: courier || undefined,
+      integration_type: integration_type || undefined,
+      attempt_count: attempt_count ? Number(attempt_count) : undefined,
+      status: status || undefined,
+    })
 
-    const where = and(
-      search
-        ? and(sql`true`, sql`${ndr_events.awb_number} ILIKE ${'%' + search + '%'}`)
-        : sql`true`,
-      status ? ilike(ndr_events.status, `%${status}%`) : sql`true`,
-    )
-
-    const rows = await db
-      .select({
-        awb: ndr_events.awb_number,
-        order_id: ndr_events.order_id,
-        status: ndr_events.status,
-        reason: ndr_events.reason,
-        remarks: ndr_events.remarks,
-        attempt_no: ndr_events.attempt_no,
-        created_at: ndr_events.created_at,
-        courier_partner: b2c_orders.courier_partner,
-        integration_type: b2c_orders.integration_type,
-      })
-      .from(ndr_events)
-      .leftJoin(b2c_orders, eq(ndr_events.order_id, b2c_orders.id))
-      .where(
-        and(
-          where,
-          courier ? ilike(b2c_orders.courier_partner, `%${courier}%`) : sql`true`,
-          integration_type
-            ? ilike(b2c_orders.integration_type, `%${integration_type}%`)
-            : sql`true`,
-          attempt_count ? ilike(ndr_events.attempt_no, `%${String(attempt_count)}%`) : sql`true`,
-          fromDate ? sql`${ndr_events.created_at} >= ${new Date(fromDate)}` : sql`true`,
-          toDate ? sql`${ndr_events.created_at} <= ${new Date(toDate)}` : sql`true`,
-        ),
-      )
-
-    const headers = [
-      'AWB',
-      'OrderId',
-      'Courier',
-      'Integration',
-      'Status',
-      'Reason',
-      'Remarks',
-      'AttemptNo',
-      'CreatedAt',
-    ]
-    const csv = buildCsv(
-      headers,
-      rows.map((r) => [
-        r.awb,
-        r.order_id,
-        r.courier_partner,
-        r.integration_type,
-        r.status,
-        r.reason,
-        r.remarks,
-        r.attempt_no,
-        (r.created_at as any)?.toISOString?.(),
-      ]),
-    )
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', `attachment; filename="ndr_export.csv"`)
     return res.status(200).send(csv)
@@ -195,27 +150,20 @@ export const exportAdminNdrCsv = async (req: any, res: Response) => {
 
 export const getAdminNdrKpis = async (req: any, res: Response) => {
   try {
-    // Simple KPIs: total NDRs, by status, by courier, unique orders affected
-    const [{ total }] = (await db.select({ total: sql<number>`count(*)` }).from(ndr_events)) as any
+    const { orderId, search, fromDate, toDate, courier, integration_type, attempt_count, status } =
+      req.query as any
+    const data = await getAdminNdrKpisData({
+      orderId: orderId || undefined,
+      search: search || undefined,
+      fromDate: fromDate || undefined,
+      toDate: toDate || undefined,
+      courier: courier || undefined,
+      integration_type: integration_type || undefined,
+      attempt_count: attempt_count ? Number(attempt_count) : undefined,
+      status: status || undefined,
+    })
 
-    const byStatus = (await db
-      .select({ status: ndr_events.status, count: sql<number>`count(*)` })
-      .from(ndr_events)
-      .groupBy(ndr_events.status)) as any
-
-    const byCourier = (await db
-      .select({ courier: b2c_orders.courier_partner, count: sql<number>`count(*)` })
-      .from(ndr_events)
-      .leftJoin(b2c_orders, eq(ndr_events.order_id, b2c_orders.id))
-      .groupBy(b2c_orders.courier_partner)) as any
-
-    const [{ ordersAffected }] = (await db
-      .select({ ordersAffected: sql<number>`count(distinct ${ndr_events.order_id})` })
-      .from(ndr_events)) as any
-
-    return res
-      .status(200)
-      .json({ success: true, data: { total, byStatus, byCourier, ordersAffected } })
+    return res.status(200).json({ success: true, data })
   } catch (e: any) {
     return res.status(500).json({ success: false, message: e.message })
   }

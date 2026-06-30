@@ -92,13 +92,25 @@ export default function Dashboard() {
   const geographic = stats.geographic || {}
   const users = stats.users || {}
   const charts = stats.charts || {}
+  const revenueMode = financial.revenueMode || 'net_revenue'
+  const revenueTitle = revenueMode === 'net_revenue' ? 'Net Revenue' : 'Freight Billed'
+  const revenueTrendTitle =
+    revenueMode === 'net_revenue' ? 'Revenue Trend (7 days)' : 'Freight Trend (7 days)'
+  const revenueTrendSubtitle =
+    revenueMode === 'net_revenue' ? 'Net revenue performance' : 'Freight billed by day'
+  const revenueSeriesLabel = revenueMode === 'net_revenue' ? 'Revenue' : 'Freight Billed'
+  const courierAmountLabel = revenueMode === 'net_revenue' ? 'Revenue' : 'Freight'
+  const revenueSubtitle =
+    revenueMode === 'net_revenue'
+      ? `Today ${formatCurrency(financial.todayDisplayAmount)} | Freight - courier cost`
+      : `Today ${formatCurrency(financial.todayDisplayAmount)} | Courier cost data unavailable`
 
   const topCouriers = Object.entries(couriers.performance || {})
     .map(([name, value]) => ({
       name,
       count: toNum(value?.count),
       deliveryRate: toNum(value?.deliveryRate),
-      revenue: toNum(value?.revenue),
+      displayAmount: toNum(value?.displayAmount),
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 4)
@@ -182,9 +194,9 @@ export default function Dashboard() {
             color="orange.500"
           />
           <MetricCard
-            title="Net Revenue"
-            value={formatCurrency(financial.totalRevenue)}
-            subtitle={`Today ${formatCurrency(financial.todayRevenue)} | Freight - courier cost`}
+            title={revenueTitle}
+            value={formatCurrency(financial.totalDisplayAmount)}
+            subtitle={revenueSubtitle}
             icon={<IconCoinRupee size={18} />}
             color="secondary.500"
           />
@@ -262,12 +274,15 @@ export default function Dashboard() {
         <Grid templateColumns={{ base: '1fr', xl: '1fr 1fr' }} gap={6} mb={6}>
           <Card bg={panelBg} borderWidth="1px" borderColor={borderColor} borderRadius="16px" h="full">
             <CardHeader p={5} pb={2}>
-              <Heading size="sm" color={textPrimary}>Revenue Trend (7 days)</Heading>
-              <Text fontSize="sm" color={textSecondary} mt={1}>Net revenue performance</Text>
+              <Heading size="sm" color={textPrimary}>{revenueTrendTitle}</Heading>
+              <Text fontSize="sm" color={textSecondary} mt={1}>{revenueTrendSubtitle}</Text>
             </CardHeader>
             <CardBody p={5} pt={2}>
               <Box h={{ base: '240px', md: '300px' }}>
-                <RevenueBarChart data={charts.revenueByDate || []} />
+                <RevenueBarChart
+                  data={charts.revenueByDate || []}
+                  seriesLabel={revenueSeriesLabel}
+                />
               </Box>
               <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3} mt={4}>
                 <Box p={3.5} borderRadius="12px" borderWidth="1px" borderColor={borderColor} bg={tileBg}>
@@ -310,7 +325,9 @@ export default function Dashboard() {
                         <Text fontSize="xs" color={textSecondary}>{courier.deliveryRate}%</Text>
                       </HStack>
                       <Progress size="sm" borderRadius="full" value={courier.deliveryRate} colorScheme="green" mb={2} />
-                      <Text fontSize="xs" color={textSecondary}>Revenue: {formatCurrency(courier.revenue)}</Text>
+                      <Text fontSize="xs" color={textSecondary}>
+                        {courierAmountLabel}: {formatCurrency(courier.displayAmount)}
+                      </Text>
                     </Box>
                   ))
                 )}

@@ -324,6 +324,96 @@ const captureNdrEventFromWebhook = async (params: {
   return { skipped: false, status: finalStatus }
 }
 
+const shouldSkipDuplicateRtoEvent = async (params: {
+  orderId: string
+  status: string
+  reason?: string | null
+  remarks?: string | null
+  rtoCharges?: number | null
+}) => {
+  const [latest] = await db
+    .select({
+      id: rto_events.id,
+      created_at: rto_events.created_at,
+      status: rto_events.status,
+      reason: rto_events.reason,
+      remarks: rto_events.remarks,
+      rto_charges: rto_events.rto_charges,
+    })
+    .from(rto_events)
+    .where(eq(rto_events.order_id, params.orderId))
+    .orderBy(sql`${rto_events.created_at} desc`)
+    .limit(1)
+
+  if (!latest?.created_at) return false
+
+  const ageMs = Date.now() - new Date(latest.created_at).getTime()
+  const withinDuplicateWindow = ageMs >= 0 && ageMs <= 10 * 60 * 1000
+  if (!withinDuplicateWindow) return false
+
+  return (
+    normalizeComparableText(latest.status) === normalizeComparableText(params.status) &&
+    normalizeComparableText(latest.reason) === normalizeComparableText(params.reason) &&
+    normalizeComparableText(latest.remarks) === normalizeComparableText(params.remarks) &&
+    normalizeComparableText(latest.rto_charges) === normalizeComparableText(params.rtoCharges)
+  )
+}
+
+const captureRtoEventFromWebhook = async (params: {
+  order: any
+  awbNumber?: string | null
+  status?: string | null
+  reason?: string | null
+  remarks?: string | null
+  rtoCharges?: number | null
+  payload?: any
+  courierLabel: string
+}) => {
+  const { order, awbNumber, status, reason, remarks, rtoCharges, payload, courierLabel } = params
+  const finalStatus = normalizeComparableText(status) || 'rto'
+  const duplicate = await shouldSkipDuplicateRtoEvent({
+    orderId: order.id,
+    status: finalStatus,
+    reason,
+    remarks,
+    rtoCharges,
+  })
+
+  if (duplicate) {
+    console.log(`Skipping duplicate RTO event for ${courierLabel}`, {
+      order_number: order.order_number,
+      awb_number: awbNumber || order.awb_number || null,
+      status: finalStatus,
+    })
+    return { skipped: true, status: finalStatus }
+  }
+
+  await recordRtoEvent({
+    orderId: order.id,
+    userId: order.user_id,
+    awbNumber: awbNumber || order.awb_number || undefined,
+    status: finalStatus,
+    reason: reason || null,
+    remarks: remarks || null,
+    rtoCharges: rtoCharges ?? null,
+    payload,
+  })
+
+  await createNotificationService({
+    targetRole: 'user',
+    userId: order.user_id,
+    title: `RTO update (${courierLabel})`,
+    message: `Order ${order.order_number} status updated: ${finalStatus}.`,
+  })
+  await createNotificationService({
+    targetRole: 'admin',
+    title: `RTO event (${courierLabel})`,
+    message: `User ${order.user_id} order ${order.order_number} ${finalStatus}`,
+  })
+
+  return { skipped: false, status: finalStatus }
+}
+
 // Helper function to generate invoice for an order
 const generateInvoiceForOrderWebhook = async (
   order: any,
@@ -1318,26 +1408,16 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
     const isNdr = ['ndr', 'undelivered'].includes(statusLower)
     if (isNdr) {
       try {
-        await recordNdrEvent({
-          orderId: order.id,
-          userId: order.user_id,
+        await captureNdrEventFromWebhook({
+          order,
           awbNumber: order.awb_number || undefined,
           status: statusLower,
           reason: eventReason,
           remarks: eventRemarks,
           attemptNo,
           payload,
-        })
-        await createNotificationService({
-          targetRole: 'user',
-          userId: order.user_id,
-          title: 'Delivery attempt issue (Delhivery)',
-          message: `Order ${order.order_number} marked as ${statusLower}.`,
-        })
-        await createNotificationService({
-          targetRole: 'admin',
-          title: 'NDR captured (Delhivery)',
-          message: `User ${order.user_id} order ${order.order_number} status ${statusLower}`,
+          courierLabel: 'Delhivery',
+          signalParts: [instructions, status, statusCode],
         })
       } catch (e) {
         console.error('❌ Failed to record NDR event (Delhivery):', e)
@@ -1349,26 +1429,15 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
     if (isRto) {
       try {
         const rtoCharge = await applyRtoChargeOnce(innerTx, order, 'Delhivery')
-        await recordRtoEvent({
-          orderId: order.id,
-          userId: order.user_id,
+        await captureRtoEventFromWebhook({
+          order,
           awbNumber: order.awb_number || undefined,
           status: statusLower,
           reason: eventReason,
           remarks: eventRemarks,
           rtoCharges: rtoCharge,
           payload,
-        })
-        await createNotificationService({
-          targetRole: 'user',
-          userId: order.user_id,
-          title: 'RTO update (Delhivery)',
-          message: `Order ${order.order_number} status updated: ${statusLower}.`,
-        })
-        await createNotificationService({
-          targetRole: 'admin',
-          title: 'RTO event (Delhivery)',
-          message: `User ${order.user_id} order ${order.order_number} ${statusLower}`,
+          courierLabel: 'Delhivery',
         })
       } catch (e) {
         console.error('❌ Failed to record RTO event (Delhivery):', e)
@@ -1821,24 +1890,13 @@ export async function processEkartWebhook(payload: any, tx = db) {
 
   if (['ndr', 'undelivered'].includes(statusLower)) {
     try {
-      await recordNdrEvent({
-        orderId: order.id,
-        userId: order.user_id,
+      await captureNdrEventFromWebhook({
+        order,
         awbNumber: order.awb_number || undefined,
         status: statusLower,
         reason: remarks || null,
         payload,
-      })
-      await createNotificationService({
-        targetRole: 'user',
-        userId: order.user_id,
-        title: 'Delivery attempt issue (Ekart)',
-        message: `Order ${order.order_number} marked as ${statusLower}.`,
-      })
-      await createNotificationService({
-        targetRole: 'admin',
-        title: 'NDR captured (Ekart)',
-        message: `User ${order.user_id} order ${order.order_number} status ${statusLower}`,
+        courierLabel: 'Ekart',
       })
     } catch (err) {
       console.error('❌ Failed to record NDR event (Ekart):', err)
@@ -1848,25 +1906,14 @@ export async function processEkartWebhook(payload: any, tx = db) {
   if (statusLower.includes('rto')) {
     try {
       const rtoCharge = await applyRtoChargeOnce(tx, order, 'Ekart')
-      await recordRtoEvent({
-        orderId: order.id,
-        userId: order.user_id,
+      await captureRtoEventFromWebhook({
+        order,
         awbNumber: order.awb_number || undefined,
         status: statusLower,
         reason: remarks || null,
         rtoCharges: rtoCharge,
         payload,
-      })
-      await createNotificationService({
-        targetRole: 'user',
-        userId: order.user_id,
-        title: 'RTO update (Ekart)',
-        message: `Order ${order.order_number} status ${statusLower}.`,
-      })
-      await createNotificationService({
-        targetRole: 'admin',
-        title: 'RTO event (Ekart)',
-        message: `User ${order.user_id} order ${order.order_number} ${statusLower}`,
+        courierLabel: 'Ekart',
       })
     } catch (err) {
       console.error('❌ Failed to record RTO event (Ekart):', err)
@@ -2037,25 +2084,14 @@ export async function processXpressbeesWebhook(payload: any, tx = db) {
 
   if (['ndr', 'undelivered'].includes(statusLower)) {
     try {
-      await recordNdrEvent({
-        orderId: order.id,
-        userId: order.user_id,
+      await captureNdrEventFromWebhook({
+        order,
         awbNumber: order.awb_number || undefined,
         status: statusLower,
         reason: remarks || null,
         remarks: statusText || null,
         payload,
-      })
-      await createNotificationService({
-        targetRole: 'user',
-        userId: order.user_id,
-        title: 'Delivery attempt issue (Xpressbees)',
-        message: `Order ${order.order_number} marked as ${statusLower}.`,
-      })
-      await createNotificationService({
-        targetRole: 'admin',
-        title: 'NDR captured (Xpressbees)',
-        message: `User ${order.user_id} order ${order.order_number} status ${statusLower}`,
+        courierLabel: 'Xpressbees',
       })
     } catch (err) {
       console.error('❌ Failed to record NDR event (Xpressbees):', err)
@@ -2065,26 +2101,15 @@ export async function processXpressbeesWebhook(payload: any, tx = db) {
   if (statusLower.includes('rto')) {
     try {
       const rtoCharge = await applyRtoChargeOnce(tx, order, 'Xpressbees')
-      await recordRtoEvent({
-        orderId: order.id,
-        userId: order.user_id,
+      await captureRtoEventFromWebhook({
+        order,
         awbNumber: order.awb_number || undefined,
         status: statusLower,
         reason: remarks || null,
         remarks: statusText || null,
         rtoCharges: rtoCharge,
         payload,
-      })
-      await createNotificationService({
-        targetRole: 'user',
-        userId: order.user_id,
-        title: 'RTO update (Xpressbees)',
-        message: `Order ${order.order_number} status ${statusLower}.`,
-      })
-      await createNotificationService({
-        targetRole: 'admin',
-        title: 'RTO event (Xpressbees)',
-        message: `User ${order.user_id} order ${order.order_number} ${statusLower}`,
+        courierLabel: 'Xpressbees',
       })
     } catch (err) {
       console.error('❌ Failed to record RTO event (Xpressbees):', err)
@@ -2264,25 +2289,14 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
 
   if (statusLower === 'ndr') {
     try {
-      await recordNdrEvent({
-        orderId: order.id,
-        userId: order.user_id,
+      await captureNdrEventFromWebhook({
+        order,
         awbNumber: order.awb_number || undefined,
         status: statusLower,
         reason: event.remark || event.description || null,
         remarks: statusText || null,
         payload,
-      })
-      await createNotificationService({
-        targetRole: 'user',
-        userId: order.user_id,
-        title: 'Delivery attempt issue (Shadowfax)',
-        message: `Order ${order.order_number} marked as ${statusLower}.`,
-      })
-      await createNotificationService({
-        targetRole: 'admin',
-        title: 'NDR captured (Shadowfax)',
-        message: `User ${order.user_id} order ${order.order_number} status ${statusLower}`,
+        courierLabel: 'Shadowfax',
       })
     } catch (err) {
       console.error('❌ Failed to record NDR event (Shadowfax):', err)
@@ -2292,26 +2306,15 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
   if (internalStatus.startsWith('rto')) {
     try {
       const rtoCharge = await applyRtoChargeOnce(tx, order, 'Shadowfax')
-      await recordRtoEvent({
-        orderId: order.id,
-        userId: order.user_id,
+      await captureRtoEventFromWebhook({
+        order,
         awbNumber: order.awb_number || undefined,
         status: statusLower,
         reason: event.remark || event.description || null,
         remarks: statusText || null,
         rtoCharges: rtoCharge,
         payload,
-      })
-      await createNotificationService({
-        targetRole: 'user',
-        userId: order.user_id,
-        title: 'RTO update (Shadowfax)',
-        message: `Order ${order.order_number} status ${statusLower}.`,
-      })
-      await createNotificationService({
-        targetRole: 'admin',
-        title: 'RTO event (Shadowfax)',
-        message: `User ${order.user_id} order ${order.order_number} ${statusLower}`,
+        courierLabel: 'Shadowfax',
       })
     } catch (err) {
       console.error('❌ Failed to record RTO event (Shadowfax):', err)

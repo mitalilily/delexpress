@@ -2,7 +2,7 @@ import React from 'react'
 import Chart from 'react-apexcharts'
 import { useColorModeValue } from '@chakra-ui/react'
 
-const RevenueBarChart = ({ data = [] }) => {
+const RevenueBarChart = ({ data = [], seriesLabel = 'Revenue' }) => {
   const textColor = useColorModeValue('gray.700', 'white')
   const textColorSecondary = useColorModeValue('gray.500', 'gray.400')
   const gridColor = useColorModeValue('gray.200', 'gray.700')
@@ -12,7 +12,7 @@ const RevenueBarChart = ({ data = [] }) => {
 
   const chartData = [
     {
-      name: 'Revenue',
+      name: seriesLabel,
       data: data.map((item) => Math.round(item.revenue || 0)),
     },
   ]
