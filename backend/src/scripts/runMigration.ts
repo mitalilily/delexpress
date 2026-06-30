@@ -14,6 +14,7 @@ async function runMigration() {
         __dirname,
         '../../src/drizzle/migrations/0003_add_service_provider_to_shipping_rates.sql',
       ),
+      path.join(__dirname, '../../migration_add_cod_remittance_type.sql'),
     ]
 
     for (const migrationFile of migrationFiles) {
