@@ -64,6 +64,8 @@ jobs:
           PM2
 
           cd /srv/expressopro/current/backend
+          sudo rm -rf /srv/expressopro/current/backend/dist
+          sudo install -d -m 755 -o deploy -g deploy /srv/expressopro/current/backend/dist
           npm ci
           NODE_ENV=production npm run build
           NODE_ENV=production npm run ensure:admin
