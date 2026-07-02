@@ -18,6 +18,18 @@ const parseOptionalDate = (value?: string) => {
   return parsed && !Number.isNaN(parsed.getTime()) ? parsed : null
 }
 
+const normalizeStatusText = (value: unknown) => String(value || '').trim().toLowerCase()
+
+const normalizeNullableText = (value: unknown) => {
+  const text = String(value || '').trim()
+  return text ? text : null
+}
+
+const normalizeNullableAwb = (value: unknown) => {
+  const text = normalizeNullableText(value)
+  return text || null
+}
+
 const getQueryRows = <T = Record<string, unknown>>(result: unknown): T[] => {
   if (Array.isArray(result)) return result as T[]
   if (result && typeof result === 'object' && Array.isArray((result as any).rows)) {
@@ -46,8 +58,8 @@ const buildRtoWhereSql = (filters: RtoListFilters) => {
 
   const parsedFrom = parseOptionalDate(fromDate)
   const parsedTo = parseOptionalDate(toDate)
-  if (parsedFrom) clauses.push(sql`e.created_at >= ${parsedFrom}`)
-  if (parsedTo) clauses.push(sql`e.created_at <= ${parsedTo}`)
+  if (parsedFrom) clauses.push(sql`coalesce(e.updated_at, e.created_at) >= ${parsedFrom}`)
+  if (parsedTo) clauses.push(sql`coalesce(e.updated_at, e.created_at) <= ${parsedTo}`)
 
   return clauses.length ? sql`WHERE ${sql.join(clauses, sql` AND `)}` : sql``
 }
@@ -66,15 +78,11 @@ const buildDedupedRtoCte = (whereSql: any) => sql`
       e.payload,
       e.created_at,
       e.updated_at,
+      coalesce(e.updated_at, e.created_at) AS last_event_time,
       o.courier_partner,
       row_number() OVER (
-        PARTITION BY
-          e.order_id,
-          coalesce(lower(btrim(e.status)), ''),
-          coalesce(lower(btrim(e.reason)), ''),
-          coalesce(lower(btrim(e.remarks)), ''),
-          coalesce(e.rto_charges::text, '')
-        ORDER BY e.created_at DESC, e.id DESC
+        PARTITION BY e.order_id
+        ORDER BY coalesce(e.updated_at, e.created_at) DESC, e.created_at DESC, e.id DESC
       ) AS row_rank
     FROM rto_events e
     LEFT JOIN b2c_orders o ON o.id = e.order_id
@@ -101,10 +109,11 @@ async function listDedupedRtoEvents(filters: RtoListFilters, page: number, limit
       payload,
       created_at,
       updated_at,
+      last_event_time,
       courier_partner
     FROM deduped_rto_events
     WHERE row_rank = 1
-    ORDER BY created_at DESC
+    ORDER BY last_event_time DESC, created_at DESC
     LIMIT ${limit}
     OFFSET ${offset}
   `)
@@ -133,34 +142,53 @@ export async function recordRtoEvent(params: {
   payload?: any
 }) {
   const { orderId, userId, awbNumber, status, reason, remarks, rtoCharges, payload } = params
+  const normalizedStatus = normalizeStatusText(status)
+  const normalizedAwb = normalizeNullableAwb(awbNumber)
+  const normalizedReason = normalizeNullableText(reason)
+  const normalizedRemarks = normalizeNullableText(remarks)
+  const now = new Date()
 
-  const [inserted] = await db
+  const [saved] = await db
     .insert(rto_events)
     .values({
       order_id: orderId,
       user_id: userId,
-      awb_number: awbNumber || null,
-      status,
-      reason: reason || null,
-      remarks: remarks || null,
-      rto_charges: rtoCharges || null,
+      awb_number: normalizedAwb,
+      status: normalizedStatus,
+      reason: normalizedReason,
+      remarks: normalizedRemarks,
+      rto_charges: rtoCharges ?? null,
       payload: payload || null,
+      updated_at: now,
+    })
+    .onConflictDoUpdate({
+      target: rto_events.order_id,
+      set: {
+        user_id: userId,
+        awb_number: sql`coalesce(excluded.awb_number, ${rto_events.awb_number})`,
+        status: normalizedStatus,
+        reason: sql`coalesce(excluded.reason, ${rto_events.reason})`,
+        remarks: sql`coalesce(excluded.remarks, ${rto_events.remarks})`,
+        rto_charges: sql`coalesce(excluded.rto_charges, ${rto_events.rto_charges})`,
+        payload: sql`coalesce(excluded.payload, ${rto_events.payload})`,
+        updated_at: now,
+      },
     })
     .returning()
 
   sendWebhookEvent(userId, 'order.rto', {
     order_id: orderId,
-    awb_number: awbNumber,
-    status,
-    reason,
-    remarks,
-    rto_charges: rtoCharges,
-    created_at: inserted.created_at?.toISOString() || new Date().toISOString(),
+    awb_number: saved.awb_number || normalizedAwb,
+    status: saved.status || normalizedStatus,
+    reason: saved.reason ?? normalizedReason,
+    remarks: saved.remarks ?? normalizedRemarks,
+    rto_charges: saved.rto_charges ?? rtoCharges ?? null,
+    created_at: saved.updated_at?.toISOString() || saved.created_at?.toISOString() || now.toISOString(),
   }).catch((err) => {
     console.error('Failed to send RTO webhook event:', err)
   })
 
-  return inserted
+  return saved
 }
 
 export async function listRtoEvents(
@@ -263,7 +291,7 @@ export async function adminRtoExport(params?: {
   )) as { rows: any[]; totalCount: number }
 
   const headers = [
-    'Created At',
+    'Last Event At',
     'AWB',
     'Order ID',
     'Status',
@@ -273,7 +301,7 @@ export async function adminRtoExport(params?: {
     'Courier',
   ]
   const rowsData = rows.rows.map((r) => [
-    r.created_at ? new Date(r.created_at).toISOString() : '',
+    r.last_event_time ? new Date(r.last_event_time).toISOString() : '',
     r.awb_number || '',
     r.order_id || '',
     r.status || '',

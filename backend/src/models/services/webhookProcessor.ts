@@ -33,7 +33,7 @@ import {
   calculateVolumetricWeight,
 } from './courierWeightCalculation.service'
 import { generateInvoicePDF } from './invoice.service'
-import { recordNdrEvent } from './ndr.service'
+import { clearActiveNdrEventsForOrder, recordNdrEvent } from './ndr.service'
 import { createNotificationService } from './notifications.service'
 import { recordRtoEvent } from './rto.service'
 import { logTrackingEvent } from './trackingEvents.service'
@@ -222,6 +222,11 @@ const resolveNdrStatus = (status: unknown, ...signalParts: unknown[]) => {
   return 'ndr'
 }
 
+const shouldClearActiveNdrForStatus = (status: unknown) => {
+  const normalizedStatus = normalizeComparableText(status)
+  return Boolean(normalizedStatus) && normalizedStatus !== 'unknown' && !['ndr', 'undelivered'].includes(normalizedStatus)
+}
+
 const shouldSkipDuplicateNdrEvent = async (params: {
   orderId: string
   status: string
@@ -233,19 +238,26 @@ const shouldSkipDuplicateNdrEvent = async (params: {
     .select({
       id: ndr_events.id,
       created_at: ndr_events.created_at,
+      updated_at: ndr_events.updated_at,
       status: ndr_events.status,
       reason: ndr_events.reason,
       remarks: ndr_events.remarks,
       attempt_no: ndr_events.attempt_no,
     })
     .from(ndr_events)
-    .where(eq(ndr_events.order_id, params.orderId))
-    .orderBy(sql`${ndr_events.created_at} desc`)
+    .where(
+      and(
+        eq(ndr_events.order_id, params.orderId),
+        sql`coalesce(lower(btrim(${ndr_events.status})), '') <> 'ndr_action'`,
+      ),
+    )
+    .orderBy(sql`coalesce(${ndr_events.updated_at}, ${ndr_events.created_at}) desc, ${ndr_events.created_at} desc`)
     .limit(1)
 
-  if (!latest?.created_at) return false
+  const latestEventAt = latest?.updated_at || latest?.created_at
+  if (!latestEventAt) return false
 
-  const ageMs = Date.now() - new Date(latest.created_at).getTime()
+  const ageMs = Date.now() - new Date(latestEventAt).getTime()
   const withinDuplicateWindow = ageMs >= 0 && ageMs <= 10 * 60 * 1000
   if (!withinDuplicateWindow) return false
 
@@ -335,6 +347,7 @@ const shouldSkipDuplicateRtoEvent = async (params: {
     .select({
       id: rto_events.id,
       created_at: rto_events.created_at,
+      updated_at: rto_events.updated_at,
       status: rto_events.status,
       reason: rto_events.reason,
       remarks: rto_events.remarks,
@@ -342,12 +355,13 @@ const shouldSkipDuplicateRtoEvent = async (params: {
     })
     .from(rto_events)
     .where(eq(rto_events.order_id, params.orderId))
-    .orderBy(sql`${rto_events.created_at} desc`)
+    .orderBy(sql`coalesce(${rto_events.updated_at}, ${rto_events.created_at}) desc, ${rto_events.created_at} desc`)
     .limit(1)
 
-  if (!latest?.created_at) return false
+  const latestEventAt = latest?.updated_at || latest?.created_at
+  if (!latestEventAt) return false
 
-  const ageMs = Date.now() - new Date(latest.created_at).getTime()
+  const ageMs = Date.now() - new Date(latestEventAt).getTime()
   const withinDuplicateWindow = ageMs >= 0 && ageMs <= 10 * 60 * 1000
   if (!withinDuplicateWindow) return false
 
@@ -1422,6 +1436,12 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
       } catch (e) {
         console.error('❌ Failed to record NDR event (Delhivery):', e)
       }
+    } else if (shouldClearActiveNdrForStatus(statusLower)) {
+      try {
+        await clearActiveNdrEventsForOrder(order.id)
+      } catch (e) {
+        console.error('❌ Failed to clear active NDR row (Delhivery):', e)
+      }
     }
 
     // 🔔 RTO capture for Delhivery
@@ -1901,6 +1921,12 @@ export async function processEkartWebhook(payload: any, tx = db) {
     } catch (err) {
       console.error('❌ Failed to record NDR event (Ekart):', err)
     }
+  } else if (shouldClearActiveNdrForStatus(statusLower)) {
+    try {
+      await clearActiveNdrEventsForOrder(order.id)
+    } catch (err) {
+      console.error('❌ Failed to clear active NDR row (Ekart):', err)
+    }
   }
 
   if (statusLower.includes('rto')) {
@@ -2095,6 +2121,12 @@ export async function processXpressbeesWebhook(payload: any, tx = db) {
       })
     } catch (err) {
       console.error('❌ Failed to record NDR event (Xpressbees):', err)
+    }
+  } else if (shouldClearActiveNdrForStatus(statusLower)) {
+    try {
+      await clearActiveNdrEventsForOrder(order.id)
+    } catch (err) {
+      console.error('❌ Failed to clear active NDR row (Xpressbees):', err)
     }
   }
 
@@ -2300,6 +2332,12 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
       })
     } catch (err) {
       console.error('❌ Failed to record NDR event (Shadowfax):', err)
+    }
+  } else if (shouldClearActiveNdrForStatus(statusLower)) {
+    try {
+      await clearActiveNdrEventsForOrder(order.id)
+    } catch (err) {
+      console.error('❌ Failed to clear active NDR row (Shadowfax):', err)
     }
   }
 

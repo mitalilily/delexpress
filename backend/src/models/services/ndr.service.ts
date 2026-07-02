@@ -18,9 +18,23 @@ type NdrListFilters = {
   status?: string
 }
 
+const ACTIVE_NDR_ACTION_STATUS = 'ndr_action'
+
 const parseOptionalDate = (value?: string) => {
   const parsed = value ? new Date(value) : null
   return parsed && !Number.isNaN(parsed.getTime()) ? parsed : null
+}
+
+const normalizeStatusText = (value: unknown) => String(value || '').trim().toLowerCase()
+
+const normalizeNullableText = (value: unknown) => {
+  const text = String(value || '').trim()
+  return text ? text : null
+}
+
+const normalizeNullableAwb = (value: unknown) => {
+  const text = normalizeNullableText(value)
+  return text || null
 }
 
 const getQueryRows = <T = Record<string, unknown>>(result: unknown): T[] => {
@@ -61,15 +75,18 @@ const buildNdrWhereSql = (filters: NdrListFilters) => {
 
   const parsedFrom = parseOptionalDate(fromDate)
   const parsedTo = parseOptionalDate(toDate)
-  if (parsedFrom) clauses.push(sql`e.created_at >= ${parsedFrom}`)
-  if (parsedTo) clauses.push(sql`e.created_at <= ${parsedTo}`)
+  if (parsedFrom) clauses.push(sql`coalesce(e.updated_at, e.created_at) >= ${parsedFrom}`)
+  if (parsedTo) clauses.push(sql`coalesce(e.updated_at, e.created_at) <= ${parsedTo}`)
 
   if (courier) clauses.push(sql`coalesce(o.courier_partner, '') ILIKE ${`%${courier}%`}`)
   if (integration_type) {
     clauses.push(sql`coalesce(o.integration_type, '') ILIKE ${`%${integration_type}%`}`)
   }
-  if (attempt_count) clauses.push(sql`coalesce(e.attempt_no, '') = ${String(attempt_count)}`)
+  if (attempt_count !== undefined && attempt_count !== null) {
+    clauses.push(sql`coalesce(e.attempt_no, '') = ${String(attempt_count)}`)
+  }
   if (status) clauses.push(sql`coalesce(e.status, '') ILIKE ${`%${status}%`}`)
+  clauses.push(sql`coalesce(lower(btrim(e.status)), '') <> ${ACTIVE_NDR_ACTION_STATUS}`)
 
   return clauses.length ? sql`WHERE ${sql.join(clauses, sql` AND `)}` : sql``
 }
@@ -85,7 +102,7 @@ const buildDedupedNdrCte = (whereSql: any) => sql`
       e.remarks,
       e.attempt_no,
       e.created_at,
-      e.updated_at AS last_event_time,
+      coalesce(e.updated_at, e.created_at) AS last_event_time,
       o.courier_partner,
       o.integration_type,
       o.user_id AS merchant_id,
@@ -96,13 +113,8 @@ const buildDedupedNdrCte = (whereSql: any) => sql`
         ''
       ) AS merchant_name,
       row_number() OVER (
-        PARTITION BY
-          e.order_id,
-          coalesce(lower(btrim(e.status)), ''),
-          coalesce(lower(btrim(e.reason)), ''),
-          coalesce(lower(btrim(e.remarks)), ''),
-          coalesce(btrim(e.attempt_no), '')
-        ORDER BY e.created_at DESC, e.id DESC
+        PARTITION BY e.order_id
+        ORDER BY coalesce(e.updated_at, e.created_at) DESC, e.created_at DESC, e.id DESC
       ) AS row_rank
     FROM ndr_events e
     LEFT JOIN b2c_orders o ON e.order_id = o.id
@@ -134,7 +146,7 @@ async function listDedupedNdrEvents(filters: NdrListFilters, page: number, limit
       merchant_name
     FROM deduped_ndr_events
     WHERE row_rank = 1
-    ORDER BY created_at DESC
+    ORDER BY last_event_time DESC, created_at DESC
     LIMIT ${limit}
     OFFSET ${offset}
   `)
@@ -152,6 +164,12 @@ async function listDedupedNdrEvents(filters: NdrListFilters, page: number, limit
   }
 }
 
+export async function clearActiveNdrEventsForOrder(orderId: string) {
+  if (!orderId) return []
+
+  return db.delete(ndr_events).where(eq(ndr_events.order_id, orderId)).returning()
+}
+
 export async function recordNdrEvent(params: {
   orderId: string
   userId: string
@@ -163,34 +181,59 @@ export async function recordNdrEvent(params: {
   payload?: any
 }) {
   const { orderId, userId, awbNumber, status, reason, remarks, attemptNo, payload } = params
+  const normalizedStatus = normalizeStatusText(status)
 
-  const [inserted] = await db
+  if (normalizedStatus === ACTIVE_NDR_ACTION_STATUS) {
+    return null
+  }
+
+  const normalizedAwb = normalizeNullableAwb(awbNumber)
+  const normalizedReason = normalizeNullableText(reason)
+  const normalizedRemarks = normalizeNullableText(remarks)
+  const normalizedAttemptNo = normalizeNullableText(attemptNo)
+  const now = new Date()
+
+  const [saved] = await db
     .insert(ndr_events)
     .values({
       order_id: orderId,
       user_id: userId,
-      awb_number: awbNumber || null,
-      status,
-      reason: reason || null,
-      remarks: remarks || null,
-      attempt_no: attemptNo || null,
+      awb_number: normalizedAwb,
+      status: normalizedStatus,
+      reason: normalizedReason,
+      remarks: normalizedRemarks,
+      attempt_no: normalizedAttemptNo,
       payload: payload || null,
+      updated_at: now,
+    })
+    .onConflictDoUpdate({
+      target: ndr_events.order_id,
+      set: {
+        user_id: userId,
+        awb_number: sql`coalesce(excluded.awb_number, ${ndr_events.awb_number})`,
+        status: normalizedStatus,
+        reason: sql`coalesce(excluded.reason, ${ndr_events.reason})`,
+        remarks: sql`coalesce(excluded.remarks, ${ndr_events.remarks})`,
+        attempt_no: sql`coalesce(excluded.attempt_no, ${ndr_events.attempt_no})`,
+        payload: sql`coalesce(excluded.payload, ${ndr_events.payload})`,
+        updated_at: now,
+      },
     })
     .returning()
 
   sendWebhookEvent(userId, 'order.ndr', {
     order_id: orderId,
-    awb_number: awbNumber,
-    status,
-    reason,
-    remarks,
-    attempt_no: attemptNo,
-    created_at: inserted.created_at?.toISOString() || new Date().toISOString(),
+    awb_number: saved.awb_number || normalizedAwb,
+    status: saved.status || normalizedStatus,
+    reason: saved.reason ?? normalizedReason,
+    remarks: saved.remarks ?? normalizedRemarks,
+    attempt_no: saved.attempt_no ?? normalizedAttemptNo,
+    created_at: saved.updated_at?.toISOString() || saved.created_at?.toISOString() || now.toISOString(),
   }).catch((err) => {
     console.error('Failed to send NDR webhook event:', err)
   })
 
-  return inserted
+  return saved
 }
 
 export async function listNdrEvents(
@@ -342,7 +385,7 @@ export async function adminNdrExport(params?: {
     'Reason',
     'Remarks',
     'AttemptNo',
-    'CreatedAt',
+    'LastEventAt',
   ]
 
   return buildCsv(
@@ -357,7 +400,7 @@ export async function adminNdrExport(params?: {
       r.reason || '',
       r.remarks || '',
       r.attempt_no || '',
-      r.created_at ? new Date(r.created_at).toISOString() : '',
+      r.last_event_time ? new Date(r.last_event_time).toISOString() : '',
     ]),
   )
 }
@@ -389,7 +432,7 @@ export async function getNdrTimeline(params: { awb?: string; orderId?: string })
   const ndr = await db
     .select({
       type: sql<string>`'ndr'`,
-      at: ndr_events.created_at,
+      at: sql<Date>`coalesce(${ndr_events.updated_at}, ${ndr_events.created_at})`,
       status: ndr_events.status,
       remarks: ndr_events.remarks,
       reason: ndr_events.reason,
@@ -397,7 +440,11 @@ export async function getNdrTimeline(params: { awb?: string; orderId?: string })
       raw: ndr_events.payload,
     })
     .from(ndr_events)
-    .where(resolvedOrderId ? eq(ndr_events.order_id, resolvedOrderId) : sql`false`)
+    .where(
+      resolvedOrderId
+        ? sql`${ndr_events.order_id} = ${resolvedOrderId} AND coalesce(lower(btrim(${ndr_events.status})), '') <> ${ACTIVE_NDR_ACTION_STATUS}`
+        : sql`false`,
+    )
 
   const tracking = resolvedAwb
     ? await db

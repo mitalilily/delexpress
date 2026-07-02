@@ -6,7 +6,7 @@ import { ndr_events } from '../models/schema/ndr'
 import { DelhiveryService } from '../models/services/couriers/delhivery.service'
 import { EkartService } from '../models/services/couriers/ekart.service'
 import { XpressbeesService } from '../models/services/couriers/xpressbees.service'
-import { recordNdrEvent } from '../models/services/ndr.service'
+import { clearActiveNdrEventsForOrder, recordNdrEvent } from '../models/services/ndr.service'
 
 // Provider values are trusted from orders (integration_type: 'delhivery')
 
@@ -113,7 +113,7 @@ export const ndrReattemptController = async (req: Request, res: Response) => {
           .select()
           .from(ndr_events)
           .where(eq(ndr_events.awb_number, awbLookup))
-          .orderBy(desc(ndr_events.created_at))
+          .orderBy(desc(ndr_events.updated_at), desc(ndr_events.created_at))
           .limit(1)
         const last = rows?.[0]
         const statusLower = String(last?.status || '').toLowerCase()
@@ -165,22 +165,7 @@ export const ndrReattemptController = async (req: Request, res: Response) => {
           data: resp,
         })
       }
-      await recordNdrEvent({
-        orderId: order.id,
-        userId: order.user_id,
-        awbNumber: order.awb_number || undefined,
-        status: 'ndr_action',
-        reason: 'merchant_reattempt_requested',
-        remarks: 'reattempt',
-        payload: {
-          source: 'merchant',
-          provider: provider,
-          action: 'RE-ATTEMPT',
-          next_attempt_date: nextAttemptDate,
-          comments,
-          response: resp,
-        },
-      })
+      await clearActiveNdrEventsForOrder(order.id)
       return res.status(200).json({ success: true, data: resp })
     }
 
@@ -201,21 +186,7 @@ export const ndrReattemptController = async (req: Request, res: Response) => {
           data: resp,
         })
       }
-      await recordNdrEvent({
-        orderId: order.id,
-        userId: order.user_id,
-        awbNumber: order.awb_number || undefined,
-        status: 'ndr_action',
-        reason: 'merchant_reattempt_requested',
-        remarks: 'reattempt',
-        payload: {
-          source: 'merchant',
-          provider: 'xpressbees',
-          action: 're-attempt',
-          next_attempt_date: nextAttemptDate,
-          response: resp,
-        },
-      })
+      await clearActiveNdrEventsForOrder(order.id)
       return res.status(200).json({ success: true, data: resp })
     }
 
@@ -264,7 +235,7 @@ export const ndrChangeAddressController = async (req: Request, res: Response) =>
           .select()
           .from(ndr_events)
           .where(eq(ndr_events.awb_number, awbLookup))
-          .orderBy(desc(ndr_events.created_at))
+          .orderBy(desc(ndr_events.updated_at), desc(ndr_events.created_at))
           .limit(1)
         const last = rows?.[0]
         const statusLower = String(last?.status || '').toLowerCase()
@@ -462,7 +433,7 @@ export const ndrChangePhoneController = async (req: Request, res: Response) => {
           .select()
           .from(ndr_events)
           .where(eq(ndr_events.awb_number, awbLookup))
-          .orderBy(desc(ndr_events.created_at))
+          .orderBy(desc(ndr_events.updated_at), desc(ndr_events.created_at))
           .limit(1)
         const last = rows?.[0]
         const statusLower = String(last?.status || '').toLowerCase()
@@ -691,7 +662,7 @@ export const ndrBulkActionController = async (req: Request, res: Response) => {
           .select()
           .from(ndr_events)
           .where(eq(ndr_events.awb_number, it.awb))
-          .orderBy(desc(ndr_events.created_at))
+          .orderBy(desc(ndr_events.updated_at), desc(ndr_events.created_at))
           .limit(1)
         last = rows?.[0]
       }

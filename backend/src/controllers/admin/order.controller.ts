@@ -6,7 +6,7 @@ import {
 } from '../../models/services/adminOrders.service'
 import { shipNowOrderService } from '../../models/services/orderShipNow.service'
 import { db } from '../../models/client'
-import { recordNdrEvent } from '../../models/services/ndr.service'
+import { clearActiveNdrEventsForOrder, recordNdrEvent } from '../../models/services/ndr.service'
 import { queueCancellationRefundRemittanceOnce } from '../../models/services/webhookProcessor'
 import { b2b_orders } from '../../models/schema/b2bOrders'
 import { b2c_orders } from '../../models/schema/b2cOrders'
@@ -228,6 +228,8 @@ export const updateOrderStatusControllerAdmin = async (req: any, res: Response) 
           adminUserId: req.user?.sub || null,
         },
       })
+    } else if (b2cOrder) {
+      await clearActiveNdrEventsForOrder(b2cOrder.id)
     }
 
     return res.status(200).json({

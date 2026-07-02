@@ -42,7 +42,7 @@ export default function AdminRto() {
 
   const totalCount = data?.totalCount || 0
 
-  const captions = ['AWB', 'Order', 'Status', 'Reason', 'Remarks', 'RTO Charges', 'Created']
+  const captions = ['AWB', 'Order', 'Status', 'Reason', 'Remarks', 'RTO Charges', 'Last Event']
   const columnKeys = [
     'awb_number',
     'order_id',
@@ -50,7 +50,7 @@ export default function AdminRto() {
     'reason',
     'remarks',
     'rto_charges',
-    'created_at',
+    'last_event_time',
   ]
 
   return (
@@ -112,7 +112,9 @@ export default function AdminRto() {
               {v ? `₹${Number(v).toFixed(2)}` : '—'}
             </Text>
           ),
-          created_at: (v) => <Text fontSize="xs">{v ? new Date(v).toLocaleString() : '—'}</Text>,
+          last_event_time: (v) => (
+            <Text fontSize="xs">{v ? new Date(v).toLocaleString() : '—'}</Text>
+          ),
         }}
       />
     </Flex>
