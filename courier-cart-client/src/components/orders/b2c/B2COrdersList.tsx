@@ -560,7 +560,7 @@ const B2COrdersList = () => {
   const [filters, setFilters] = useState<OrderFilters>({
     status: '',
     sortBy: 'created_at',
-    sortOrder: 'desc',
+    sortOrder: 'asc',
   })
   const [selectedTab, setSelectedTab] = useState<string>('')
 
@@ -568,7 +568,7 @@ const B2COrdersList = () => {
     ...filters,
     status: selectedTab || undefined,
     sortBy: filters.sortBy || 'created_at',
-    sortOrder: filters.sortOrder || 'desc',
+    sortOrder: filters.sortOrder || 'asc',
   }
 
   const { data, isLoading, isError } = useB2COrdersByUser(page, rowsPerPage, effectiveFilters)
@@ -859,7 +859,7 @@ const B2COrdersList = () => {
     setFilters((prev) => ({
       ...prev,
       sortBy: prev.sortBy || 'created_at',
-      sortOrder: prev.sortOrder || 'desc',
+      sortOrder: prev.sortOrder || 'asc',
     }))
 
     // Keep status filtering local; do not sync status to URL params.
@@ -1157,7 +1157,7 @@ const B2COrdersList = () => {
 
   const defaultFilterValues: Record<string, unknown> = {
     sortBy: 'created_at',
-    sortOrder: 'desc',
+    sortOrder: 'asc',
     ...filters,
   }
 
@@ -1582,17 +1582,17 @@ const B2COrdersList = () => {
         <Box sx={{ width: { xs: '100%', sm: 220 } }}>
           <CustomSelect
             label="Sort by Created At"
-            value={filters.sortOrder || 'desc'}
+            value={filters.sortOrder || 'asc'}
             onSelect={(value) => {
-              const sortOrder = (value as 'asc' | 'desc') || 'desc'
+              const sortOrder = (value as 'asc' | 'desc') || 'asc'
               setFilters((prev) => ({ ...prev, sortBy: 'created_at', sortOrder }))
               setPage(1)
               clearSelection()
               setBulkFeedback(null)
             }}
             items={[
-              { key: 'asc', label: 'Newest first' },
-              { key: 'desc', label: 'Oldest first' },
+              { key: 'asc', label: 'Oldest first' },
+              { key: 'desc', label: 'Newest first' },
             ]}
           />
         </Box>

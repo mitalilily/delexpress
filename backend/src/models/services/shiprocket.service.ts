@@ -5456,11 +5456,11 @@ export const getB2COrdersByUserService = async (
 
   // Fetch paginated results
   const sortBy = filters.sortBy || 'created_at'
-  const sortOrder = filters.sortOrder === 'asc' ? 'asc' : 'desc'
+  const sortOrder = filters.sortOrder === 'desc' ? 'desc' : 'asc'
   const orderByClause =
-    sortBy === 'created_at' && sortOrder === 'asc'
-      ? asc(b2c_orders.created_at)
-      : desc(b2c_orders.created_at)
+    sortBy === 'created_at' && sortOrder === 'desc'
+      ? desc(b2c_orders.created_at)
+      : asc(b2c_orders.created_at)
 
   const ordersRaw = await db
     .select({
@@ -7795,10 +7795,11 @@ export const getAllOrdersService = async (
   }
 
   // ✅ Sort safely
+  const sortOrder = filters.sortOrder === 'desc' ? 'desc' : 'asc'
   combinedOrders.sort((a, b) => {
     const timeA = a.created_at ? new Date(a.created_at).getTime() : 0
     const timeB = b.created_at ? new Date(b.created_at).getTime() : 0
-    return timeB - timeA
+    return sortOrder === 'desc' ? timeB - timeA : timeA - timeB
   })
 
   // Counts

@@ -213,12 +213,12 @@ export const getAllOrdersServiceAdmin = async ({
 
   // ✅ Sort safely
   const sortBy = filters.sortBy || 'created_at'
-  const sortOrder = filters.sortOrder === 'asc' ? 'asc' : 'desc'
+  const sortOrder = filters.sortOrder === 'desc' ? 'desc' : 'asc'
   combinedOrders.sort((a, b) => {
     if (sortBy !== 'created_at') return 0
     const timeA = a.created_at ? new Date(a.created_at).getTime() : 0
     const timeB = b.created_at ? new Date(b.created_at).getTime() : 0
-    return sortOrder === 'asc' ? timeA - timeB : timeB - timeA
+    return sortOrder === 'desc' ? timeB - timeA : timeA - timeB
   })
 
   // Counts + pagination

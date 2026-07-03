@@ -38,7 +38,7 @@ const Orders = () => {
   const [filters, setFilters] = useState({
     status: '',
     sortBy: 'created_at',
-    sortOrder: 'desc',
+    sortOrder: 'asc',
     search: initialSearch,
     fromDate: '',
     toDate: '',
@@ -380,8 +380,8 @@ const Orders = () => {
               setPage(1)
             }}
           >
-            <option value="asc">Newest first</option>
-            <option value="desc">Oldest first</option>
+            <option value="asc">Oldest first</option>
+            <option value="desc">Newest first</option>
           </Select>
         </HStack>
       </Flex>
@@ -396,7 +396,7 @@ const Orders = () => {
               setFilters((prev) => ({
                 ...appliedFilters,
                 sortBy: prev.sortBy || 'created_at',
-                sortOrder: prev.sortOrder || 'desc',
+                sortOrder: prev.sortOrder || 'asc',
               }))
               setPage(1)
             }}
