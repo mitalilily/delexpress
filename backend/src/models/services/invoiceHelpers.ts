@@ -39,6 +39,54 @@ export const formatPickupAddress = (details?: NormalizedPickupDetails | null): s
   return formatPickupAddressLines(details).join('\n')
 }
 
+const toAmount = (value: unknown): number | null => {
+  const amount = Number(value)
+  return Number.isFinite(amount) ? Math.max(0, amount) : null
+}
+
+const pickFirstAmount = (...values: unknown[]): number | null => {
+  let sawZero = false
+  for (const value of values) {
+    const amount = toAmount(value)
+    if (amount === null) continue
+    if (amount > 0) return amount
+    sawZero = true
+  }
+  return sawZero ? 0 : null
+}
+
+export interface ReceiverFacingAmountSource {
+  order_amount?: unknown
+  orderAmount?: unknown
+  orderAmt?: unknown
+  invoice_amount?: unknown
+  invoiceAmount?: unknown
+  declared_value?: unknown
+  declaredValue?: unknown
+  order_value?: unknown
+  orderValue?: unknown
+  totalAmount?: unknown
+}
+
+export const resolveReceiverFacingAmount = (
+  source?: ReceiverFacingAmountSource | null,
+): number => {
+  if (!source) return 0
+
+  return (
+    pickFirstAmount(source.order_amount, source.orderAmount, source.orderAmt) ??
+    pickFirstAmount(source.invoice_amount, source.invoiceAmount) ??
+    pickFirstAmount(
+      source.declared_value,
+      source.declaredValue,
+      source.order_value,
+      source.orderValue,
+      source.totalAmount,
+    ) ??
+    0
+  )
+}
+
 const IMAGE_DOWNLOAD_TIMEOUT = 20000
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 

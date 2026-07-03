@@ -33,16 +33,17 @@ import {
   calculateVolumetricWeight,
 } from './courierWeightCalculation.service'
 import { generateInvoicePDF } from './invoice.service'
+import {
+  formatPickupAddress,
+  loadInvoiceAssets,
+  normalizePickupDetails,
+  resolveReceiverFacingAmount,
+} from './invoiceHelpers'
 import { clearActiveNdrEventsForOrder, recordNdrEvent } from './ndr.service'
 import { createNotificationService } from './notifications.service'
 import { recordRtoEvent } from './rto.service'
 import { logTrackingEvent } from './trackingEvents.service'
 import { presignDownload, presignUpload } from './upload.service'
-import {
-  formatPickupAddress,
-  loadInvoiceAssets,
-  normalizePickupDetails,
-} from './invoiceHelpers'
 import { createWalletTransaction } from './wallet.service'
 import { createWeightDiscrepancy } from './weightReconciliation.service'
 import { resolveInvoiceNumber } from './invoiceNumber.service'
@@ -488,12 +489,7 @@ const generateInvoiceForOrderWebhook = async (
     const invoiceDateDisplay = dayjs().format('DD MMM YYYY')
     const invoiceDateStored = dayjs().format('YYYY-MM-DD')
 
-    const invoiceAmount =
-      Number(order.order_amount ?? 0) +
-      Number(order.shipping_charges ?? 0) + // Already includes other_charges
-      Number(order.gift_wrap ?? 0) +
-      Number(order.transaction_fee ?? 0) -
-      (Number(order.discount ?? 0) + Number(order.prepaid_amount ?? 0))
+    const invoiceAmount = resolveReceiverFacingAmount(order)
 
     const pickupDetails = normalizePickupDetails(order.pickup_details)
     const pickupPincode = pickupDetails?.pincode
@@ -522,6 +518,7 @@ const generateInvoiceForOrderWebhook = async (
     const invoiceBuffer = await generateInvoicePDF({
       invoiceNumber,
       invoiceDate: invoiceDateDisplay,
+      orderAmt: Number(order.order_amount ?? 0),
       invoiceAmount,
       buyerName: order.buyer_name,
       buyerPhone: order.buyer_phone,

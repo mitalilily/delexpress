@@ -5,6 +5,7 @@ import PdfPrinter from 'pdfmake'
 import type { TableCell } from 'pdfmake/interfaces'
 import { db } from '../client'
 import { invoices } from '../schema/invoices'
+import { resolveReceiverFacingAmount } from './invoiceHelpers'
 import { getAdminInvoicePreferences } from './invoicePreferences.service'
 import { presignDownload } from './upload.service'
 // Product + Invoice types
@@ -91,7 +92,6 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
   const headerFontSize = isThermal ? 10 : 18
   // Black & white / grayscale styling for invoice
   const accentColor = '#000000'
-  const dangerColor = '#000000'
   const toAmount = (value: unknown) => {
     const n = Number(value ?? 0)
     return Number.isFinite(n) ? n : 0
@@ -330,12 +330,8 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
     const lineAmount = toAmount(p.price) * toAmount(p.qty ?? 1) - toAmount(p.discount ?? 0)
     return acc + Math.max(0, lineAmount)
   }, 0)
-  const shipping = toAmount(invoice.shippingCharges)
-  const giftWrap = toAmount(invoice.giftWrap)
-  const txnFee = toAmount(invoice.transactionFee)
-  const discount = Math.abs(toAmount(invoice.discount))
-  const prepaid = Math.abs(toAmount(invoice.prepaidAmount))
-  const grandTotal = subtotal + shipping + giftWrap + txnFee - (discount + prepaid)
+  const receiverFacingAmount = resolveReceiverFacingAmount(invoice)
+  const receiverAmountLabel = invoice.orderType === 'cod' ? 'Amount Payable' : 'Invoice Amount'
 
   // Optional support line (avoid showing "null")
   const supportLine =
@@ -447,8 +443,6 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
     sellerStateCode &&
     buyerStateName &&
     sellerStateCode.toLowerCase() !== buyerStateName.toLowerCase()
-  const codCharges = toAmount(invoice.courierCod)
-  const rtoCharges = toAmount(invoice.rtoCharges ?? 0)
   const badgeIsCOD = invoice.orderType === 'cod'
   let cgstTotal = 0
   let sgstTotal = 0
@@ -500,19 +494,6 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
       { text: formatCurrency(lineTotal), alignment: 'right', color: '#0f172a', bold: true },
     ] as TableCell[]
   })
-  const taxTotal = cgstTotal + sgstTotal + igstTotal
-  const chargesBreakdown = [
-    { label: 'Subtotal', value: subtotal },
-    { label: 'Shipping Charges', value: shipping },
-    { label: 'Gift Wrap', value: giftWrap },
-    { label: 'Transaction Fee', value: txnFee },
-    { label: 'COD Charges', value: codCharges },
-    { label: 'RTO Charges', value: rtoCharges },
-    { label: 'Discount', value: -discount },
-    { label: 'Prepaid Amount', value: -prepaid },
-  ]
-  const breakdownSum = chargesBreakdown.reduce((sum, item) => sum + Number(item.value || 0), 0)
-  const grandTotalModern = breakdownSum + taxTotal
   const notesText = toSafeString(invoice.invoiceNotes)
   const termsText = toSafeString(invoice.termsAndConditions)
   const supportContact = [invoice.supportEmail, invoice.supportPhone].filter(Boolean).join(' | ')
@@ -738,54 +719,23 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
       margin: [0, 0, 0, 12],
     }
 
-    const filteredCharges = chargesBreakdown.filter((item) => {
-      if (item.label === 'COD Charges' && codCharges === 0) return false
-      if (item.label === 'RTO Charges' && rtoCharges === 0) return false
-      return true
-    })
-
-    const chargesTableBody: TableCell[][] = filteredCharges
-      .filter((row) => row.label !== 'Grand Total')
-      .map(
-        (row) =>
-          [
-            { text: row.label, fontSize: 9, color: mutedTextColor },
-            {
-              text: formatCurrency(row.value),
-              fontSize: 9,
-              alignment: 'right',
-              color: '#000',
-            },
-          ] as TableCell[],
-      )
-    if (taxTotal > 0) {
-      chargesTableBody.push([
-        { text: 'Tax', fontSize: 9, color: mutedTextColor },
-        { text: formatCurrency(taxTotal), fontSize: 9, alignment: 'right', color: '#000' },
-      ] as TableCell[])
-    }
-    chargesTableBody.push([
-      {
-        text: 'Grand Total',
-        fontSize: 11,
-        bold: true,
-        color: '#000',
-        fillColor: grandTotalBg,
-      },
-      {
-        text: formatCurrency(grandTotalModern),
-        fontSize: 11,
-        bold: true,
-        alignment: 'right',
-        color: '#000',
-        fillColor: grandTotalBg,
-      },
-    ] as TableCell[])
-
+    const amountSummaryBody: TableCell[][] = [
+      [
+        { text: receiverAmountLabel, fontSize: 9, color: mutedTextColor },
+        {
+          text: formatCurrency(receiverFacingAmount),
+          fontSize: 11,
+          bold: true,
+          alignment: 'right',
+          color: '#000',
+          fillColor: grandTotalBg,
+        },
+      ] as TableCell[],
+    ]
     const chargesCard = {
       table: {
         widths: ['*', 'auto'],
-        body: chargesTableBody,
+        body: amountSummaryBody,
       },
       layout: {
         defaultBorder: false,
@@ -793,7 +743,10 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
     }
 
     const gstRows = [
-      { label: 'Taxable Amount', value: subtotal },
+      {
+        label: 'Taxable Amount',
+        value: subtotal,
+      },
       ...(cgstTotal > 0 ? [{ label: 'CGST', value: cgstTotal }] : []),
       ...(sgstTotal > 0 ? [{ label: 'SGST', value: sgstTotal }] : []),
       ...(igstTotal > 0 ? [{ label: 'IGST', value: igstTotal }] : []),
@@ -886,7 +839,7 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
         {
           width: 220,
           stack: [
-            { text: 'Charges Breakdown', style: 'sectionTitle', margin: [0, 0, 0, 6] },
+            { text: 'Receiver Amount', style: 'sectionTitle', margin: [0, 0, 0, 6] },
             chargesCard,
           ],
         },
@@ -963,15 +916,9 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
       table: {
         widths: ['*', 'auto'],
         body: [
-          ['Subtotal', formatCurrency(subtotal)],
-          ['Shipping', formatCurrency(shipping)],
-          ['Gift Wrap', formatCurrency(giftWrap)],
-          ['Txn Fee', formatCurrency(txnFee)],
-          ['Discount', formatCurrency(-discount)],
-          ['Prepaid', formatCurrency(-prepaid)],
           [
-            { text: 'Grand Total', bold: true },
-            { text: formatCurrency(grandTotal), bold: true },
+            { text: receiverAmountLabel, bold: true },
+            { text: formatCurrency(receiverFacingAmount), bold: true },
           ],
         ],
       },
@@ -979,15 +926,6 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Buffer> 
       margin: [0, 0, 0, 4],
       fontSize,
     },
-    invoice.orderType === 'cod' && invoice.courierCod
-      ? {
-          text: `COD: ${formatCurrency(invoice.courierCod)}`,
-          alignment: 'center',
-          bold: true,
-          color: dangerColor,
-          margin: [0, 3, 0, 3],
-        }
-      : null,
     {
       table: {
         widths: ['*'],

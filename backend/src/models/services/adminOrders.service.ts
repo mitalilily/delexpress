@@ -16,6 +16,7 @@ import {
   formatPickupAddress,
   loadInvoiceAssets,
   normalizePickupDetails,
+  resolveReceiverFacingAmount,
 } from './invoiceHelpers'
 import { presignDownload, presignUpload } from './upload.service'
 import { resolveInvoiceNumber } from './invoiceNumber.service'
@@ -388,12 +389,7 @@ export const regenerateOrderDocumentsServiceAdmin = async ({
       order.order_number || String(order.id),
     )
 
-    const invoiceAmount =
-      toNumber(order.order_amount) +
-      toNumber(order.shipping_charges) +
-      toNumber((order as any).gift_wrap) +
-      toNumber((order as any).transaction_fee) -
-      (toNumber((order as any).discount) + toNumber((order as any).prepaid_amount))
+    const invoiceAmount = resolveReceiverFacingAmount(order)
 
     generatedInvoiceData = {
       number: invoiceNumber,
@@ -404,6 +400,7 @@ export const regenerateOrderDocumentsServiceAdmin = async ({
     const invoiceBuffer = await generateInvoicePDF({
       invoiceNumber,
       invoiceDate: invoiceDateDisplay,
+      orderAmt: toNumber(order.order_amount),
       invoiceAmount,
       buyerName: order.buyer_name,
       buyerPhone: order.buyer_phone,

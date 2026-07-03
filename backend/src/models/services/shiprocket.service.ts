@@ -34,7 +34,12 @@ import { users } from '../schema/users'
 import { wallets, walletTransactions } from '../schema/wallet'
 import { computeRovChargeForOrder } from './insurance.service'
 import { generateInvoicePDF, Product } from './invoice.service'
-import { formatPickupAddress, loadInvoiceAssets, normalizePickupDetails } from './invoiceHelpers'
+import {
+  formatPickupAddress,
+  loadInvoiceAssets,
+  normalizePickupDetails,
+  resolveReceiverFacingAmount,
+} from './invoiceHelpers'
 import { resolveInvoiceNumber } from './invoiceNumber.service'
 import { presignDownload, presignUpload } from './upload.service'
 import { createWalletTransaction } from './wallet.service'
@@ -6410,12 +6415,7 @@ export const generateManifestService = async (params: {
             const supportEmail = user?.supportEmail || prefs?.supportEmail || ''
 
             // ✅ COD-safe invoice amount
-            const invoiceAmount =
-              Number(order.order_amount ?? 0) +
-              Number(order.shipping_charges ?? 0) +
-              Number(order.gift_wrap ?? 0) +
-              Number(order.transaction_fee ?? 0) -
-              (Number(order.discount ?? 0) + Number(order.prepaid_amount ?? 0))
+            const invoiceAmount = resolveReceiverFacingAmount(order)
 
             // Validate and normalize products array
             let products: Product[] = []
@@ -6481,6 +6481,7 @@ export const generateManifestService = async (params: {
             const invoiceBuffer = await generateInvoicePDF({
               invoiceNumber,
               invoiceDate: invoiceDateDisplay,
+              orderAmt: Number(order.order_amount ?? 0),
               invoiceAmount,
               buyerName: order.buyer_name,
               buyerPhone: order.buyer_phone,
@@ -7316,17 +7317,13 @@ export const generateManifestService = async (params: {
           const supportEmail = user?.supportEmail || prefs?.supportEmail || ''
 
           // ✅ COD-safe invoice amount
-          const invoiceAmount =
-            Number(order.order_amount ?? 0) +
-            Number(order.shipping_charges ?? 0) +
-            Number(order.gift_wrap ?? 0) +
-            Number(order.transaction_fee ?? 0) -
-            (Number(order.discount ?? 0) + Number(order.prepaid_amount ?? 0))
+          const invoiceAmount = resolveReceiverFacingAmount(order)
 
           // Generate invoice PDF
           const invoiceBuffer = await generateInvoicePDF({
             invoiceNumber,
             invoiceDate: invoiceDateDisplay,
+            orderAmt: Number(order.order_amount ?? 0),
             invoiceAmount,
             buyerName: order.buyer_name,
             buyerPhone: order.buyer_phone,

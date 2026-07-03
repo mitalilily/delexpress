@@ -52,9 +52,17 @@ export function LabelPreview({ values, order, preferences }: LabelPreviewProps) 
   const orderId = pickFirst(order.orderId, order.order_number)
   const invoiceNumber = pickFirst(order.invoiceNumber, order.invoice_number)
   const customerPhone = pickFirst(order.phone, order.buyer_phone, order.customerPhone)
-  const orderValue = pickFirst(order.totalAmount, order.orderValue, order.order_amount, order.order_value)
-  const codValue = pickFirst(order.codValue, order.cod_amount, order.cod_value, order.codAmount)
-  const declaredValue = pickFirst(order.declaredValue, order.orderValue, order.declared_value)
+  const receiverAmount = pickFirst(
+    order.order_amount,
+    order.orderAmount,
+    order.declaredValue,
+    order.orderValue,
+    order.declared_value,
+    order.order_value,
+    order.totalAmount,
+  )
+  const orderValue = receiverAmount
+  const declaredValue = pickFirst(order.declaredValue, receiverAmount, order.declared_value)
 
   const productEntries = Array.isArray(order.products) ? order.products.slice(0, maxItems) : []
   const dimensionValue = buildDimensions(order)
@@ -304,22 +312,12 @@ export function LabelPreview({ values, order, preferences }: LabelPreviewProps) 
                     )}
                   </Box>
                 ))}
-                {isEnabled(values.productInfo?.otherCharges) && order.otherCharges && (
-                  <Box component="tr">
-                    <Box component="td" colSpan={3} sx={{ p: 1, fontSize: 11, fontWeight: 600 }}>
-                      Other Charges
-                    </Box>
-                    <Box component="td" align="right" sx={{ p: 1, fontSize: 11 }}>
-                      {normalize(order.otherCharges)}
-                    </Box>
-                  </Box>
-                )}
                 <Box component="tr">
                   <Box component="td" colSpan={3} sx={{ p: 1, fontSize: 11, fontWeight: 700 }}>
                     Total
                   </Box>
                   <Box component="td" align="right" sx={{ p: 1, fontSize: 11, fontWeight: 700 }}>
-                    {normalize(order.totalAmount)}
+                    {normalize(orderValue)}
                   </Box>
                 </Box>
               </Box>
@@ -332,11 +330,6 @@ export function LabelPreview({ values, order, preferences }: LabelPreviewProps) 
             <Typography variant="body2" fontWeight="600">
               Order Value: {orderValue}
             </Typography>
-            {showCodBadge && paymentType === 'cod' && codValue && (
-              <Typography variant="body2" fontWeight="600">
-                Collectable: {codValue}
-              </Typography>
-            )}
           </Stack>
         )}
 

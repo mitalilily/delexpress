@@ -7,6 +7,7 @@ import PdfPrinter from 'pdfmake'
 import { db } from '../client'
 import { labelPreferences } from '../schema/labelPreferences'
 import { userProfiles } from '../schema/userProfile'
+import { resolveReceiverFacingAmount } from './invoiceHelpers'
 import { getAdminInvoicePreferences } from './invoicePreferences.service'
 import { presignDownload, presignUpload } from './upload.service'
 
@@ -116,43 +117,6 @@ const DEFAULT_LABEL_SETTINGS = {
 const toAmount = (value: unknown) => {
   const n = Number(value ?? 0)
   return Number.isFinite(n) ? n : 0
-}
-
-export const computeCustomerFacingLabelAmounts = (order: any, products: any[]) => {
-  const paymentType = (order.payment_type ?? order.order_type ?? order.type ?? '')
-    .toString()
-    .toLowerCase()
-
-  const customerFacingSubtotal = products.reduce((sum: number, p: any) => {
-    const qty = toAmount(p?.qty ?? p?.quantity ?? 1)
-    const price = toAmount(p?.price)
-    const discount = toAmount(p?.discount)
-    return sum + Math.max(0, price * qty - discount)
-  }, 0)
-
-  const additionalCharges = toAmount(order.other_charges)
-  const shippingChargeTotal =
-    toAmount((order as any).total_shipping_charges) ||
-    toAmount(order.shipping_charges) + additionalCharges
-  const codCharge = paymentType === 'cod' ? toAmount(order.cod_charges) : 0
-  const customerFacingTotal = Math.max(
-    customerFacingSubtotal +
-      shippingChargeTotal +
-      toAmount(order.transaction_fee) +
-      toAmount(order.gift_wrap) +
-      codCharge -
-      (toAmount(order.discount) + toAmount(order.prepaid_amount)),
-    0,
-  )
-
-  return {
-    paymentType,
-    customerFacingSubtotal,
-    shippingChargeTotal,
-    additionalCharges,
-    codCharge,
-    customerFacingTotal,
-  }
 }
 
 function mergeSettings(prefs: any) {
@@ -289,9 +253,7 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
   const showPlatformBranding = Boolean(settings.powered_by?.toString().trim())
   const charLimit = Math.max(10, Number(settings.char_limit ?? 25))
   const maxItems = Math.max(1, Number(settings.max_items ?? 3))
-  const {
-    customerFacingTotal,
-  } = computeCustomerFacingLabelAmounts(order, products)
+  const receiverFacingAmount = resolveReceiverFacingAmount(order)
 
   // For Delhivery, prefer barcode_img coming from provider APIs (if stored on order);
   // otherwise fall back to a locally generated AWB barcode.
@@ -620,7 +582,7 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
     infoLineParts.push(`Invoice: ${order.invoice_number}`)
   if (showOrderDate && order.order_date) infoLineParts.push(`Order Dt: ${order.order_date}`)
   if (showInvoiceDate && order.invoice_date) infoLineParts.push(`Inv Dt: ${order.invoice_date}`)
-  if (showDeclaredValue) infoLineParts.push(`Declared: ${formatCurrency(customerFacingTotal)}`)
+  if (showDeclaredValue) infoLineParts.push(`Declared: ${formatCurrency(receiverFacingAmount)}`)
 
   if (infoLineParts.length > 0) {
     pageContent.push({
