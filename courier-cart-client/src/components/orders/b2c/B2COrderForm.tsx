@@ -5,9 +5,7 @@ import {
   useFieldArray,
   useForm,
   type DefaultValues,
-  type FieldErrors,
 } from 'react-hook-form'
-import { BiRupee } from 'react-icons/bi'
 import { FaBox, FaTruck, FaUser } from 'react-icons/fa'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { fetchLocations } from '../../../api/locations'
@@ -17,9 +15,7 @@ import { usePaymentOptions } from '../../../hooks/usePaymentOptions'
 import type { B2COrder } from '../../../types/generic.types'
 import { normalizePickupTime } from '../../../utils/pickupSchedule'
 import FormSectionAccordion from '../../UI/accordion/FormSectionAccordion'
-import AmountSummaryCard from '../AmountSummaryCard'
 import DeliveryDetailsForm from '../DeliveryDetailsForm'
-import OptionalChargesForm from '../OptionalChargesForm'
 import OrderDetailsForm from '../OrderDetailsForm'
 import PickupLocationForm from '../PickupLocationForm'
 import { SelectCourierForm } from '../SelectCourierForm'
@@ -638,20 +634,6 @@ export default function B2COrderFormSteps({
                 <PackageDimensionsForm />
               </FormSectionAccordion>
 
-              <FormSectionAccordion
-                title="Optional Charges & Summary"
-                icon={<BiRupee />}
-                defaultExpanded
-              >
-                <OptionalChargesForm />
-              </FormSectionAccordion>
-
-              <AmountSummaryCard
-                subtotal={subtotal}
-                totalCollectable={totalCollectable}
-                totalOrderValue={totalOrderValue}
-                errors={errors as FieldErrors<B2CFormData>}
-              />
             </Stack>
           )}
 
