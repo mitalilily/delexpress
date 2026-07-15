@@ -47,6 +47,19 @@ type ApiLikeError = {
 
 export const BULK_MANIFEST_LIMIT = 5
 
+const BULK_LABEL_SHEET = {
+  width: 595,
+  height: 841,
+  labelWidth: 172,
+  labelHeight: 330,
+  slots: [
+    { x: 64, y: 469 },
+    { x: 360, y: 469 },
+    { x: 64, y: 73 },
+    { x: 360, y: 73 },
+  ],
+}
+
 const B2C_MANIFESTABLE_STATUSES = new Set([
   'booked',
   'shipment_created',
@@ -198,6 +211,8 @@ export const downloadMergedPdf = async (
   const mergedPdf = await PDFDocument.create()
   const unavailableOrders: string[] = []
   let downloadedCount = 0
+  let activeLabelSheet = mergedPdf.addPage([BULK_LABEL_SHEET.width, BULK_LABEL_SHEET.height])
+  let nextLabelSlot = 0
 
   for (const entry of entries) {
     try {
@@ -208,10 +223,35 @@ export const downloadMergedPdf = async (
 
       const sourceBytes = await response.arrayBuffer()
       const sourcePdf = await PDFDocument.load(sourceBytes)
-      const pageIndices = sourcePdf.getPageIndices()
-      const copiedPages = await mergedPdf.copyPages(sourcePdf, pageIndices)
+      const sourcePages = sourcePdf.getPages()
+      if (!sourcePages.length) {
+        throw new Error('Label PDF has no pages')
+      }
 
-      copiedPages.forEach((page) => mergedPdf.addPage(page))
+      for (const sourcePage of sourcePages) {
+        if (nextLabelSlot >= BULK_LABEL_SHEET.slots.length) {
+          activeLabelSheet = mergedPdf.addPage([BULK_LABEL_SHEET.width, BULK_LABEL_SHEET.height])
+          nextLabelSlot = 0
+        }
+
+        const embeddedPage = await mergedPdf.embedPage(sourcePage)
+        const sourceSize = sourcePage.getSize()
+        const scale = Math.min(
+          BULK_LABEL_SHEET.labelWidth / sourceSize.width,
+          BULK_LABEL_SHEET.labelHeight / sourceSize.height,
+        )
+        const drawWidth = sourceSize.width * scale
+        const drawHeight = sourceSize.height * scale
+        const slot = BULK_LABEL_SHEET.slots[nextLabelSlot]
+
+        activeLabelSheet.drawPage(embeddedPage, {
+          x: slot.x + (BULK_LABEL_SHEET.labelWidth - drawWidth) / 2,
+          y: slot.y + (BULK_LABEL_SHEET.labelHeight - drawHeight) / 2,
+          width: drawWidth,
+          height: drawHeight,
+        })
+        nextLabelSlot += 1
+      }
       downloadedCount += 1
     } catch (error) {
       unavailableOrders.push(entry.orderLabel)

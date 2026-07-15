@@ -77,6 +77,9 @@ const fonts = {
   },
 }
 
+const LABEL_PAGE_SIZE = { width: 172, height: 330 }
+const LABEL_PAGE_MARGINS: [number, number, number, number] = [4, 4, 4, 4]
+
 const DEFAULT_LABEL_SETTINGS = {
   printer_type: 'thermal',
   char_limit: 25,
@@ -363,7 +366,7 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
 
   const headerLeftStack: any[] = []
   if (showBrandLogo && images.logo) {
-    headerLeftStack.push({ image: 'logo', width: 44, margin: [0, 0, 0, 2] })
+    headerLeftStack.push({ image: 'logo', width: 30, margin: [0, 0, 0, 2] })
   }
   if (showBrandName && sellerBrandName) {
     headerLeftStack.push({
@@ -437,14 +440,14 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
   if (awbBarcode && isValidDataUrl(awbBarcode)) {
     headerRightStack.push({
       image: awbBarcode,
-      width: 128,
+      width: 78,
       alignment: 'center',
       margin: [0, 3, 0, 4],
     })
   } else if (awbEnabled && images.awbBarcode) {
     headerRightStack.push({
       image: 'awbBarcode',
-      width: 118,
+      width: 78,
       alignment: 'center',
       margin: [0, 3, 0, 4],
     })
@@ -471,7 +474,7 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
   }
   pageContent.push({
     table: {
-      widths: ['*', 136],
+      widths: ['*', 82],
       body: [[{ stack: headerLeftStack }, { stack: headerRightStack }]],
     },
     layout: 'noBorders',
@@ -602,23 +605,23 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
     }
     if (includeQty) {
       productHeaders.push({ text: 'Qty', bold: true, fontSize: 7, alignment: 'right' })
-      productWidths.push(28)
+      productWidths.push(18)
     }
     if (includeCost) {
       productHeaders.push({ text: 'Price', bold: true, fontSize: 7, alignment: 'right' })
-      productWidths.push(42)
+      productWidths.push(30)
     }
     if (includeSku) {
       productHeaders.push({ text: 'SKU', bold: true, fontSize: 7 })
-      productWidths.push(46)
+      productWidths.push(28)
     }
     if (includeDimension) {
       productHeaders.push({ text: 'Dim', bold: true, fontSize: 7 })
-      productWidths.push(46)
+      productWidths.push(30)
     }
     if (includeDeadWeight) {
       productHeaders.push({ text: 'Weight', bold: true, fontSize: 7, alignment: 'right' })
-      productWidths.push(40)
+      productWidths.push(30)
     }
 
     const productRows = chunk.map((p: any) => {
@@ -746,9 +749,9 @@ export async function generateLabelForOrder(order: any, userId: string, tx: any 
 
   const docDefinition: any = {
     defaultStyle: { font: 'Helvetica' },
-    pageSize: settings.printer_type === 'thermal' ? { width: 288, height: 432 } : 'A4',
+    pageSize: LABEL_PAGE_SIZE,
     content: pages,
-    pageMargins: [10, 10, 10, 10], // Reduced margins for more space
+    pageMargins: LABEL_PAGE_MARGINS,
     ...(Object.keys(images).length > 0 && { images }),
   }
 
