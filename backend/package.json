@@ -16,6 +16,7 @@
     "seed:holidays:year": "ts-node src/scripts/seedHolidays.ts",
     "seed:delhivery-b2c": "ts-node src/scripts/seedDelhiveryB2CRatecard.ts",
     "sync:courier-rate-cards": "ts-node src/scripts/syncCourierRateCards.ts",
+    "sync:ekart-couriers": "ts-node src/scripts/syncEkartCouriers.ts",
     "sync:xpressbees-couriers": "ts-node src/scripts/syncXpressbeesCouriers.ts",
     "sync:expressfly-couriers": "ts-node src/scripts/syncExpressflyCouriers.ts",
     "sync:shadowfax-couriers": "ts-node src/scripts/syncShadowfaxCouriers.ts",
