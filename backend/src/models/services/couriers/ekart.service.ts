@@ -261,6 +261,18 @@ export class EkartService {
       wbn: payload?.wbn ?? payload?.awb_number ?? payload?.tracking_id ?? null,
       waybill_number: payload?.waybill_number ?? null,
       awb_number: payload?.awb_number ?? null,
+      package_wbn: payload?.package?.wbn ?? null,
+      packages_wbns: Array.isArray(payload?.packages)
+        ? payload.packages.map(
+            (pkg: any) => pkg?.wbn ?? pkg?.waybill_number ?? pkg?.awb_number ?? null,
+          )
+        : [],
+      shipment_wbn: payload?.shipment?.wbn ?? null,
+      shipments_wbns: Array.isArray(payload?.shipments)
+        ? payload.shipments.map((shipment: any) =>
+            shipment?.wbn ?? shipment?.waybill_number ?? shipment?.awb_number ?? null,
+          )
+        : [],
       ewbn: payload?.ewbn ?? null,
       payment_type: payload?.payment_type ?? payload?.payment_mode ?? null,
       courier_id: payload?.courier_id ?? null,
@@ -602,6 +614,9 @@ export class EkartService {
             resolveEkartWaybillBucket(payload?.payment_type, packageWeightKg),
           )
     const resolvedWaybill = providedWaybill || generatedWaybill
+    if (paymentMode !== 'Pickup' && !resolvedWaybill) {
+      throw new HttpError(500, 'Ekart waybill could not be reserved for shipment manifestation')
+    }
     const resolvedEwbn = this.sanitizeText(
       payload?.ewbn || payload?.ewaybill_number || payload?.ewb || payload?.ewbn_number,
     )
@@ -695,6 +710,30 @@ export class EkartService {
       { preferAliasName: true },
     )
 
+    const itemsWithWaybill = normalizedItems.map((item: any) => ({
+      ...item,
+      ...(resolvedWaybill
+        ? {
+            wbn: resolvedWaybill,
+            waybill_number: resolvedWaybill,
+            awb_number: resolvedWaybill,
+          }
+        : {}),
+    }))
+
+    const packagePayload = {
+      ...(resolvedWaybill
+        ? {
+            wbn: resolvedWaybill,
+            waybill_number: resolvedWaybill,
+            awb_number: resolvedWaybill,
+          }
+        : {}),
+      weight: packageWeightGrams,
+      ...packageDimensions,
+      items: itemsWithWaybill,
+    }
+
     return {
       order_number: payload?.order_number,
       ...(resolvedWaybill
@@ -753,7 +792,29 @@ export class EkartService {
       mps: typeof payload?.mps === 'boolean' ? payload.mps : undefined,
       qc_details: payload?.qc_details || undefined,
       what3words_address: this.sanitizeText(payload?.what3words_address) || undefined,
-      items: normalizedItems,
+      package: packagePayload,
+      packages: [packagePayload],
+      shipment: {
+        ...(resolvedWaybill
+          ? {
+              wbn: resolvedWaybill,
+              waybill_number: resolvedWaybill,
+              awb_number: resolvedWaybill,
+            }
+          : {}),
+      },
+      shipments: [
+        {
+          ...(resolvedWaybill
+            ? {
+                wbn: resolvedWaybill,
+                waybill_number: resolvedWaybill,
+                awb_number: resolvedWaybill,
+              }
+            : {}),
+        },
+      ],
+      items: itemsWithWaybill,
     }
   }
 
