@@ -730,7 +730,7 @@ export class EkartService {
             awb_number: resolvedWaybill,
           }
         : {}),
-      count: String(totalQuantity || 1),
+      count: totalQuantity || 1,
       weight: packageWeightGrams,
       ...packageDimensions,
       items: itemsWithWaybill,
