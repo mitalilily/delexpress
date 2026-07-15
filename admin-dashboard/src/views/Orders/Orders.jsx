@@ -38,7 +38,7 @@ const Orders = () => {
   const [filters, setFilters] = useState({
     status: '',
     sortBy: 'created_at',
-    sortOrder: 'asc',
+    sortOrder: 'desc',
     search: initialSearch,
     fromDate: '',
     toDate: '',
@@ -396,7 +396,7 @@ const Orders = () => {
               setFilters((prev) => ({
                 ...appliedFilters,
                 sortBy: prev.sortBy || 'created_at',
-                sortOrder: prev.sortOrder || 'asc',
+                sortOrder: prev.sortOrder || 'desc',
               }))
               setPage(1)
             }}
