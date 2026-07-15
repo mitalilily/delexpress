@@ -261,6 +261,7 @@ export class EkartService {
       wbn: payload?.wbn ?? payload?.awb_number ?? payload?.tracking_id ?? null,
       waybill_number: payload?.waybill_number ?? null,
       awb_number: payload?.awb_number ?? null,
+      user_input_wbn: payload?.user_input?.wbn ?? payload?.userInput?.wbn ?? null,
       package_wbn: payload?.package?.wbn ?? null,
       packages_wbns: Array.isArray(payload?.packages)
         ? payload.packages.map(
@@ -741,6 +742,12 @@ export class EkartService {
             wbn: resolvedWaybill,
             waybill_number: resolvedWaybill,
             awb_number: resolvedWaybill,
+            user_input: {
+              wbn: resolvedWaybill,
+            },
+            userInput: {
+              wbn: resolvedWaybill,
+            },
           }
         : {}),
       ...(resolvedEwbn
