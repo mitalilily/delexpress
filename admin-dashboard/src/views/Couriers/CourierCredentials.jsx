@@ -44,6 +44,7 @@ const CourierCredentials = () => {
   })
   const [ekartForm, setEkartForm] = useState({
     apiBase: '',
+    clientName: '',
     clientId: '',
     username: '',
     password: '',
@@ -87,6 +88,7 @@ const CourierCredentials = () => {
       )
       setEkartForm({
         apiBase: data.ekart.apiBase || '',
+        clientName: data.ekart.clientName || '',
         clientId: data.ekart.clientId || '',
         username: data.ekart.username || '',
         password: '',
@@ -198,6 +200,7 @@ const CourierCredentials = () => {
     updateEkart.mutate(
       {
         apiBase: ekartForm.apiBase,
+        clientName: ekartForm.clientName,
         clientId: ekartForm.clientId,
         username: ekartForm.username,
         ...(ekartForm.password ? { password: ekartForm.password } : {}),
@@ -468,6 +471,17 @@ const CourierCredentials = () => {
                 value={ekartForm.apiBase}
                 onChange={(e) => setEkartForm((prev) => ({ ...prev, apiBase: e.target.value }))}
                 placeholder="https://api.ekartlogistics.com"
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Client Name</FormLabel>
+              <Input
+                value={ekartForm.clientName}
+                onChange={(e) =>
+                  setEkartForm((prev) => ({ ...prev, clientName: e.target.value }))
+                }
+                placeholder="Delexpress Logistics"
               />
             </FormControl>
 
