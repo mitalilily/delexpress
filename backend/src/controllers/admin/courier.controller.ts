@@ -17,6 +17,10 @@ import { courier_credentials } from '../../models/schema/courierCredentials'
 import { couriers } from '../../models/schema/couriers'
 import { getAllZones } from '../../models/services/zone.service'
 import { SHADOWFAX_COURIER_ID, buildShadowfaxCourierRow } from '../../models/services/couriers/shadowfax.catalog'
+import {
+  getEkartWaybillSeriesStatus,
+  updateEkartWaybillSeries,
+} from '../../models/services/ekartWaybill.service'
 
 const maskCredential = (value?: string | null) => {
   const raw = (value || '').trim()
@@ -423,6 +427,7 @@ export const updateServiceProviderStatusController = async (req: Request, res: R
 
 export const getCourierCredentialsController = async (req: Request, res: Response) => {
   try {
+    const ekartWaybillSeries = await getEkartWaybillSeriesStatus()
     const rows = await db
       .select({
         provider: courier_credentials.provider,
@@ -460,6 +465,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         username: '',
         hasPassword: false,
         hasWebhookSecret: false,
+        waybillSeries: ekartWaybillSeries,
       },
       xpressbees: {
         provider: 'xpressbees',
@@ -516,6 +522,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
           username: row.username || '',
           hasPassword,
           hasWebhookSecret,
+          waybillSeries: ekartWaybillSeries,
         }
       } else if (provider === 'xpressbees') {
         const apiKey = row.apiKey || ''
@@ -638,7 +645,7 @@ export const updateDelhiveryCredentialsController = async (req: Request, res: Re
 }
 
 export const updateEkartCredentialsController = async (req: Request, res: Response) => {
-  const { apiBase, clientId, username, password, webhookSecret } = req.body || {}
+  const { apiBase, clientId, username, password, webhookSecret, waybillSeries } = req.body || {}
 
   try {
     const nextApiBase = typeof apiBase === 'string' ? apiBase.trim() : undefined
@@ -691,6 +698,15 @@ export const updateEkartCredentialsController = async (req: Request, res: Respon
       })
     }
 
+    if (waybillSeries && typeof waybillSeries === 'object') {
+      await updateEkartWaybillSeries({
+        prepaid_upto_5kg: waybillSeries.prepaid_upto_5kg,
+        cod_upto_5kg: waybillSeries.cod_upto_5kg,
+        prepaid_above_5kg: waybillSeries.prepaid_above_5kg,
+        cod_above_5kg: waybillSeries.cod_above_5kg,
+      })
+    }
+
     const [saved] = await db
       .select({
         apiBase: courier_credentials.apiBase,
@@ -702,6 +718,7 @@ export const updateEkartCredentialsController = async (req: Request, res: Respon
       .from(courier_credentials)
       .where(eq(courier_credentials.provider, 'ekart'))
       .limit(1)
+    const ekartWaybillSeries = await getEkartWaybillSeriesStatus()
 
     res.json({
       success: true,
@@ -713,6 +730,7 @@ export const updateEkartCredentialsController = async (req: Request, res: Respon
         username: saved?.username || '',
         hasPassword: Boolean((saved?.password || '').trim()),
         hasWebhookSecret: Boolean((saved?.webhookSecret || '').trim()),
+        waybillSeries: ekartWaybillSeries,
       },
     })
   } catch (err) {

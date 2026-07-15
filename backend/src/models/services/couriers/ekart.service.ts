@@ -58,6 +58,179 @@ export type EkartTrackResponse = {
   order_number?: string
 }
 
+export type EkartRawTrackResponse = Record<
+  string,
+  {
+    shipment_type?: string
+    cod_amount?: string
+    shipment_id?: string
+    shipment_value?: string
+    order_id?: string
+    external_tracking_id?: string
+    delivery_type?: string
+    weight?: string
+    delivered?: boolean
+    merchant_name?: string
+    history?: any[]
+    receiver?: Record<string, any>
+    current_hub?: Record<string, any>
+    assigned_hub?: Record<string, any>
+    sender?: Record<string, any>
+    customer?: Record<string, any>
+    items?: any[]
+    vendor?: string
+    mh_inscanned?: boolean
+    rto_detail?: any
+    slotted_delivery?: boolean
+    expected_delivery_slot?: Record<string, any>
+    expected_delivery_date?: string
+    rto?: boolean
+    shipment_notes?: any[]
+    shipment_tickets?: any
+    [key: string]: any
+  }
+>
+
+type EkartAuthResponse = {
+  access_token?: string
+  scope?: string
+  expires_in?: number | string
+  token_type?: string
+}
+
+export type EkartUpdateDispatchDateResponse = {
+  data?: Record<string, any>[]
+  [key: string]: any
+}
+
+export type EkartUpdateEwbnResponse = {
+  status?: boolean
+  remark?: string
+  tracking_id?: string
+  [key: string]: any
+}
+
+export type EkartLabelJsonResponse = {
+  status?: boolean
+  data?: any[]
+  [key: string]: any
+}
+
+export type EkartLabelResponse = EkartLabelJsonResponse | ArrayBuffer
+
+export type EkartShippingRateEstimateRequest = {
+  pickupPincode: number | string
+  dropPincode: number | string
+  invoiceAmount?: number | string
+  weight: number | string
+  length: number | string
+  height: number | string
+  width: number | string
+  serviceType: 'SURFACE' | 'EXPRESS'
+  codAmount?: number | string
+  packages?: Record<string, any>[]
+}
+
+export type EkartShippingRateEstimateResponse = {
+  type?: string
+  zone?: string
+  volumetricWeight?: string
+  billingWeight?: string
+  shippingCharge?: string
+  rtoCharge?: string
+  fuelSurcharge?: string
+  codCharge?: string
+  qcCharge?: string
+  taxes?: string
+  total?: string
+  rid?: string
+  rSnapshotId?: string
+  [key: string]: any
+}
+
+export type EkartGenerateManifestResponse = {
+  ctime?: number
+  manifestNumber?: number | string
+  manifestDownloadUrl?: string
+  [key: string]: any
+}
+
+export type EkartAddressRequest = {
+  alias: string
+  phone: string | number
+  address_line1: string
+  address_line2?: string | null
+  pincode: string | number
+  city?: string | null
+  state: string
+  country?: 'India' | 'IN' | string
+  geo?: { lat?: number; lon?: number }
+}
+
+export type EkartAddressResponse = {
+  status?: boolean
+  alias?: string
+  remark?: string
+  [key: string]: any
+}
+
+export type EkartSavedAddress = {
+  alias?: string
+  phone?: number
+  address_line1?: string
+  address_line2?: string | null
+  pincode?: number
+  city?: string | null
+  state?: string
+  country?: string
+  geo?: Record<string, any>
+  [key: string]: any
+}
+
+export type EkartNdrActionRequest = {
+  action: 'Re-Attempt' | 'RTO'
+  wbn: string
+  date?: number
+  phone?: string
+  address?: string
+  instructions?: string
+  links?: string[]
+}
+
+export type EkartNdrActionResponse = {
+  status?: boolean
+  remark?: string
+  tracking_id?: string
+  [key: string]: any
+}
+
+export type EkartWebhook = {
+  url?: string
+  secret?: string
+  topics?: EkartWebhookTopic[]
+  active?: boolean
+  id?: string
+  [key: string]: any
+}
+
+export type EkartWebhookTopic = 'track_updated' | 'shipment_created' | 'shipment_recreated'
+
+export type EkartWebhookRequest = {
+  url?: string
+  secret?: string
+  topics?: EkartWebhookTopic[]
+  active?: boolean
+}
+
+export type EkartBulkServiceabilityType = 'NON_LARGE' | 'LARGE'
+
+export type EkartBulkServiceabilityFormat = 'JSON' | 'EXCEL'
+
+export type EkartBulkServiceabilityResponse = {
+  serviceability?: any[]
+  [key: string]: any
+} | ArrayBuffer
+
 export class EkartService {
   private baseApi: string = process.env.EKART_BASE_API || 'https://app.elite.ekartlogistics.in'
   private baseAuth: string = process.env.EKART_BASE_AUTH || 'https://app.elite.ekartlogistics.in'
@@ -66,6 +239,7 @@ export class EkartService {
   private password = process.env.EKART_PASSWORD || ''
 
   private token: string | null = null
+  private tokenType: string = 'Bearer'
   private tokenExpiry: number | null = null
   private static cachedConfig: EkartConfig | null | undefined
 
@@ -621,7 +795,18 @@ export class EkartService {
     return axios.create({
       baseURL: this.baseApi,
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `${this.tokenType} ${token}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 20000,
+    })
+  }
+
+  private async getOpenHttp(): Promise<AxiosInstance> {
+    await this.ensureConfigLoaded()
+    return axios.create({
+      baseURL: this.baseApi,
+      headers: {
         'Content-Type': 'application/json',
       },
       timeout: 20000,
@@ -633,6 +818,10 @@ export class EkartService {
 
     if (this.token && this.tokenExpiry && Date.now() < this.tokenExpiry) return this.token
 
+    if (!this.clientId || !this.username || !this.password) {
+      throw new HttpError(500, 'Ekart credentials are not configured')
+    }
+
     const url = `${this.baseAuth}/integrations/v2/auth/token/${this.clientId}`
     this.log('Auth attempt', {
       url,
@@ -642,7 +831,14 @@ export class EkartService {
 
     let res
     try {
-      res = await axios.post(url, { username: this.username, password: this.password })
+      res = await axios.post<EkartAuthResponse>(
+        url,
+        { username: this.username, password: this.password },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 20000,
+        },
+      )
     } catch (err: any) {
       this.log('Auth failed', {
         url,
@@ -664,14 +860,63 @@ export class EkartService {
     }
 
     this.token = access_token
+    this.tokenType = token_type
     this.tokenExpiry = Date.now() + (expires_in ? Number(expires_in) * 1000 : 23 * 60 * 60 * 1000)
     return this.token || ''
   }
 
   // ---------- Serviceability ----------
   async checkPincodeServiceability(pincode: string | number): Promise<EkartServiceabilityDetail> {
+    const normalizedPincode = Number(pincode)
+
+    if (!Number.isInteger(normalizedPincode) || normalizedPincode <= 0) {
+      throw new HttpError(400, 'Ekart serviceability pincode must be a positive integer')
+    }
+
     const http = await this.getHttp()
-    const res = await http.get(`/api/v2/serviceability/${pincode}`)
+    const res = await http.get(`/api/v2/serviceability/${normalizedPincode}`)
+    return res.data
+  }
+
+  async estimateShippingRates(
+    payload: EkartShippingRateEstimateRequest,
+  ): Promise<EkartShippingRateEstimateResponse> {
+    const toRequiredInteger = (value: number | string | undefined, field: string) => {
+      const normalized = Number(value)
+      if (!Number.isInteger(normalized) || normalized <= 0) {
+        throw new HttpError(400, `Ekart ${field} must be a positive integer`)
+      }
+      return normalized
+    }
+
+    const toOptionalNumber = (value: number | string | undefined, field: string) => {
+      if (value === undefined || value === null || value === '') return undefined
+      const normalized = Number(value)
+      if (!Number.isFinite(normalized) || normalized < 0) {
+        throw new HttpError(400, `Ekart ${field} must be a non-negative number`)
+      }
+      return normalized
+    }
+
+    if (!['SURFACE', 'EXPRESS'].includes(payload.serviceType)) {
+      throw new HttpError(400, 'Ekart serviceType must be SURFACE or EXPRESS')
+    }
+
+    const requestPayload = {
+      pickupPincode: toRequiredInteger(payload.pickupPincode, 'pickupPincode'),
+      dropPincode: toRequiredInteger(payload.dropPincode, 'dropPincode'),
+      invoiceAmount: toOptionalNumber(payload.invoiceAmount, 'invoiceAmount'),
+      weight: toRequiredInteger(payload.weight, 'weight'),
+      length: toRequiredInteger(payload.length, 'length'),
+      height: toRequiredInteger(payload.height, 'height'),
+      width: toRequiredInteger(payload.width, 'width'),
+      serviceType: payload.serviceType,
+      codAmount: toOptionalNumber(payload.codAmount, 'codAmount'),
+      packages: Array.isArray(payload.packages) ? payload.packages : undefined,
+    }
+
+    const http = await this.getHttp()
+    const res = await http.post('/data/pricing/estimate', requestPayload)
     return res.data
   }
 
@@ -687,11 +932,67 @@ export class EkartService {
     codAmount?: string
     invoiceAmount: string
   }) {
+    const toRequiredPositiveString = (value: any, field: string) => {
+      const normalized = this.sanitizeText(value)
+      const numericValue = Number(normalized)
+      if (!normalized || !Number.isFinite(numericValue) || numericValue < 1) {
+        throw new HttpError(400, `Ekart ${field} must be greater than or equal to 1`)
+      }
+      return normalized
+    }
+
+    const pickupPincode = this.sanitizeText(payload.pickupPincode)
+    const dropPincode = this.sanitizeText(payload.dropPincode)
+    const paymentType = payload.paymentType
+    const serviceType = payload.serviceType
+    const invoiceAmount = this.sanitizeText(payload.invoiceAmount)
+
+    if (!pickupPincode) {
+      throw new HttpError(400, 'Ekart pickupPincode is required')
+    }
+
+    if (!dropPincode) {
+      throw new HttpError(400, 'Ekart dropPincode is required')
+    }
+
+    if (!['COD', 'Prepaid'].includes(paymentType)) {
+      throw new HttpError(400, 'Ekart paymentType must be COD or Prepaid')
+    }
+
+    if (serviceType && !['SURFACE', 'EXPRESS'].includes(serviceType)) {
+      throw new HttpError(400, 'Ekart serviceType must be SURFACE or EXPRESS')
+    }
+
+    if (!invoiceAmount) {
+      throw new HttpError(400, 'Ekart invoiceAmount is required')
+    }
+
+    const codAmount = payload.codAmount !== undefined ? this.sanitizeText(payload.codAmount) : undefined
+    if (paymentType === 'COD') {
+      const normalizedCodAmount = Number(codAmount)
+      if (!codAmount || !Number.isFinite(normalizedCodAmount) || normalizedCodAmount < 0 || normalizedCodAmount > 49999) {
+        throw new HttpError(400, 'Ekart codAmount is required for COD and must be between 0 and 49999')
+      }
+    }
+
+    const requestPayload = {
+      pickupPincode,
+      dropPincode,
+      length: toRequiredPositiveString(payload.length, 'length'),
+      height: toRequiredPositiveString(payload.height, 'height'),
+      width: toRequiredPositiveString(payload.width, 'width'),
+      weight: toRequiredPositiveString(payload.weight, 'weight'),
+      paymentType,
+      ...(serviceType ? { serviceType } : {}),
+      ...(codAmount !== undefined ? { codAmount } : {}),
+      invoiceAmount,
+    }
+
     const http = await this.getHttp()
-    const res = await http.post('/data/v3/serviceability', payload)
+    const res = await http.post('/data/v3/serviceability', requestPayload)
     this.log('Serviceability v3', {
-      pickup: payload.pickupPincode,
-      drop: payload.dropPincode,
+      pickup: pickupPincode,
+      drop: dropPincode,
       status: res.status,
     })
     const raw = res.data
@@ -812,6 +1113,26 @@ export class EkartService {
     } satisfies EkartPairServiceabilityResponse
   }
 
+  async getBulkServiceability(
+    type: EkartBulkServiceabilityType,
+    format: EkartBulkServiceabilityFormat = 'JSON',
+  ): Promise<EkartBulkServiceabilityResponse> {
+    if (!['NON_LARGE', 'LARGE'].includes(type)) {
+      throw new HttpError(400, 'Ekart bulk serviceability type must be NON_LARGE or LARGE')
+    }
+
+    if (!['JSON', 'EXCEL'].includes(format)) {
+      throw new HttpError(400, 'Ekart bulk serviceability format must be JSON or EXCEL')
+    }
+
+    const http = await this.getHttp()
+    const res = await http.get(`/data/serviceability/bulk/${type}`, {
+      params: { format },
+      responseType: format === 'EXCEL' ? 'arraybuffer' : 'json',
+    })
+    return res.data
+  }
+
   // Backward-compatible alias used by older callers
   async checkServiceability(payload: {
     pickupPincode: string
@@ -874,37 +1195,89 @@ export class EkartService {
     return res.data
   }
 
-  async updateDispatchDate(ids: string[], dispatchDate: string) {
+  async updateDispatchDate(
+    ids: string[],
+    dispatchDate: string,
+  ): Promise<EkartUpdateDispatchDateResponse> {
+    const normalizedIds = Array.from(
+      new Set(ids.map((id) => this.sanitizeText(id)).filter(Boolean)),
+    )
+
+    if (normalizedIds.length < 1 || normalizedIds.length > 100) {
+      throw new HttpError(400, 'Ekart dispatch date update requires 1 to 100 unique shipment ids')
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dispatchDate)) {
+      throw new HttpError(400, 'Ekart dispatchDate must be in YYYY-MM-DD format')
+    }
+
     const http = await this.getHttp()
-    const res = await http.post('/data/shipment/dispatch-date', { ids, dispatchDate })
+    const res = await http.post('/data/shipment/dispatch-date', {
+      ids: normalizedIds,
+      dispatchDate,
+    })
     return res.data
   }
 
-  async updateEwbn(id: string, ewbn: string) {
+  async updateEwbn(id: string, ewbn: string): Promise<EkartUpdateEwbnResponse> {
+    const normalizedId = this.sanitizeText(id)
+    const normalizedEwbn = this.sanitizeText(ewbn)
+
+    if (!normalizedId) {
+      throw new HttpError(400, 'Ekart EWBN update requires a shipment id')
+    }
+
+    if (!/^\d{12}$/.test(normalizedEwbn)) {
+      throw new HttpError(400, 'Ekart ewbn must be a 12-digit numeric string')
+    }
+
     const http = await this.getHttp()
-    const res = await http.post('/data/shipment/ewbn', { id, ewbn })
+    const res = await http.post('/data/shipment/ewbn', {
+      id: normalizedId,
+      ewbn: normalizedEwbn,
+    })
     return res.data
   }
 
   // ---------- Tracking ----------
   async track(trackingId: string): Promise<EkartTrackResponse> {
-    const http = await this.getHttp()
-    const res = await http.get(`/api/v1/track/${trackingId}`)
+    const normalizedTrackingId = this.sanitizeText(trackingId)
+
+    if (!normalizedTrackingId) {
+      throw new HttpError(400, 'Ekart tracking requires a shipment id')
+    }
+
+    const http = await this.getOpenHttp()
+    const res = await http.get(`/api/v1/track/${encodeURIComponent(normalizedTrackingId)}`)
     return res.data
   }
 
-  async trackWbn(wbn: string) {
+  async trackWbn(wbn: string): Promise<EkartRawTrackResponse> {
+    const normalizedWbn = this.sanitizeText(wbn)
+
+    if (!normalizedWbn) {
+      throw new HttpError(400, 'Ekart raw tracking requires a WBN')
+    }
+
     const http = await this.getHttp()
-    const res = await http.get(`/data/v1/elite/track/${wbn}`)
+    const res = await http.get(`/data/v1/elite/track/${encodeURIComponent(normalizedWbn)}`)
     return res.data
   }
 
   // ---------- Labels & Manifest ----------
-  async downloadLabels(ids: string[], jsonOnly = false) {
+  async downloadLabels(ids: string[], jsonOnly = false): Promise<EkartLabelResponse> {
+    const normalizedIds = Array.from(
+      new Set(ids.map((id) => this.sanitizeText(id)).filter(Boolean)),
+    )
+
+    if (normalizedIds.length < 1 || normalizedIds.length > 100) {
+      throw new HttpError(400, 'Ekart label download requires 1 to 100 unique waybill numbers')
+    }
+
     const http = await this.getHttp()
     const res = await http.post(
       '/api/v1/package/label',
-      { ids },
+      { ids: normalizedIds },
       {
         params: { json_only: jsonOnly },
         responseType: jsonOnly ? 'json' : 'arraybuffer',
@@ -913,38 +1286,80 @@ export class EkartService {
     return res.data
   }
 
-  async generateManifest(ids: string[]) {
+  async generateManifest(ids: string[]): Promise<EkartGenerateManifestResponse> {
+    const normalizedIds = Array.from(
+      new Set(ids.map((id) => this.sanitizeText(id)).filter(Boolean)),
+    )
+
+    if (normalizedIds.length < 1 || normalizedIds.length > 100) {
+      throw new HttpError(400, 'Ekart manifest generation requires 1 to 100 unique waybill numbers')
+    }
+
     const http = await this.getHttp()
-    const res = await http.post('/data/v2/generate/manifest', { ids }, { responseType: 'json' })
+    const res = await http.post(
+      '/data/v2/generate/manifest',
+      { ids: normalizedIds },
+      { responseType: 'json' },
+    )
     return res.data
   }
 
   // ---------- Address sync ----------
-  async addAddress(payload: {
-    alias: string
-    phone: string | number
-    address_line1: string
-    address_line2?: string | null
-    pincode: string | number
-    city: string
-    state: string
-    country?: string
-    geo?: { lat?: number; lon?: number }
-  }) {
+  async addAddress(payload: EkartAddressRequest): Promise<EkartAddressResponse> {
+    const alias = this.sanitizeText(payload.alias)
+    const phone = Number(String(payload.phone ?? '').replace(/\D/g, ''))
+    const addressLine1 = this.sanitizeText(payload.address_line1)
+    const addressLine2 = payload.address_line2 ? this.sanitizeText(payload.address_line2) : null
+    const pincode = Number(payload.pincode)
+    const city = payload.city ? this.sanitizeText(payload.city) : null
+    const state = this.sanitizeText(payload.state)
+    const rawCountry = this.sanitizeText(payload.country || 'India').toUpperCase()
+    const country = rawCountry === 'IN' || rawCountry === 'INDIA' ? 'India' : rawCountry
+
+    if (!alias) {
+      throw new HttpError(400, 'Ekart address alias is required')
+    }
+
+    if (!Number.isInteger(phone) || phone < 1000000000 || phone > 9999999999) {
+      throw new HttpError(400, 'Ekart address phone must be a 10-digit number')
+    }
+
+    if (!addressLine1) {
+      throw new HttpError(400, 'Ekart address_line1 is required')
+    }
+
+    if (!Number.isInteger(pincode) || pincode <= 0) {
+      throw new HttpError(400, 'Ekart address pincode must be a positive integer')
+    }
+
+    if (!state) {
+      throw new HttpError(400, 'Ekart address state is required')
+    }
+
+    if (!['India', 'IN'].includes(country)) {
+      throw new HttpError(400, 'Ekart address country must be India or IN')
+    }
+
     const http = await this.getHttp()
     const body = {
-      alias: payload.alias,
-      phone: Number(payload.phone),
-      address_line1: payload.address_line1,
-      address_line2: payload.address_line2 ?? null,
-      pincode: Number(payload.pincode),
-      city: payload.city,
-      state: payload.state,
-      country: payload.country || 'India',
+      alias,
+      phone,
+      address_line1: addressLine1,
+      address_line2: addressLine2,
+      pincode,
+      city,
+      state,
+      country,
       geo: payload.geo ?? {},
     }
     const res = await http.post('/api/v2/address', body)
     return res.data
+  }
+
+  async getAddresses(): Promise<EkartSavedAddress[]> {
+    const http = await this.getHttp()
+    const res = await http.get('/api/v2/addresses')
+    return Array.isArray(res.data) ? res.data : []
   }
 
   // Backward-compatible alias used by pickup registration flow
@@ -962,23 +1377,152 @@ export class EkartService {
     })
   }
 
-  // ---------- NDR ----------
-  async ndrAction(payload: {
-    action: 'Re-Attempt' | 'RTO'
-    wbn: string
-    date?: number
-    phone?: string
-    address?: string
-    instructions?: string
-    links?: string[]
-  }) {
+  // ---------- Webhooks ----------
+  private buildWebhookPayload(payload: EkartWebhookRequest, partial = false): EkartWebhookRequest {
+    const allowedTopics: EkartWebhookTopic[] = [
+      'track_updated',
+      'shipment_created',
+      'shipment_recreated',
+    ]
+    const nextPayload: EkartWebhookRequest = {}
+
+    if (!partial || payload.url !== undefined) {
+      const url = this.sanitizeText(payload.url)
+      if (!url) {
+        throw new HttpError(400, 'Ekart webhook url is required')
+      }
+      try {
+        new URL(url)
+      } catch {
+        throw new HttpError(400, 'Ekart webhook url must be a valid URI')
+      }
+      nextPayload.url = url
+    }
+
+    if (!partial || payload.secret !== undefined) {
+      const secret = this.sanitizeText(payload.secret)
+      if (secret.length < 6 || secret.length > 30) {
+        throw new HttpError(400, 'Ekart webhook secret must be 6 to 30 characters')
+      }
+      nextPayload.secret = secret
+    }
+
+    if (!partial || payload.topics !== undefined) {
+      const topics = Array.isArray(payload.topics)
+        ? Array.from(new Set(payload.topics.map((topic) => this.sanitizeText(topic))))
+        : []
+      if (topics.length < 1) {
+        throw new HttpError(400, 'Ekart webhook topics must contain at least one topic')
+      }
+      const invalidTopic = topics.find((topic) => !allowedTopics.includes(topic as EkartWebhookTopic))
+      if (invalidTopic) {
+        throw new HttpError(400, `Invalid Ekart webhook topic: ${invalidTopic}`)
+      }
+      nextPayload.topics = topics as EkartWebhookTopic[]
+    }
+
+    if (payload.active !== undefined) {
+      nextPayload.active = Boolean(payload.active)
+    } else if (!partial) {
+      nextPayload.active = true
+    }
+
+    return nextPayload
+  }
+
+  async getWebhooks(): Promise<EkartWebhook[]> {
     const http = await this.getHttp()
-    const res = await http.post('/api/v2/package/ndr', payload)
+    const res = await http.get('/api/v2/webhook')
+    return Array.isArray(res.data) ? res.data : []
+  }
+
+  async addWebhook(payload: EkartWebhookRequest): Promise<EkartWebhook> {
+    const requestPayload = this.buildWebhookPayload(payload)
+    const http = await this.getHttp()
+    const res = await http.post('/api/v2/webhook', requestPayload)
+    return res.data
+  }
+
+  async updateWebhook(webhookId: string, payload: EkartWebhookRequest): Promise<EkartWebhook> {
+    const normalizedWebhookId = this.sanitizeText(webhookId)
+    if (!normalizedWebhookId) {
+      throw new HttpError(400, 'Ekart webhook id is required')
+    }
+
+    const requestPayload = this.buildWebhookPayload(payload, true)
+    const http = await this.getHttp()
+    const res = await http.put(
+      `/api/v2/webhook/${encodeURIComponent(normalizedWebhookId)}`,
+      requestPayload,
+    )
+    return res.data
+  }
+
+  // ---------- NDR ----------
+  async ndrAction(payload: EkartNdrActionRequest): Promise<EkartNdrActionResponse> {
+    const action = payload.action
+    const wbn = this.sanitizeText(payload.wbn)
+    const phone = payload.phone ? this.sanitizeText(payload.phone) : undefined
+    const address = payload.address ? this.sanitizeText(payload.address) : undefined
+    const instructions = payload.instructions ? this.sanitizeText(payload.instructions) : undefined
+    const links = Array.isArray(payload.links)
+      ? payload.links.map((link) => this.sanitizeText(link)).filter(Boolean)
+      : undefined
+
+    if (!['Re-Attempt', 'RTO'].includes(action)) {
+      throw new HttpError(400, 'Ekart NDR action must be Re-Attempt or RTO')
+    }
+
+    if (!wbn) {
+      throw new HttpError(400, 'Ekart NDR action requires a waybill number')
+    }
+
+    if (action === 'Re-Attempt') {
+      if (!Number.isInteger(payload.date)) {
+        throw new HttpError(400, 'Ekart Re-Attempt NDR action requires date in milliseconds')
+      }
+
+      const reattemptDate = payload.date as number
+      const now = new Date()
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+      const tomorrowStart = todayStart + 24 * 60 * 60 * 1000
+      const maxDate = todayStart + 7 * 24 * 60 * 60 * 1000
+
+      if (reattemptDate < tomorrowStart || reattemptDate > maxDate) {
+        throw new HttpError(
+          400,
+          'Ekart Re-Attempt date must be within seven days of today, excluding today',
+        )
+      }
+    }
+
+    if (phone && !/^\d{10}$/.test(phone)) {
+      throw new HttpError(400, 'Ekart NDR phone must be a 10-digit number')
+    }
+
+    const requestPayload = {
+      action,
+      wbn,
+      ...(payload.date !== undefined ? { date: payload.date } : {}),
+      ...(phone ? { phone } : {}),
+      ...(address ? { address } : {}),
+      ...(instructions ? { instructions } : {}),
+      ...(links ? { links } : {}),
+    }
+
+    const http = await this.getHttp()
+    const res = await http.post('/api/v2/package/ndr', requestPayload)
     return res.data
   }
 
   // Backward-compatible alias used by NDR controllers
   async submitNdrAction(payload: any) {
+    if (payload?.action && !['Re-Attempt', 'RTO'].includes(payload.action)) {
+      const http = await this.getHttp()
+      const res = await http.post('/api/v2/package/ndr', payload)
+      return res.data
+    }
+
     return this.ndrAction(payload)
   }
 }

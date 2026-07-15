@@ -21,6 +21,13 @@ import {
   useUpdateXpressbeesCredentials,
 } from 'hooks/useCouriers'
 
+const EKART_WAYBILL_BUCKETS = [
+  ['prepaid_upto_5kg', 'Prepaid up to 5kg'],
+  ['cod_upto_5kg', 'COD up to 5kg'],
+  ['prepaid_above_5kg', 'Prepaid above 5kg'],
+  ['cod_above_5kg', 'COD above 5kg'],
+]
+
 const CourierCredentials = () => {
   const toast = useToast()
   const { data, isLoading, error } = useCourierCredentials()
@@ -41,6 +48,12 @@ const CourierCredentials = () => {
     username: '',
     password: '',
     webhookSecret: '',
+    waybillSeries: {
+      prepaid_upto_5kg: '',
+      cod_upto_5kg: '',
+      prepaid_above_5kg: '',
+      cod_above_5kg: '',
+    },
   })
   const [expressflyForm, setExpressflyForm] = useState({
     apiKey: '',
@@ -69,12 +82,21 @@ const CourierCredentials = () => {
       })
     }
     if (data?.ekart) {
+      const seriesByBucket = Object.fromEntries(
+        (data.ekart.waybillSeries || []).map((item) => [item.bucket, item.series || '']),
+      )
       setEkartForm({
         apiBase: data.ekart.apiBase || '',
         clientId: data.ekart.clientId || '',
         username: data.ekart.username || '',
         password: '',
         webhookSecret: '',
+        waybillSeries: {
+          prepaid_upto_5kg: seriesByBucket.prepaid_upto_5kg || 'ZCEP0000000001',
+          cod_upto_5kg: seriesByBucket.cod_upto_5kg || 'ZCEC0000000001',
+          prepaid_above_5kg: seriesByBucket.prepaid_above_5kg || 'ZCFP0000000001',
+          cod_above_5kg: seriesByBucket.cod_above_5kg || 'ZCFC0000000001',
+        },
       })
     }
     if (data?.expressfly) {
@@ -180,6 +202,7 @@ const CourierCredentials = () => {
         username: ekartForm.username,
         ...(ekartForm.password ? { password: ekartForm.password } : {}),
         ...(ekartForm.webhookSecret ? { webhookSecret: ekartForm.webhookSecret } : {}),
+        waybillSeries: ekartForm.waybillSeries,
       },
       {
         onSuccess: () => {
@@ -492,6 +515,41 @@ const CourierCredentials = () => {
                 </Text>
               )}
             </FormControl>
+
+            <Box borderWidth="1px" borderRadius="md" p={3}>
+              <Text fontWeight="semibold" mb={3}>
+                Manual AWB Series
+              </Text>
+              <VStack spacing={3} align="stretch">
+                {EKART_WAYBILL_BUCKETS.map(([bucket, label]) => {
+                  const usage = (data?.ekart?.waybillSeries || []).find(
+                    (item) => item.bucket === bucket,
+                  )
+                  return (
+                    <FormControl key={bucket}>
+                      <FormLabel>{label}</FormLabel>
+                      <Input
+                        value={ekartForm.waybillSeries[bucket] || ''}
+                        onChange={(e) =>
+                          setEkartForm((prev) => ({
+                            ...prev,
+                            waybillSeries: {
+                              ...prev.waybillSeries,
+                              [bucket]: e.target.value,
+                            },
+                          }))
+                        }
+                        placeholder="ZCEP0000000001"
+                      />
+                      <Text fontSize="xs" color="gray.500" mt={1}>
+                        Used: {usage?.usedCount ?? 0} | Last: {usage?.lastSequence ?? 199} | Next:{' '}
+                        {usage?.nextAwb || 'Starts from 200th AWB'}
+                      </Text>
+                    </FormControl>
+                  )
+                })}
+              </VStack>
+            </Box>
 
             <Text fontSize="xs" color="gray.500">
               Ekart requires client ID + username/password for token generation. Leave password blank to keep the saved secret.
