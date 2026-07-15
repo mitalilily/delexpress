@@ -261,7 +261,12 @@ export class EkartService {
       wbn: payload?.wbn ?? payload?.awb_number ?? payload?.tracking_id ?? null,
       waybill_number: payload?.waybill_number ?? null,
       awb_number: payload?.awb_number ?? null,
-      user_input_wbn: payload?.user_input?.wbn ?? payload?.userInput?.wbn ?? null,
+      input_wbn:
+        payload?.input_wbn ??
+        payload?.inputWbn ??
+        payload?.user_input?.wbn ??
+        payload?.userInput?.wbn ??
+        null,
       package_wbn: payload?.package?.wbn ?? null,
       packages_wbns: Array.isArray(payload?.packages)
         ? payload.packages.map(
@@ -644,6 +649,16 @@ export class EkartService {
 
     const consigneeName = this.sanitizeText(payload?.consignee?.name, 'Consignee')
     const consigneePhone = this.sanitizePhoneNumber(payload?.consignee?.phone)
+    const consigneeAlternatePhone = this.sanitizePhoneNumber(
+      payload?.consignee?.alternate_phone ||
+        payload?.consignee?.alternatePhone ||
+        payload?.consignee?.phone2 ||
+        payload?.consignee_alternate_phone,
+    )
+    const effectiveConsigneeAlternatePhone =
+      consigneeAlternatePhone && consigneeAlternatePhone !== consigneePhone
+        ? consigneeAlternatePhone
+        : undefined
     const consigneePhoneInt = this.normalizePhoneInt(payload?.consignee?.phone)
     const pickupPhone = this.sanitizePhoneNumber(payload?.pickup?.phone)
     const returnPhone = this.sanitizePhoneNumber(payload?.rto?.phone || payload?.pickup?.phone)
@@ -750,6 +765,8 @@ export class EkartService {
             wbn: resolvedWaybill,
             waybill_number: resolvedWaybill,
             awb_number: resolvedWaybill,
+            input_wbn: resolvedWaybill,
+            inputWbn: resolvedWaybill,
             user_input: {
               wbn: resolvedWaybill,
             },
@@ -776,7 +793,7 @@ export class EkartService {
       seller_gst_amount: totalTaxValue,
       consignee_name: consigneeName,
       consignee_phone: consigneePhone,
-      consignee_alternate_phone: consigneePhone || '9999999999',
+      consignee_alternate_phone: effectiveConsigneeAlternatePhone,
       consignee_gst_tin: this.sanitizeText(payload?.consignee?.gstin),
       consignee_gst_amount: totalTaxValue,
       integrated_gst_amount: 0,
