@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios'
 import { HttpError } from '../../../utils/classes'
+import { getMerchantSafeOperationalError } from '../../../utils/merchantErrorMessages'
 import { EkartConfig, getEffectiveCourierConfig } from '../courierCredentials.service'
 import { reserveEkartWaybill, resolveEkartWaybillBucket } from '../ekartWaybill.service'
 
@@ -850,7 +851,7 @@ export class EkartService {
     }
   }
 
-  private extractErrorMessage(err: any, fallback: string) {
+  private extractErrorMessage(err: any, fallback: string): string {
     const candidates = [
       err?.response?.data?.description,
       err?.response?.data?.message,
@@ -862,7 +863,10 @@ export class EkartService {
 
     for (const candidate of candidates) {
       if (typeof candidate === 'string' && candidate.trim()) {
-        return candidate.trim()
+        return getMerchantSafeOperationalError(
+          candidate,
+          'Please contact admin for this issue.',
+        ) ?? fallback
       }
     }
 
