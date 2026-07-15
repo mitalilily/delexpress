@@ -598,7 +598,14 @@ export class EkartService {
         .reduce((sum: number, item: any) => sum + this.toNumber(item.tax_value, 0), 0)
         .toFixed(2),
     )
-    const orderAmount = this.toNumber(payload?.order_amount ?? payload?.invoice_amount, 0)
+    const orderAmount = this.toNumber(
+      payload?.order_amount ??
+        payload?.invoice_amount ??
+        payload?.total_amount ??
+        payload?.invoice_value ??
+        payload?.invoiceAmount,
+      0,
+    )
     const computedTotalAmount = orderAmount > 0 ? orderAmount : itemSubtotal + totalTaxValue
     const taxableAmount = Math.max(1, Number((computedTotalAmount - totalTaxValue).toFixed(2)))
     const codAmount = paymentMode === 'COD' ? computedTotalAmount : 0
