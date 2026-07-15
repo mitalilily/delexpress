@@ -12,7 +12,7 @@ import { rto_events } from '../schema/rto'
 import { tracking_events } from '../schema/trackingEvents'
 import { userProfiles } from '../schema/userProfile'
 import { wallets, walletTransactions } from '../schema/wallet'
-import { createCancellationRemittance, createCodRemittance } from './codRemittance.service'
+import { createCodRemittance } from './codRemittance.service'
 import { extractWeightProofFromWebhook } from './courierProofFetcher.service'
 import { DelhiveryService } from './couriers/delhivery.service'
 import {
@@ -896,105 +896,11 @@ export async function queueCancellationRefundRemittanceOnce(
   order: any,
   source: string,
 ): Promise<number> {
-  const freightCharges = Number(order.freight_charges ?? 0)
-  const otherCharges = Number(order.other_charges ?? 0)
-  const codCharges = Number(order.cod_charges ?? 0)
-
-  const refundReason = `Refund for cancelled order #${order.order_number}`
-  const [wallet] = await tx.select().from(wallets).where(eq(wallets.userId, order.user_id))
-  if (!wallet) {
-    throw new Error(`Wallet not found for user ${order.user_id}`)
-  }
-
-  const [existingWalletRefund] = await tx
-    .select({ id: walletTransactions.id })
-    .from(walletTransactions)
-    .where(
-      and(
-        eq(walletTransactions.wallet_id, wallet.id),
-        eq(walletTransactions.type, 'credit'),
-        eq(walletTransactions.reason, refundReason),
-      ),
-    )
-    .limit(1)
-
-  if (existingWalletRefund) {
-    console.log(
-      `Wallet refund already exists for cancelled order ${order.order_number}; skipping remittance queue`,
-    )
-    return 0
-  }
-
-  const originalDebitReasons = ['B2C Prepaid Order Payment', 'B2C COD Service Charges']
-  const debitTransactions = await tx
-    .select({
-      amount: walletTransactions.amount,
-      reason: walletTransactions.reason,
-    })
-    .from(walletTransactions)
-    .where(
-      and(
-        eq(walletTransactions.wallet_id, wallet.id),
-        eq(walletTransactions.type, 'debit'),
-        eq(walletTransactions.ref, order.id),
-      ),
-    )
-
-  const originalWalletDebit = debitTransactions
-    .filter((transaction: any) => originalDebitReasons.includes(String(transaction.reason ?? '')))
-    .reduce((sum: number, transaction: any) => sum + Number(transaction.amount ?? 0), 0)
-
-  let refundAmount = originalWalletDebit
-  if (refundAmount <= 0) {
-    if (order.order_type === 'prepaid') {
-      refundAmount = Number(order.order_amount ?? 0) + freightCharges + otherCharges
-    } else {
-      refundAmount = freightCharges + otherCharges + codCharges
-    }
-  }
-
-  if (refundAmount <= 0) {
-    console.warn(`No refundable amount resolved for cancelled order ${order.order_number}`, {
-      source,
-      order_type: order.order_type,
-      order_amount: Number(order.order_amount ?? 0),
-      freight_charges: freightCharges,
-      other_charges: otherCharges,
-      cod_charges: codCharges,
-      original_wallet_debit: originalWalletDebit,
-      debit_transactions_found: debitTransactions.length,
-    })
-    return 0
-  }
-
-  console.log(`Queueing cancellation refund of Rs ${refundAmount} for order ${order.order_number}`, {
-    source,
-    order_type: order.order_type,
-    order_amount: order.order_type === 'prepaid' ? Number(order.order_amount ?? 0) : 0,
-    freight_charges: freightCharges,
-    other_charges: otherCharges,
-    cod_charges: order.order_type === 'cod' ? codCharges : 0,
-    original_wallet_debit: originalWalletDebit,
-    total_refund: refundAmount,
-  })
-
-  await createCancellationRemittance({
-    orderId: order.id,
-    orderType: 'b2c',
-    userId: order.user_id,
-    orderNumber: order.order_number,
-    awbNumber: order.awb_number || null,
-    courierPartner: order.courier_partner || order.integration_type || null,
-    refundAmount,
-    source,
-    tx,
-    notes: `Cancellation refund queued from ${source}. Original charge components: freight Rs ${freightCharges}, other Rs ${otherCharges}, COD Rs ${
-      order.order_type === 'cod' ? codCharges : 0
-    }. Pay the seller only after the courier sends the cancellation amount back.`,
-  })
-
-  console.log(`Cancellation refund queued for user ${order.user_id}: Rs ${refundAmount}`)
-  return refundAmount
+  console.log(
+    `Cancellation refund for order ${order.order_number} will be credited to seller wallet`,
+    { source },
+  )
+  return applyCancellationRefundOnce(tx, order, source)
 }
 
 // Ekart webhook: supports track_updated, shipment_created, shipment_recreated
