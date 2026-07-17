@@ -58,8 +58,8 @@ export const useManualMarkSettlement = () => {
       queryClient.invalidateQueries({ queryKey: ['codPlatformStats'] })
       queryClient.invalidateQueries({ queryKey: ['userCodRemittances'] })
       toast({
-        title: 'Settlement Marked',
-        description: 'COD remittance marked settled successfully',
+        title: 'Remittance Processed',
+        description: 'The remittance was processed successfully.',
         status: 'success',
         duration: 3000,
         isClosable: true,

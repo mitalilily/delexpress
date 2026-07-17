@@ -285,8 +285,7 @@ export const getUserCodRemittances = async (req: any, res: Response): Promise<an
 }
 
 /**
- * Admin: Initiate Razorpay payout when courier settles.
- * Real-world flow: Courier sends money -> Admin receives it -> Pays merchant through Razorpay.
+ * Admin: settle COD remittance or credit cancellation refund.
  */
 export const manualCreditWallet = async (req: any, res: Response): Promise<any> => {
   try {
@@ -297,19 +296,18 @@ export const manualCreditWallet = async (req: any, res: Response): Promise<any> 
       return res.status(400).json({ success: false, message: 'Remittance ID required' })
     }
 
-    // Pay using the settlement service.
     const updated = await initiateCodRemittancePayout({
       remittanceId,
       settledDate: settledDate ? new Date(settledDate) : new Date(), // Default to now
-      utrNumber: utrNumber || `MANUAL-${Date.now()}`, // Auto-generate if not provided
+      utrNumber: utrNumber || `MANUAL-${Date.now()}`, // Used only by payout-based settlements
       settledAmount: settledAmount ? Number(settledAmount) : undefined,
-      notes: notes || 'Manual Razorpay payout by admin',
+      notes: notes || 'Manual settlement by admin',
       creditedBy: req.user?.sub || 'admin',
     })
 
     return res.json({
       success: true,
-      message: 'Remittance payout initiated successfully',
+      message: 'Remittance processed successfully',
       data: updated,
     })
   } catch (error: any) {

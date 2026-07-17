@@ -5,6 +5,8 @@ import { db } from '../client'
 import { bankAccounts } from '../schema/bankAccounts'
 import { codRemittances } from '../schema/codRemittance'
 import { getInvoiceStatement } from './invoiceStatement.service'
+import { createWalletTransaction } from './wallet.service'
+import { walletOfUser } from './walletTopupService'
 
 const DEFAULT_RAZORPAY_PAYOUT_MODE = 'IMPS'
 export const COD_REMITTANCE_TYPE = 'cod'
@@ -333,7 +335,7 @@ export async function createCancellationRemittance(params: {
 }
 
 /**
- * Pay seller through Razorpay when courier actually settles the payment.
+ * Settle COD through Razorpay, or credit cancellation refunds to the user's panel wallet.
  */
 export async function initiateCodRemittancePayout(params: CodRemittancePayoutParams) {
   const { remittanceId, settledDate, utrNumber, settledAmount, notes, creditedBy } = params
@@ -362,6 +364,53 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
 
       if (!Number.isFinite(amountToCredit) || amountToCredit <= 0) {
         throw new Error('Invalid settled amount. Amount to credit must be greater than 0.')
+      }
+
+      if (remittance.remittanceType === CANCELLATION_REMITTANCE_TYPE) {
+        const wallet = await walletOfUser(remittance.userId, tx)
+        const [walletTxn] = await createWalletTransaction({
+          walletId: wallet.id,
+          amount: amountToCredit,
+          currency: 'INR',
+          type: 'credit',
+          ref: remittance.id,
+          reason: `Cancellation refund - Order ${remittance.orderNumber}`,
+          meta: {
+            remittanceId: remittance.id,
+            remittanceType: CANCELLATION_REMITTANCE_TYPE,
+            orderNumber: remittance.orderNumber,
+            awbNumber: remittance.awbNumber,
+            creditedBy,
+          },
+          tx: tx as any,
+        })
+
+        const adminNote = creditedBy
+          ? `Cancellation refund credited to panel wallet by admin (ID: ${creditedBy}). `
+          : 'Cancellation refund credited to panel wallet. '
+        const fullNotes = `${adminNote}${notes || ''}`.trim()
+
+        const [updatedRemittance] = await tx
+          .update(codRemittances)
+          .set({
+            remittableAmount: amountToCredit.toString(),
+            status: 'credited',
+            creditedAt: settledDate || new Date(),
+            walletTransactionId: walletTxn?.id || null,
+            notes: fullNotes,
+            updatedAt: new Date(),
+          })
+          .where(eq(codRemittances.id, remittance.id))
+          .returning()
+
+        console.log(
+          `Cancellation refund credited to panel wallet: Rs ${amountToCredit} for order ${remittance.orderNumber}`,
+        )
+
+        return {
+          updatedRemittance,
+          autoOffsetInvoiceId: null,
+        }
       }
 
       // 3. Send COD settlement to the seller's Razorpay fund account.
@@ -396,8 +445,7 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
 
       // 5. Auto-create COD offsets for pending invoices (optional automation)
       let autoOffsetInvoiceId: string | null = null
-      if (remittance.remittanceType !== CANCELLATION_REMITTANCE_TYPE) {
-        try {
+      try {
         const pendingInvoices = await tx
           .select()
           .from(billingInvoices)
@@ -430,14 +478,13 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
             `💰 Auto-created COD offset: ₹${amountToCredit} for invoice ${targetInvoice.invoiceNo}`,
           )
         }
-        } catch (offsetErr) {
-          // Don't fail the credit transaction if offset creation fails
-          console.error('Failed to auto-create COD offset:', offsetErr)
-        }
+      } catch (offsetErr) {
+        // Don't fail the credit transaction if offset creation fails
+        console.error('Failed to auto-create COD offset:', offsetErr)
       }
 
       console.log(
-        `${remittance.remittanceType === CANCELLATION_REMITTANCE_TYPE ? 'Cancellation refund' : 'COD remittance'} sent via Razorpay payout ${payout.id}: Rs ${amountToCredit} for order ${remittance.orderNumber}`,
+        `COD remittance sent via Razorpay payout ${payout.id}: Rs ${amountToCredit} for order ${remittance.orderNumber}`,
       )
 
       return {

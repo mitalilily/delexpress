@@ -27,6 +27,11 @@ const isCodRemittanceWalletCredit = ({
 
   const reasonText = String(reason || '').toLowerCase()
   const metadata = meta && typeof meta === 'object' ? meta : {}
+  const remittanceType = String(
+    metadata.remittanceType || metadata.remittance_type || '',
+  ).toLowerCase()
+  if (remittanceType === 'cancellation') return false
+
   const hasRemittanceReference = Boolean(
     metadata.remittanceId || metadata.codRemittanceId || metadata.cod_remittance_id,
   )

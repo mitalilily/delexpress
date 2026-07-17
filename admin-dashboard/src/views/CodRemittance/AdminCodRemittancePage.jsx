@@ -78,7 +78,7 @@ const remittanceFilterOptions = [
     options: [
       { label: 'All', value: '' },
       { label: 'Pending', value: 'pending' },
-      { label: 'Paid via Razorpay', value: 'credited' },
+      { label: 'Credited', value: 'credited' },
     ],
   },
   {
@@ -154,8 +154,8 @@ export default function AdminCodRemittancePage() {
   const isCancellationTab = activeRemittanceType === 'cancellation'
   const amountLabel = isCancellationTab ? 'Refund Amount' : 'COD Amount'
   const dueLabel = isCancellationTab ? 'Total Refunds Pending' : 'Total Pending'
-  const payoutsLabel = isCancellationTab ? "Today's Refund Payouts" : "Today's Payouts"
-  const totalPayoutsLabel = isCancellationTab ? 'Total Refund Payouts' : 'Total Payouts'
+  const payoutsLabel = isCancellationTab ? "Today's Wallet Refunds" : "Today's Payouts"
+  const totalPayoutsLabel = isCancellationTab ? 'Total Wallet Refunds' : 'Total Payouts'
 
   const { data: stats, isLoading: statsLoading } = useCodPlatformStats(activeRemittanceType)
   const { data: remittanceData, isLoading: remittancesLoading } = useAllCodRemittances({
@@ -248,7 +248,7 @@ export default function AdminCodRemittancePage() {
     setManualSettlementAmount(remittance?.remittableAmount ? String(remittance.remittableAmount) : '')
     setManualSettlementUtr('')
     setManualSettlementNotes(
-      isCancellationTab ? 'Cancellation refund paid by admin' : 'Settlement marked by admin',
+      isCancellationTab ? 'Cancellation refund credited to panel wallet' : 'Settlement marked by admin',
     )
     onCreditOpen()
   }
@@ -267,11 +267,13 @@ export default function AdminCodRemittancePage() {
     if (selectedRemittance) {
       const payload = {
         settledDate: manualSettlementDate,
-        utrNumber: manualSettlementUtr || undefined,
+        utrNumber: isCancellationTab ? undefined : manualSettlementUtr || undefined,
         settledAmount: manualSettlementAmount ? Number(manualSettlementAmount) : undefined,
         notes:
           manualSettlementNotes ||
-          (isCancellationTab ? 'Cancellation refund paid by admin' : 'Settlement marked by admin'),
+          (isCancellationTab
+            ? 'Cancellation refund credited to panel wallet'
+            : 'Settlement marked by admin'),
       }
 
       if (payload.settledAmount !== undefined && (!Number.isFinite(payload.settledAmount) || payload.settledAmount <= 0)) {
@@ -791,10 +793,10 @@ export default function AdminCodRemittancePage() {
         <Alert status="info" borderRadius="md" mb="20px">
           <AlertIcon />
           <Box>
-            <AlertTitle fontSize="sm">Manual cancellation refunds only</AlertTitle>
+            <AlertTitle fontSize="sm">Panel wallet refunds</AlertTitle>
             <AlertDescription fontSize="xs">
-              These entries are created when a cancelled order is owed back to the seller. Pay them
-              only after the courier returns the cancellation amount to the platform.
+              Cancellation refunds are credited directly to the seller's panel wallet. No Razorpay
+              payout or UTR is required.
             </AlertDescription>
           </Box>
         </Alert>
@@ -816,9 +818,9 @@ export default function AdminCodRemittancePage() {
         renderActions={(row) => (
           <HStack spacing={2}>
             {row.status === 'pending' && (
-              <Tooltip label={isCancellationTab ? 'Mark refund paid' : 'Mark settlement'}>
+              <Tooltip label={isCancellationTab ? 'Credit refund to wallet' : 'Mark settlement'}>
                 <Button size="xs" colorScheme="green" onClick={() => handleOpenCredit(row)}>
-                  {isCancellationTab ? 'Pay Refund' : 'Settle'}
+                  {isCancellationTab ? 'Credit Wallet' : 'Settle'}
                 </Button>
               </Tooltip>
             )}
@@ -873,7 +875,9 @@ export default function AdminCodRemittancePage() {
                   ? isCancellationTab
                     ? 'REFUND PENDING'
                     : 'PENDING'
-                  : 'PAID VIA RAZORPAY'
+                  : isCancellationTab
+                    ? 'CREDITED TO WALLET'
+                    : 'PAID VIA RAZORPAY'
               }
               type={value === 'pending' ? 'warning' : 'success'}
             />
@@ -926,13 +930,13 @@ export default function AdminCodRemittancePage() {
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            {isCancellationTab ? 'Manual Cancellation Refund Payout' : 'Manual COD Settlement'}
+            {isCancellationTab ? 'Credit Cancellation Refund to Wallet' : 'Manual COD Settlement'}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <Text mb="12px">
               {isCancellationTab
-                ? 'Please review the cancellation refund before marking this payout.'
+                ? 'Review the refund amount before crediting it to the user panel wallet.'
                 : 'Please review the COD settlement breakup before marking settlement:'}
             </Text>
             <Box p="12px" bg="gray.50" borderRadius="md" mb="12px">
@@ -948,29 +952,12 @@ export default function AdminCodRemittancePage() {
 
             {isCancellationTab ? (
               <Box p="12px" border="1px solid" borderColor="gray.200" borderRadius="md" mb="12px">
-                <Flex align="center" justify="space-between" mb="6px">
-                  <Text fontSize="sm" color="gray.700">
-                    Refund Amount
-                  </Text>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    size="sm"
-                    width="180px"
-                    value={manualCodAmount}
-                    onChange={(e) => setManualCodAmount(e.target.value)}
-                    onBlur={() => setManualCodAmount(String(toAmount(manualCodAmount) || ''))}
-                  />
-                </Flex>
                 <Flex
                   align="center"
                   justify="space-between"
-                  pt="8px"
-                  borderTop="1px solid"
-                  borderColor="gray.200"
                 >
                   <Text fontSize="sm" fontWeight="700">
-                    Refund Payout Amount
+                    Wallet Credit Amount
                   </Text>
                   <Input
                     type="number"
@@ -1065,26 +1052,30 @@ export default function AdminCodRemittancePage() {
               </Box>
             )}
 
-            <Box p="10px" bg="orange.50" borderRadius="md" mb="12px">
-              <Text fontSize="xs" color="orange.800">
-                By default, COD remittance keeps deductions at zero because sellers recharge wallet
-                separately. Edit these fields only when you intentionally want a manual deduction.
-              </Text>
-            </Box>
+            {!isCancellationTab && (
+              <Box p="10px" bg="orange.50" borderRadius="md" mb="12px">
+                <Text fontSize="xs" color="orange.800">
+                  By default, COD remittance keeps deductions at zero because sellers recharge wallet
+                  separately. Edit these fields only when you intentionally want a manual deduction.
+                </Text>
+              </Box>
+            )}
             <VStack align="stretch" spacing={3} mb="12px">
+              {!isCancellationTab && (
+                <FormControl>
+                  <FormLabel fontSize="sm" fontWeight="600">
+                    UTR / Transaction Number
+                  </FormLabel>
+                  <Input
+                    value={manualSettlementUtr}
+                    onChange={(e) => setManualSettlementUtr(e.target.value)}
+                    placeholder="Enter UTR/Reference number"
+                  />
+                </FormControl>
+              )}
               <FormControl>
                 <FormLabel fontSize="sm" fontWeight="600">
-                  UTR / Transaction Number
-                </FormLabel>
-                <Input
-                  value={manualSettlementUtr}
-                  onChange={(e) => setManualSettlementUtr(e.target.value)}
-                  placeholder="Enter UTR/Reference number"
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel fontSize="sm" fontWeight="600">
-                  Settlement Date
+                  {isCancellationTab ? 'Credit Date' : 'Settlement Date'}
                 </FormLabel>
                 <Input
                   type="date"
@@ -1094,17 +1085,19 @@ export default function AdminCodRemittancePage() {
               </FormControl>
               <FormControl>
                 <FormLabel fontSize="sm" fontWeight="600">
-                  Settlement Notes
+                  {isCancellationTab ? 'Refund Notes' : 'Settlement Notes'}
                 </FormLabel>
                 <Input
                   value={manualSettlementNotes}
                   onChange={(e) => setManualSettlementNotes(e.target.value)}
-                  placeholder="Optional settlement notes"
+                  placeholder={isCancellationTab ? 'Optional refund notes' : 'Optional settlement notes'}
                 />
               </FormControl>
             </VStack>
-            <Text fontSize="xs" color="red.500">
-              This action initiates a Razorpay payout and does not create any panel wallet transaction.
+            <Text fontSize="xs" color={isCancellationTab ? 'green.600' : 'red.500'}>
+              {isCancellationTab
+                ? "This action credits the refund directly to the user's panel wallet."
+                : 'This action initiates a Razorpay payout and does not create any panel wallet transaction.'}
             </Text>
           </ModalBody>
           <ModalFooter>
@@ -1116,7 +1109,7 @@ export default function AdminCodRemittancePage() {
               onClick={handleManualSettlement}
               isLoading={manualSettlementMutation.isPending}
             >
-              {isCancellationTab ? 'Confirm Refund Payout' : 'Confirm Settlement'}
+              {isCancellationTab ? 'Credit Refund to Wallet' : 'Confirm Settlement'}
             </Button>
           </ModalFooter>
         </ModalContent>
