@@ -12,7 +12,7 @@ import { rto_events } from '../schema/rto'
 import { tracking_events } from '../schema/trackingEvents'
 import { userProfiles } from '../schema/userProfile'
 import { wallets, walletTransactions } from '../schema/wallet'
-import { createCodRemittance } from './codRemittance.service'
+import { createCancellationRemittance, createCodRemittance } from './codRemittance.service'
 import { extractWeightProofFromWebhook } from './courierProofFetcher.service'
 import { DelhiveryService } from './couriers/delhivery.service'
 import {
@@ -784,6 +784,12 @@ export async function applyCancellationRefundOnce(
   order: any,
   source: string,
 ): Promise<number> {
+  console.warn(
+    `applyCancellationRefundOnce is deprecated; queueing manual freight refund for order ${order.order_number}`,
+    { source },
+  )
+  return queueCancellationRefundRemittanceOnce(tx, order, source)
+
   const freightCharges = Number(order.freight_charges ?? 0)
   const otherCharges = Number(order.other_charges ?? 0)
   const codCharges = Number(order.cod_charges ?? 0)
@@ -896,11 +902,44 @@ export async function queueCancellationRefundRemittanceOnce(
   order: any,
   source: string,
 ): Promise<number> {
-  console.log(
-    `Cancellation refund for order ${order.order_number} will be credited to seller wallet`,
-    { source },
-  )
-  return applyCancellationRefundOnce(tx, order, source)
+  const freightCharges = Number(order.freight_charges ?? order.shipping_charges ?? 0)
+  const otherCharges = Number(order.other_charges ?? 0)
+  const refundAmount = freightCharges + otherCharges
+
+  if (refundAmount <= 0) {
+    console.warn(`No freight refund amount resolved for cancelled order ${order.order_number}`, {
+      source,
+      order_type: order.order_type,
+      order_amount: Number(order.order_amount ?? 0),
+      freight_charges: freightCharges,
+      other_charges: otherCharges,
+      cod_charges: Number(order.cod_charges ?? 0),
+    })
+    return 0
+  }
+
+  console.log(`Queueing freight refund of Rs ${refundAmount} for order ${order.order_number}`, {
+    source,
+    order_type: order.order_type,
+    freight_charges: freightCharges,
+    other_charges: otherCharges,
+    total_refund: refundAmount,
+  })
+
+  await createCancellationRemittance({
+    orderId: order.id,
+    orderType: 'b2c',
+    userId: order.user_id,
+    orderNumber: order.order_number,
+    awbNumber: order.awb_number || null,
+    courierPartner: order.courier_partner || order.integration_type || null,
+    refundAmount,
+    source,
+    tx,
+    notes: `Freight refund queued from ${source}. Refund amount includes freight Rs ${freightCharges} and other charges Rs ${otherCharges}; order value is not included. Credit the seller panel wallet only after admin review.`,
+  })
+
+  return refundAmount
 }
 
 // Ekart webhook: supports track_updated, shipment_created, shipment_recreated

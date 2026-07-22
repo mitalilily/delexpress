@@ -304,7 +304,7 @@ export async function createCancellationRemittance(params: {
 
   const queueNote =
     notes ||
-    `Cancellation refund queued from ${source}. Pay the seller only after the courier reverses this cancellation amount back to the platform.`
+    `Freight refund queued from ${source}. Order value is excluded. Credit the seller panel wallet only after admin review.`
 
   const [remittance] = await executor
     .insert(codRemittances)
@@ -335,7 +335,7 @@ export async function createCancellationRemittance(params: {
 }
 
 /**
- * Settle COD through Razorpay, or credit cancellation refunds to the user's panel wallet.
+ * Settle COD through Razorpay, or manually credit cancellation freight refunds to the user's panel wallet.
  */
 export async function initiateCodRemittancePayout(params: CodRemittancePayoutParams) {
   const { remittanceId, settledDate, utrNumber, settledAmount, notes, creditedBy } = params
@@ -358,15 +358,22 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
         throw new Error(`Remittance already credited: ${remittance.orderNumber}`)
       }
 
-      // 2. Determine amount to settle (use settled amount if different from original)
-      const amountToCredit =
-        settledAmount !== undefined ? Number(settledAmount) : Number(remittance.remittableAmount)
-
-      if (!Number.isFinite(amountToCredit) || amountToCredit <= 0) {
-        throw new Error('Invalid settled amount. Amount to credit must be greater than 0.')
-      }
-
       if (remittance.remittanceType === CANCELLATION_REMITTANCE_TYPE) {
+        const queuedAmount = Number(remittance.remittableAmount)
+        const amountToCredit = settledAmount !== undefined ? Number(settledAmount) : queuedAmount
+
+        if (!Number.isFinite(amountToCredit) || amountToCredit <= 0) {
+          throw new Error('Invalid refund amount. Amount to credit must be greater than 0.')
+        }
+
+        if (!Number.isFinite(queuedAmount) || queuedAmount <= 0) {
+          throw new Error('Invalid queued refund amount.')
+        }
+
+        if (amountToCredit > queuedAmount) {
+          throw new Error('Cancellation refund cannot exceed the queued freight refund amount.')
+        }
+
         const wallet = await walletOfUser(remittance.userId, tx)
         const [walletTxn] = await createWalletTransaction({
           walletId: wallet.id,
@@ -374,7 +381,7 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
           currency: 'INR',
           type: 'credit',
           ref: remittance.id,
-          reason: `Cancellation refund - Order ${remittance.orderNumber}`,
+          reason: `Freight cancellation refund - Order ${remittance.orderNumber}`,
           meta: {
             remittanceId: remittance.id,
             remittanceType: CANCELLATION_REMITTANCE_TYPE,
@@ -386,8 +393,8 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
         })
 
         const adminNote = creditedBy
-          ? `Cancellation refund credited to panel wallet by admin (ID: ${creditedBy}). `
-          : 'Cancellation refund credited to panel wallet. '
+          ? `Freight cancellation refund credited to panel wallet by admin (ID: ${creditedBy}). `
+          : 'Freight cancellation refund credited to panel wallet. '
         const fullNotes = `${adminNote}${notes || ''}`.trim()
 
         const [updatedRemittance] = await tx
@@ -404,13 +411,21 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
           .returning()
 
         console.log(
-          `Cancellation refund credited to panel wallet: Rs ${amountToCredit} for order ${remittance.orderNumber}`,
+          `Freight cancellation refund credited to panel wallet: Rs ${amountToCredit} for order ${remittance.orderNumber}`,
         )
 
         return {
           updatedRemittance,
           autoOffsetInvoiceId: null,
         }
+      }
+
+      // 2. Determine amount to settle (use settled amount if different from original)
+      const amountToCredit =
+        settledAmount !== undefined ? Number(settledAmount) : Number(remittance.remittableAmount)
+
+      if (!Number.isFinite(amountToCredit) || amountToCredit <= 0) {
+        throw new Error('Invalid settled amount. Amount to credit must be greater than 0.')
       }
 
       // 3. Send COD settlement to the seller's Razorpay fund account.

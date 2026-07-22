@@ -152,10 +152,10 @@ export default function AdminCodRemittancePage() {
 
   // Hooks
   const isCancellationTab = activeRemittanceType === 'cancellation'
-  const amountLabel = isCancellationTab ? 'Refund Amount' : 'COD Amount'
-  const dueLabel = isCancellationTab ? 'Total Refunds Pending' : 'Total Pending'
-  const payoutsLabel = isCancellationTab ? "Today's Wallet Refunds" : "Today's Payouts"
-  const totalPayoutsLabel = isCancellationTab ? 'Total Wallet Refunds' : 'Total Payouts'
+  const amountLabel = isCancellationTab ? 'Freight Refund Amount' : 'COD Amount'
+  const dueLabel = isCancellationTab ? 'Freight Refunds Pending' : 'Total Pending'
+  const payoutsLabel = isCancellationTab ? "Today's Freight Wallet Credits" : "Today's Payouts"
+  const totalPayoutsLabel = isCancellationTab ? 'Total Freight Wallet Credits' : 'Total Payouts'
 
   const { data: stats, isLoading: statsLoading } = useCodPlatformStats(activeRemittanceType)
   const { data: remittanceData, isLoading: remittancesLoading } = useAllCodRemittances({
@@ -248,7 +248,7 @@ export default function AdminCodRemittancePage() {
     setManualSettlementAmount(remittance?.remittableAmount ? String(remittance.remittableAmount) : '')
     setManualSettlementUtr('')
     setManualSettlementNotes(
-      isCancellationTab ? 'Cancellation refund credited to panel wallet' : 'Settlement marked by admin',
+      isCancellationTab ? 'Freight cancellation refund credited to panel wallet' : 'Settlement marked by admin',
     )
     onCreditOpen()
   }
@@ -272,7 +272,7 @@ export default function AdminCodRemittancePage() {
         notes:
           manualSettlementNotes ||
           (isCancellationTab
-            ? 'Cancellation refund credited to panel wallet'
+            ? 'Freight cancellation refund credited to panel wallet'
             : 'Settlement marked by admin'),
       }
 
@@ -793,10 +793,10 @@ export default function AdminCodRemittancePage() {
         <Alert status="info" borderRadius="md" mb="20px">
           <AlertIcon />
           <Box>
-            <AlertTitle fontSize="sm">Panel wallet refunds</AlertTitle>
+            <AlertTitle fontSize="sm">Freight refunds to panel wallet</AlertTitle>
             <AlertDescription fontSize="xs">
-              Cancellation refunds are credited directly to the seller's panel wallet. No Razorpay
-              payout or UTR is required.
+              Cancellation refund rows include only freight/platform charges. Admin review is
+              required before crediting the seller's panel wallet.
             </AlertDescription>
           </Box>
         </Alert>
@@ -811,14 +811,14 @@ export default function AdminCodRemittancePage() {
         totalCount={totalCount}
         perPage={perPage}
         setPerPage={setPerPage}
-        title={`${isCancellationTab ? 'Cancellation Refunds' : 'COD Remittances'} (All Users)`}
+        title={`${isCancellationTab ? 'Freight Cancellation Refunds' : 'COD Remittances'} (All Users)`}
         data={remittances}
         captions={captions}
         columnKeys={columnKeys}
         renderActions={(row) => (
           <HStack spacing={2}>
             {row.status === 'pending' && (
-              <Tooltip label={isCancellationTab ? 'Credit refund to wallet' : 'Mark settlement'}>
+              <Tooltip label={isCancellationTab ? 'Credit freight refund to wallet' : 'Mark settlement'}>
                 <Button size="xs" colorScheme="green" onClick={() => handleOpenCredit(row)}>
                   {isCancellationTab ? 'Credit Wallet' : 'Settle'}
                 </Button>
@@ -930,13 +930,13 @@ export default function AdminCodRemittancePage() {
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            {isCancellationTab ? 'Credit Cancellation Refund to Wallet' : 'Manual COD Settlement'}
+            {isCancellationTab ? 'Credit Freight Refund to Wallet' : 'Manual COD Settlement'}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <Text mb="12px">
               {isCancellationTab
-                ? 'Review the refund amount before crediting it to the user panel wallet.'
+                ? 'Review the queued freight refund before crediting it to the user panel wallet.'
                 : 'Please review the COD settlement breakup before marking settlement:'}
             </Text>
             <Box p="12px" bg="gray.50" borderRadius="md" mb="12px">
@@ -957,7 +957,7 @@ export default function AdminCodRemittancePage() {
                   justify="space-between"
                 >
                   <Text fontSize="sm" fontWeight="700">
-                    Wallet Credit Amount
+                    Freight Wallet Credit Amount
                   </Text>
                   <Input
                     type="number"
@@ -967,8 +967,7 @@ export default function AdminCodRemittancePage() {
                     fontWeight="700"
                     color="green.600"
                     value={manualSettlementAmount}
-                    onChange={(e) => setManualSettlementAmount(e.target.value)}
-                    onBlur={() => setManualSettlementAmount(String(toAmount(manualSettlementAmount) || ''))}
+                    isReadOnly
                   />
                 </Flex>
               </Box>
@@ -1085,18 +1084,18 @@ export default function AdminCodRemittancePage() {
               </FormControl>
               <FormControl>
                 <FormLabel fontSize="sm" fontWeight="600">
-                  {isCancellationTab ? 'Refund Notes' : 'Settlement Notes'}
+                  {isCancellationTab ? 'Freight Refund Notes' : 'Settlement Notes'}
                 </FormLabel>
                 <Input
                   value={manualSettlementNotes}
                   onChange={(e) => setManualSettlementNotes(e.target.value)}
-                  placeholder={isCancellationTab ? 'Optional refund notes' : 'Optional settlement notes'}
+                  placeholder={isCancellationTab ? 'Optional freight refund notes' : 'Optional settlement notes'}
                 />
               </FormControl>
             </VStack>
             <Text fontSize="xs" color={isCancellationTab ? 'green.600' : 'red.500'}>
               {isCancellationTab
-                ? "This action credits the refund directly to the user's panel wallet."
+                ? "This action credits only the queued freight refund to the user's panel wallet."
                 : 'This action initiates a Razorpay payout and does not create any panel wallet transaction.'}
             </Text>
           </ModalBody>
@@ -1109,7 +1108,7 @@ export default function AdminCodRemittancePage() {
               onClick={handleManualSettlement}
               isLoading={manualSettlementMutation.isPending}
             >
-              {isCancellationTab ? 'Credit Refund to Wallet' : 'Confirm Settlement'}
+              {isCancellationTab ? 'Credit Freight Refund to Wallet' : 'Confirm Settlement'}
             </Button>
           </ModalFooter>
         </ModalContent>
