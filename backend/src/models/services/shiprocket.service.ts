@@ -83,6 +83,53 @@ import { calculateOrderWeights } from './courierWeightCalculation.service'
 import { generateLabelForOrder } from './generateCustomLabelService'
 import { syncShopifyStatusForLocalOrder } from './shopify.service'
 
+const KISHORI_PLAN_NAME = 'kishori'
+const KISHORI_LEGACY_DELHIVERY_SURFACE_COURIER_ID = 6
+const LIVE_DELHIVERY_SURFACE_COURIER_ID = 99
+
+const isKishoriPlanName = (value?: string | null) =>
+  String(value ?? '')
+    .trim()
+    .toLowerCase() === KISHORI_PLAN_NAME
+
+const resolvePlanNameById = async (planId?: string | null) => {
+  if (!planId) return null
+
+  const [planRow] = await db
+    .select({ name: plans.name })
+    .from(plans)
+    .where(eq(plans.id, planId))
+    .limit(1)
+
+  return planRow?.name ?? null
+}
+
+const remapKishoriLegacyDelhiverySurfaceRates = (rateCards: any[]) => {
+  const hasLiveSurfaceRates = rateCards.some(
+    (rateCard) =>
+      String(rateCard.service_provider ?? '')
+        .trim()
+        .toLowerCase() === 'delhivery' &&
+      Number(rateCard.courier_id) === LIVE_DELHIVERY_SURFACE_COURIER_ID &&
+      normalizeB2CShippingMode(rateCard.mode) === 'surface',
+  )
+
+  if (hasLiveSurfaceRates) return rateCards
+
+  return rateCards.map((rateCard) => {
+    const isLegacyKishoriSurface =
+      String(rateCard.service_provider ?? '')
+        .trim()
+        .toLowerCase() === 'delhivery' &&
+      Number(rateCard.courier_id) === KISHORI_LEGACY_DELHIVERY_SURFACE_COURIER_ID &&
+      normalizeB2CShippingMode(rateCard.mode) === 'surface'
+
+    return isLegacyKishoriSurface
+      ? { ...rateCard, courier_id: LIVE_DELHIVERY_SURFACE_COURIER_ID }
+      : rateCard
+  })
+}
+
 // Load correct .env based on NODE_ENV
 const env = process.env.NODE_ENV || 'development'
 dotenv.config({ path: path.resolve(__dirname, `../../.env.${env}`) })
@@ -1008,7 +1055,8 @@ export const computeB2CFreightForOrder = async (params: {
         )[0]?.serviceProvider ?? null)
       : null)
 
-  const [rateCard] = await fetchResolvedB2CRateCards({
+  const planName = await resolvePlanNameById(userPlan.planId)
+  let rateCards = await fetchResolvedB2CRateCards({
     planId: userPlan.planId,
     zoneId: resolvedZoneRow.id,
     courierId: Number(params.courierId),
@@ -1016,6 +1064,25 @@ export const computeB2CFreightForOrder = async (params: {
     mode: params.mode?.trim() || null,
     type: rateType,
   })
+  if (
+    !rateCards.length &&
+    isKishoriPlanName(planName) &&
+    Number(params.courierId) === LIVE_DELHIVERY_SURFACE_COURIER_ID &&
+    String(resolvedServiceProvider ?? '')
+      .trim()
+      .toLowerCase() === 'delhivery' &&
+    normalizeB2CShippingMode(params.mode) === 'surface'
+  ) {
+    rateCards = await fetchResolvedB2CRateCards({
+      planId: userPlan.planId,
+      zoneId: resolvedZoneRow.id,
+      courierId: KISHORI_LEGACY_DELHIVERY_SURFACE_COURIER_ID,
+      serviceProvider: resolvedServiceProvider,
+      mode: params.mode?.trim() || null,
+      type: rateType,
+    })
+  }
+  const [rateCard] = rateCards
 
   if (!rateCard) {
     throw new HttpError(400, 'No rate card found for selected courier/zone')
@@ -1764,10 +1831,14 @@ export const fetchAvailableCouriersWithRates = async (
       }
 
       const fetchPlanRateCardsWithFallback = async (planId: string) => {
-        const zoneRates = await fetchResolvedB2CRateCards({
+        const planName = await resolvePlanNameById(planId)
+        let zoneRates = await fetchResolvedB2CRateCards({
           planId,
           zoneId: zoneRow.id,
         })
+        if (isKishoriPlanName(planName)) {
+          zoneRates = remapKishoriLegacyDelhiverySurfaceRates(zoneRates)
+        }
         const hasDelhiveryExpressSurfaceRateCards = zoneRates.some(
           (rate) =>
             normalizeProviderKey(rate.service_provider) === 'delhivery' &&
@@ -1846,24 +1917,32 @@ export const fetchAvailableCouriersWithRates = async (
       }
 
       let activePlanId: string | null | undefined = planIdOverride ?? null
+      let activePlanName: string | null = null
 
       if (!activePlanId && userId) {
         const [returnedUser] = await db
-          .select({ planId: userPlans.plan_id })
+          .select({ planId: userPlans.plan_id, planName: plans.name })
           .from(userPlans)
+          .leftJoin(plans, eq(plans.id, userPlans.plan_id))
           .where(and(eq(userPlans.userId, userId), eq(userPlans.is_active, true)))
           .limit(1)
         activePlanId = returnedUser?.planId ?? null
+        activePlanName = returnedUser?.planName ?? null
       }
 
       if (!activePlanId && effectivePlanFallbackName) {
         const normalizedFallback = effectivePlanFallbackName.toLowerCase()
         const [fallbackPlan] = await db
-          .select({ id: plans.id })
+          .select({ id: plans.id, name: plans.name })
           .from(plans)
           .where(sql`lower(${plans.name}) = ${normalizedFallback}`)
           .limit(1)
         activePlanId = fallbackPlan?.id ?? null
+        activePlanName = fallbackPlan?.name ?? null
+      }
+
+      if (activePlanId && !activePlanName) {
+        activePlanName = await resolvePlanNameById(activePlanId)
       }
 
       if (activePlanId) {
@@ -1885,7 +1964,7 @@ export const fetchAvailableCouriersWithRates = async (
         (providerKey) => providerKey && !localRateProviderKeys.has(providerKey),
       )
 
-      if (missingServiceableProviders.length) {
+      if (missingServiceableProviders.length && !isKishoriPlanName(activePlanName)) {
         const fallbackPlanId = await resolvePlanIdByName('Basic')
         if (fallbackPlanId && fallbackPlanId !== activePlanId) {
           const fallbackRates = await fetchPlanRateCardsWithFallback(fallbackPlanId)
