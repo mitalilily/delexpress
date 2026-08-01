@@ -70,6 +70,53 @@ const ensureShadowfaxCourierRow = async () => {
   return inserted
 }
 
+const normalizeProvider = (value?: string | null) => String(value || '').trim().toLowerCase()
+const hasValue = (value?: string | null) => Boolean(String(value || '').trim())
+
+const providerHasUsableCredentials = (row: {
+  provider?: string | null
+  apiKey?: string | null
+  clientId?: string | null
+  username?: string | null
+  password?: string | null
+}) => {
+  const provider = normalizeProvider(row.provider)
+
+  if (provider === 'delhivery') return hasValue(row.apiKey)
+  if (provider === 'ekart') {
+    return hasValue(row.clientId) && hasValue(row.username) && hasValue(row.password)
+  }
+  if (provider === 'xpressbees') {
+    return hasValue(row.apiKey) || (hasValue(row.username) && hasValue(row.password))
+  }
+  if (provider === 'expressfly') return hasValue(row.apiKey) && hasValue(row.clientId)
+  if (provider === 'shadowfax') return hasValue(row.apiKey)
+
+  return false
+}
+
+const getCredentialedProviders = async () => {
+  const credentialRows = await db
+    .select({
+      provider: courier_credentials.provider,
+      apiKey: courier_credentials.apiKey,
+      clientId: courier_credentials.clientId,
+      username: courier_credentials.username,
+      password: courier_credentials.password,
+    })
+    .from(courier_credentials)
+
+  return new Set(
+    credentialRows
+      .filter(providerHasUsableCredentials)
+      .map((row) => normalizeProvider(row.provider))
+      .filter(Boolean),
+  )
+}
+
+const filterCouriersByCredentialedProvider = (rows: any[], credentialedProviders: Set<string>) =>
+  rows.filter((row) => credentialedProviders.has(normalizeProvider(row.serviceProvider)))
+
 const appendShadowfaxCourierIfMissing = (rows: any[], opts?: {
   search?: string
   serviceProvider?: string
@@ -187,6 +234,7 @@ export const getShippingRatesController = async (req: Request, res: Response) =>
 
 export const getAllCouriersController = async (req: Request, res: Response) => {
   try {
+    const credentialedProviders = await getCredentialedProviders()
     const courierList = await db
       .select({
         id: couriers.id,
@@ -198,9 +246,10 @@ export const getAllCouriersController = async (req: Request, res: Response) => {
       .from(couriers)
       .orderBy(desc(couriers.createdAt))
 
-    const mergedCourierList = appendShadowfaxCourierIfMissing(courierList).sort(
-      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
-    )
+    const mergedCourierList = filterCouriersByCredentialedProvider(
+      appendShadowfaxCourierIfMissing(courierList),
+      credentialedProviders,
+    ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
 
     res.json({ success: true, data: mergedCourierList })
   } catch (err) {
@@ -212,6 +261,7 @@ export const getAllCouriersController = async (req: Request, res: Response) => {
 export const getAllCouriersListController = async (req: Request, res: Response) => {
   try {
     const { search, serviceProvider, businessType } = req.query
+    const credentialedProviders = await getCredentialedProviders()
 
     const whereClauses = []
 
@@ -254,11 +304,14 @@ export const getAllCouriersListController = async (req: Request, res: Response) 
       .where(whereCondition)
       .orderBy(desc(couriers.createdAt))
 
-    const mergedCourierList = appendShadowfaxCourierIfMissing(courierList, {
-      search: typeof search === 'string' ? search : undefined,
-      serviceProvider: typeof serviceProvider === 'string' ? serviceProvider : undefined,
-      businessType: typeof businessType === 'string' ? businessType : undefined,
-    }).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    const mergedCourierList = filterCouriersByCredentialedProvider(
+      appendShadowfaxCourierIfMissing(courierList, {
+        search: typeof search === 'string' ? search : undefined,
+        serviceProvider: typeof serviceProvider === 'string' ? serviceProvider : undefined,
+        businessType: typeof businessType === 'string' ? businessType : undefined,
+      }),
+      credentialedProviders,
+    ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
 
     res.json({ success: true, data: mergedCourierList })
   } catch (err) {
