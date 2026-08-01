@@ -1,154 +1,15 @@
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm'
 import { billingInvoices, invoiceCodOffsets } from '../../schema/schema'
-import { isRazorpayConfigured, razorpayApi } from '../../utils/razorpay'
 import { db } from '../client'
-import { bankAccounts } from '../schema/bankAccounts'
 import { codRemittances } from '../schema/codRemittance'
 import { getInvoiceStatement } from './invoiceStatement.service'
 import { createWalletTransaction } from './wallet.service'
 import { walletOfUser } from './walletTopupService'
 
-const DEFAULT_RAZORPAY_PAYOUT_MODE = 'IMPS'
 export const COD_REMITTANCE_TYPE = 'cod'
 export const CANCELLATION_REMITTANCE_TYPE = 'cancellation'
 
 export type CodRemittanceType = typeof COD_REMITTANCE_TYPE | typeof CANCELLATION_REMITTANCE_TYPE
-
-const toRazorpayPaise = (amount: number) => Math.round(amount * 100)
-
-const formatRazorpayError = (error: any) => {
-  const responseError = error?.response?.data?.error
-  const description = responseError?.description || responseError?.reason || responseError?.code
-  return description || error?.message || 'Razorpay payout failed'
-}
-
-const findPayoutBankAccount = async (userId: string, tx: any) => {
-  const accounts = await tx
-    .select()
-    .from(bankAccounts)
-    .where(and(eq(bankAccounts.userId, userId), eq(bankAccounts.status, 'verified')))
-
-  return (
-    accounts.find((account: any) => account.isPrimary && account.fundAccountId) ||
-    accounts.find((account: any) => account.fundAccountId) ||
-    accounts.find((account: any) => account.isPrimary) ||
-    accounts[0] ||
-    null
-  )
-}
-
-const createRazorpayFundAccount = async (account: any) => {
-  if (!account?.accountHolder || !account?.accountNumber || !account?.ifsc) {
-    throw new Error('Verified bank account is missing account holder, account number, or IFSC')
-  }
-
-  const { data: contact } = await razorpayApi.post('/contacts', {
-    name: account.accountHolder,
-    type: 'customer',
-    notes: {
-      userId: account.userId,
-      bankAccountId: account.id,
-      purpose: 'COD remittance payout',
-    },
-  })
-
-  const { data: fundAccount } = await razorpayApi.post('/fund_accounts', {
-    contact_id: contact.id,
-    account_type: 'bank_account',
-    bank_account: {
-      name: account.accountHolder,
-      ifsc: account.ifsc,
-      account_number: account.accountNumber,
-    },
-  })
-
-  return fundAccount.id as string
-}
-
-const ensureRazorpayFundAccount = async (account: any, tx: any) => {
-  if (account?.fundAccountId) return account.fundAccountId as string
-
-  const fundAccountId = await createRazorpayFundAccount(account)
-  await tx.update(bankAccounts).set({ fundAccountId }).where(eq(bankAccounts.id, account.id))
-
-  return fundAccountId
-}
-
-const createCodRazorpayPayout = async ({
-  remittance,
-  amount,
-  utrNumber,
-  creditedBy,
-  tx,
-}: {
-  remittance: any
-  amount: number
-  utrNumber?: string
-  creditedBy?: string
-  tx: any
-}) => {
-  if (!isRazorpayConfigured) {
-    throw new Error('Razorpay is not configured for COD remittance payouts')
-  }
-
-  const sourceAccount = String(process.env.RAZORPAY_SOURCE_ACC || '').trim()
-  if (!sourceAccount) {
-    throw new Error('RAZORPAY_SOURCE_ACC is not configured for COD remittance payouts')
-  }
-
-  const bankAccount = await findPayoutBankAccount(remittance.userId, tx)
-  if (!bankAccount) {
-    throw new Error('Seller needs a verified bank account before COD remittance can be paid out')
-  }
-
-  const fundAccountId = await ensureRazorpayFundAccount(bankAccount, tx)
-  const payoutMode = String(process.env.RAZORPAY_COD_PAYOUT_MODE || DEFAULT_RAZORPAY_PAYOUT_MODE)
-    .trim()
-    .toUpperCase()
-
-  try {
-    const payoutPurpose =
-      remittance.remittanceType === CANCELLATION_REMITTANCE_TYPE
-        ? 'Cancellation refund payout'
-        : 'COD remittance payout'
-    const referencePrefix =
-      remittance.remittanceType === CANCELLATION_REMITTANCE_TYPE ? 'cancel' : 'cod'
-    const narrationPrefix =
-      remittance.remittanceType === CANCELLATION_REMITTANCE_TYPE ? 'CANCEL' : 'COD'
-
-    const { data } = await razorpayApi.post('/payouts', {
-      account_number: sourceAccount,
-      fund_account_id: fundAccountId,
-      amount: toRazorpayPaise(amount),
-      currency: 'INR',
-      mode: payoutMode,
-      purpose: 'payout',
-      queue_if_low_balance: true,
-      reference_id: `${referencePrefix}_${remittance.id}`,
-      narration: `${narrationPrefix} ${remittance.orderNumber}`.slice(0, 30),
-      notes: {
-        remittanceId: remittance.id,
-        orderId: remittance.orderId,
-        orderNumber: remittance.orderNumber,
-        remittanceType: remittance.remittanceType || COD_REMITTANCE_TYPE,
-        courierPartner: remittance.courierPartner || 'Unknown',
-        utrNumber: utrNumber || '',
-        creditedBy: creditedBy || 'system',
-        purpose: payoutPurpose,
-      },
-    })
-
-    return {
-      id: data.id as string,
-      status: data.status as string,
-      utr: (data.utr as string | undefined) || null,
-      fundAccountId,
-      mode: payoutMode,
-    }
-  } catch (error: any) {
-    throw new Error(formatRazorpayError(error))
-  }
-}
 
 type CodRemittancePayoutParams = {
   remittanceId: string
@@ -328,14 +189,14 @@ export async function createCancellationRemittance(params: {
     .returning()
 
   console.log(
-    `📦 Cancellation refund remittance created (PENDING): ₹${refundAmount} for order ${orderNumber}. Awaiting courier reversal before payout.`,
+    `📦 Cancellation refund remittance created (PENDING): ₹${refundAmount} for order ${orderNumber}. Awaiting admin wallet credit.`,
   )
 
   return { remittance, created: true }
 }
 
 /**
- * Settle COD through Razorpay, or manually credit cancellation freight refunds to the user's panel wallet.
+ * Record COD settlements handled outside the panel, or manually credit cancellation freight refunds to the user's panel wallet.
  */
 export async function initiateCodRemittancePayout(params: CodRemittancePayoutParams) {
   const { remittanceId, settledDate, utrNumber, settledAmount, notes, creditedBy } = params
@@ -428,26 +289,17 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
         throw new Error('Invalid settled amount. Amount to credit must be greater than 0.')
       }
 
-      // 3. Send COD settlement to the seller's Razorpay fund account.
-      const payout = await createCodRazorpayPayout({
-        remittance,
-        amount: amountToCredit,
-        utrNumber,
-        creditedBy,
-        tx,
-      })
-
-      // 4. Update remittance status to credited
+      // 3. Record COD settlement details. Actual COD payment is handled outside the panel.
       const adminNote = creditedBy
-        ? `Razorpay payout initiated by admin (ID: ${creditedBy}). `
-        : 'Razorpay payout initiated via settlement reconciliation. '
-      const payoutNote = `Razorpay payout: ${payout.id} (${payout.status}); Fund account: ${payout.fundAccountId}; Mode: ${payout.mode}`
-      const fullNotes = `${adminNote}${notes || ''} ${utrNumber ? `UTR: ${utrNumber}` : ''} ${payoutNote}`
+        ? `Manual COD settlement recorded by admin (ID: ${creditedBy}). `
+        : 'Manual COD settlement recorded via settlement reconciliation. '
+      const settlementNote = `${utrNumber ? `UTR: ${utrNumber}. ` : ''}${notes || ''}`
+      const fullNotes = `${adminNote}${settlementNote}`.trim()
 
       const [updatedRemittance] = await tx
         .update(codRemittances)
         .set({
-          // Persist the actual payout amount so admin summaries and exports reflect what was paid.
+          // Persist the actual settled amount so admin summaries and exports reflect the manual settlement.
           remittableAmount: amountToCredit.toString(),
           status: 'credited',
           creditedAt: settledDate || new Date(),
@@ -499,14 +351,11 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
       }
 
       console.log(
-        `COD remittance sent via Razorpay payout ${payout.id}: Rs ${amountToCredit} for order ${remittance.orderNumber}`,
+        `COD remittance settlement recorded manually: Rs ${amountToCredit} for order ${remittance.orderNumber}`,
       )
 
       return {
-        updatedRemittance: {
-          ...updatedRemittance,
-          razorpayPayout: payout,
-        },
+        updatedRemittance,
         autoOffsetInvoiceId,
       }
     })
@@ -538,7 +387,7 @@ export async function initiateCodRemittancePayout(params: CodRemittancePayoutPar
     })
 }
 
-// Backward-compatible alias for older callers. This still initiates a payout and never credits wallet.
+// Backward-compatible alias for older callers.
 export const creditCodRemittanceToWallet = initiateCodRemittancePayout
 
 /**

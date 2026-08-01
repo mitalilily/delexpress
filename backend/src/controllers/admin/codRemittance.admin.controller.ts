@@ -86,6 +86,7 @@ export const getAllCodRemittances = async (req: any, res: Response): Promise<any
     const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(codRemittances)
+      .leftJoin(users, eq(codRemittances.userId, users.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
 
     return res.json({
@@ -285,7 +286,7 @@ export const getUserCodRemittances = async (req: any, res: Response): Promise<an
 }
 
 /**
- * Admin: settle COD remittance or credit cancellation refund.
+ * Admin: record COD settlement or credit cancellation refund.
  */
 export const manualCreditWallet = async (req: any, res: Response): Promise<any> => {
   try {
@@ -299,7 +300,7 @@ export const manualCreditWallet = async (req: any, res: Response): Promise<any> 
     const updated = await initiateCodRemittancePayout({
       remittanceId,
       settledDate: settledDate ? new Date(settledDate) : new Date(), // Default to now
-      utrNumber: utrNumber || `MANUAL-${Date.now()}`, // Used only by payout-based settlements
+      utrNumber: utrNumber || `MANUAL-${Date.now()}`,
       settledAmount: settledAmount ? Number(settledAmount) : undefined,
       notes: notes || 'Manual settlement by admin',
       creditedBy: req.user?.sub || 'admin',
@@ -314,7 +315,7 @@ export const manualCreditWallet = async (req: any, res: Response): Promise<any> 
     console.error('[manualCreditWallet] Error:', error)
     return res.status(400).json({
       success: false,
-      message: error.message || 'Failed to initiate COD remittance payout',
+      message: error.message || 'Failed to process remittance settlement',
     })
   }
 }

@@ -280,8 +280,8 @@ export const previewCourierSettlementCsv = async (req: any, res: Response): Prom
 }
 
 /**
- * Admin: Confirm and pay selected remittances through Razorpay.
- * Step 2: After review, initiate payouts for selected orders.
+ * Admin: Confirm selected remittances after off-panel settlement.
+ * Step 2: After review, record settlements for selected orders.
  */
 export const confirmCourierSettlement = async (req: any, res: Response): Promise<any> => {
   try {
@@ -343,24 +343,25 @@ export const confirmCourierSettlement = async (req: any, res: Response): Promise
             ? parsedCourierAmount
             : undefined
 
-        // Initiate Razorpay payout
-        await initiateCodRemittancePayout({
+        // Record manual/off-panel settlement in the admin panel.
+        const settlementResult = await initiateCodRemittancePayout({
           remittanceId,
           settledDate: validSettledDate,
           utrNumber,
           settledAmount,
-          notes: `Razorpay payout from ${courierPartner || 'Courier'} CSV upload via admin panel`,
+          notes: `Manual settlement from ${courierPartner || 'Courier'} CSV upload via admin panel`,
           creditedBy: req.user?.sub || 'admin',
         })
+        const creditedAmount = Number(settlementResult?.remittableAmount ?? settledAmount ?? 0)
 
         results.credited.push({
           remittanceId,
           awb,
           orderNumber,
-          amount: settledAmount,
+          amount: creditedAmount,
         })
 
-        console.log(`✅ Credited ${awb}: ₹${settledAmount ?? 'system_amount'}`)
+        console.log(`Recorded settlement ${awb}: Rs ${creditedAmount}`)
       } catch (error: any) {
         results.failed.push({
           awb: item.awb,
@@ -371,13 +372,13 @@ export const confirmCourierSettlement = async (req: any, res: Response): Promise
       }
     }
 
-    const totalCredited = results.credited.reduce((sum, r) => sum + r.amount, 0)
+    const totalCredited = results.credited.reduce((sum, r) => sum + Number(r.amount || 0), 0)
 
     console.log(`
     ✅ Settlement Confirmed:
     ───────────────────────────────────────
     Total Processed:     ${results.total}
-    Successfully Credited: ${results.credited.length}
+    Successfully Recorded: ${results.credited.length}
     Failed:              ${results.failed.length}
     Total Amount:        ₹${totalCredited}
     UTR:                 ${utrNumber}
@@ -386,7 +387,7 @@ export const confirmCourierSettlement = async (req: any, res: Response): Promise
 
     return res.json({
       success: true,
-      message: `Successfully initiated payouts for ${results.credited.length} out of ${results.total} remittances`,
+      message: `Successfully recorded settlements for ${results.credited.length} out of ${results.total} remittances`,
       data: {
         credited: results.credited.length,
         failed: results.failed.length,
