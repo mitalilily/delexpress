@@ -203,6 +203,8 @@ const DEFAULT_SHIPPING_PACKAGE_PATH = '/services/rest/v1/oms/shippingPackage/cre
 const DEFAULT_BOOKING_PATH = '/services/rest/v1/oms/shippingPackage/createInvoiceAndGenerateLabel'
 
 const normalize = (value: unknown) => String(value ?? '').trim()
+const normalizeComparable = (value: unknown) => normalize(value).toLowerCase().replace(/\s+/g, ' ')
+const isExpressflyObjectId = (value: unknown) => /^[a-f0-9]{24}$/i.test(normalize(value))
 
 const mask = (value?: string | null) => {
   const raw = normalize(value)
@@ -890,16 +892,59 @@ export class ExpressflyService {
     }
   }
 
-  private async resolvePickupAddressId(explicitPickupId?: string) {
+  private selectWarehouseForPickup(warehouses: Array<Record<string, any>>, pickup?: ExpressflyShipmentParams['pickup']) {
+    if (!warehouses.length) return null
+
+    const activeWarehouses = warehouses.filter((warehouse) => warehouse?.is_active !== false)
+    const candidates = activeWarehouses.length ? activeWarehouses : warehouses
+    const pickupPincode = normalize(pickup?.pincode)
+    const pickupWarehouseName = normalizeComparable(pickup?.warehouse_name)
+    const pickupContactName = normalizeComparable(pickup?.name)
+
+    if (pickupPincode) {
+      const pincodeMatch = candidates.find((warehouse) => normalize(warehouse?.pincode) === pickupPincode)
+      if (pincodeMatch) return pincodeMatch
+    }
+
+    if (pickupWarehouseName) {
+      const nameMatch = candidates.find(
+        (warehouse) => normalizeComparable(warehouse?.warehouse_name) === pickupWarehouseName,
+      )
+      if (nameMatch) return nameMatch
+    }
+
+    if (pickupContactName) {
+      const contactMatch = candidates.find(
+        (warehouse) => normalizeComparable(warehouse?.contact_person_name) === pickupContactName,
+      )
+      if (contactMatch) return contactMatch
+    }
+
+    return candidates[0]
+  }
+
+  private async resolvePickupAddressId(
+    explicitPickupId?: string,
+    pickup?: ExpressflyShipmentParams['pickup'],
+  ) {
     const explicit = normalize(explicitPickupId)
-    if (explicit) return explicit
+    if (isExpressflyObjectId(explicit)) return explicit
+
+    if (explicit) {
+      this.log('Ignoring non-Expressfly pickup id for booking', {
+        providedPickupId: explicit,
+        pickupWarehouseName: normalize(pickup?.warehouse_name) || null,
+        pickupPincode: normalize(pickup?.pincode) || null,
+      })
+    }
 
     const envPickupId = normalize(this.pickupAddressId)
-    if (envPickupId) return envPickupId
+    if (isExpressflyObjectId(envPickupId)) return envPickupId
 
     const warehouseList = await this.getWarehouseList({ forceRefresh: false, limit: 1000, page: 1 })
-    const firstWarehouse = Array.isArray(warehouseList.data) ? warehouseList.data[0] : null
-    const resolved = normalize(firstWarehouse?._id || firstWarehouse?.id)
+    const warehouses = Array.isArray(warehouseList.data) ? warehouseList.data : []
+    const selectedWarehouse = this.selectWarehouseForPickup(warehouses, pickup)
+    const resolved = normalize(selectedWarehouse?._id || selectedWarehouse?.id)
 
     if (!resolved) {
       throw new HttpError(
@@ -907,6 +952,14 @@ export class ExpressflyService {
         'Expressfly pickup address id is missing and no warehouse records were found.',
       )
     }
+
+    this.log('Resolved Expressfly pickup warehouse', {
+      warehouseId: mask(resolved),
+      warehouseName: normalize(selectedWarehouse?.warehouse_name) || null,
+      warehousePincode: normalize(selectedWarehouse?.pincode) || null,
+      requestedPickupWarehouseName: normalize(pickup?.warehouse_name) || null,
+      requestedPickupPincode: normalize(pickup?.pincode) || null,
+    })
 
     return resolved
   }
@@ -1125,7 +1178,7 @@ export class ExpressflyService {
   async createOrder(params: ExpressflyShipmentParams) {
     await this.ensureConfigLoaded()
     const token = await this.getAccessToken()
-    const pickupAddressId = await this.resolvePickupAddressId(params.pickup_location_id)
+    const pickupAddressId = await this.resolvePickupAddressId(params.pickup_location_id, params.pickup)
     const productItems = this.buildSaleOrderItems(params.order_number, params.order_items || [])
     const product_quantity = productItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
     const productdetatis = productItems.map((item) => ({
