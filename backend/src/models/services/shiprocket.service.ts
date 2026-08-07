@@ -4255,6 +4255,21 @@ export const createB2CShipmentService = async (
       console.log('→ Using Expressfly create-order API...')
 
       const expressfly = new ExpressflyService()
+      let expressflyCourierName = params.courier_partner
+      if (!expressflyCourierName && params.courier_id) {
+        const [expressflyCourierRow] = await db
+          .select({ name: couriers.name })
+          .from(couriers)
+          .where(
+            and(
+              eq(couriers.id, Number(params.courier_id)),
+              eq(couriers.serviceProvider, 'expressfly'),
+            ),
+          )
+          .limit(1)
+        expressflyCourierName = expressflyCourierRow?.name
+      }
+
       shipmentData = await expressfly.createOrder({
         order_number: params.order_number,
         payment_type: params.payment_type,
@@ -4265,15 +4280,15 @@ export const createB2CShipmentService = async (
         order_items: params.order_items as any,
         pickup_location_id: params.pickup_location_id,
         integration_type: params.integration_type,
+        shippingCourier: expressflyCourierName,
       } as any)
 
       const expressflyPackage = shipmentData?.raw || shipmentData
       const expressflyWaybill =
-        shipmentData?.orderId ||
-        expressflyPackage?.data?.order_id ||
-        expressflyPackage?.orderId ||
-        expressflyPackage?.order_id ||
         expressflyPackage?.trackingNumber ||
+        expressflyPackage?.ship?.data?.awb ||
+        expressflyPackage?.ship?.awb ||
+        shipmentData?.trackingNumber ||
         expressflyPackage?.awb_number ||
         expressflyPackage?.waybill ||
         null
@@ -4285,26 +4300,32 @@ export const createB2CShipmentService = async (
 
       if (!expressflyWaybill) {
         console.error('❌ Missing Expressfly booking identifiers:', shipmentData)
-        throw new HttpError(500, 'Expressfly did not return an order id')
+        throw new HttpError(500, 'Expressfly did not return an AWB after shipping')
       }
 
       shipmentSuccessPackage = {
         waybill: expressflyWaybill,
         label: expressflyPackage?.label ?? expressflyPackage?.shippingLabelLink ?? null,
         manifest: expressflyPackage?.manifest ?? null,
-        courier_name: expressflyPackage?.shippingProviderName ?? 'Expressfly Logistics',
+        courier_name:
+          shipmentData?.shippingProviderName ??
+          expressflyPackage?.shippingProviderName ??
+          'Expressfly Logistics',
         courier_id: params.courier_id ?? null,
         status: shipmentData?.status ?? shipmentData?.successful ?? null,
-        sort_code: expressflyPackage?.shippingProviderCode ?? null,
+        sort_code: shipmentData?.shippingProviderCode ?? expressflyPackage?.shippingProviderCode ?? null,
       }
 
       providerCourierCost = params?.courier_cost ?? null
-      providerSortCode = expressflyPackage?.shippingProviderCode ?? null
+      providerSortCode = shipmentData?.shippingProviderCode ?? expressflyPackage?.shippingProviderCode ?? null
 
       shipmentMeta = {
-        shipment_id: expressflyWaybill ?? undefined,
+        shipment_id: shipmentData?.orderId ?? expressflyWaybill ?? undefined,
         awb_number: expressflyWaybill ?? undefined,
-        courier_name: expressflyPackage?.shippingProviderName ?? 'Expressfly Logistics',
+        courier_name:
+          shipmentData?.shippingProviderName ??
+          expressflyPackage?.shippingProviderName ??
+          'Expressfly Logistics',
         courier_id: params.courier_id ? Number(params.courier_id) : null,
         label: expressflyPackage?.label ?? expressflyPackage?.shippingLabelLink ?? undefined,
         manifest: expressflyPackage?.manifest ?? undefined,

@@ -197,6 +197,7 @@ const DEFAULT_AUTH_PATH = '/unicommerce/authToken'
 const DEFAULT_PROFILE_PATH = '/auth/get-profile'
 const DEFAULT_ORDERS_PATH = '/orders'
 const DEFAULT_ORDER_RATES_PATH = '/orders/get-rates'
+const DEFAULT_SHIP_ORDER_PATH = '/admin/orders/b2c/ship-order'
 const DEFAULT_WAREHOUSE_LIST_PATH = '/admin/users/warehouse/list'
 const DEFAULT_SALE_ORDER_PATH = '/services/rest/v1/oms/saleOrder/create'
 const DEFAULT_SHIPPING_PACKAGE_PATH = '/services/rest/v1/oms/shippingPackage/create'
@@ -204,6 +205,13 @@ const DEFAULT_BOOKING_PATH = '/services/rest/v1/oms/shippingPackage/createInvoic
 
 const normalize = (value: unknown) => String(value ?? '').trim()
 const normalizeComparable = (value: unknown) => normalize(value).toLowerCase().replace(/\s+/g, ' ')
+const normalizeCarrierKey = (value: unknown) =>
+  normalize(value)
+    .toUpperCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\d+(\.\d+)?\s*KG\b/g, ' ')
+    .replace(/\b(AIR|SURFACE|EXPRESS|DIRECT)\b/g, ' ')
+    .replace(/[^A-Z0-9]+/g, '')
 const isExpressflyObjectId = (value: unknown) => /^[a-f0-9]{24}$/i.test(normalize(value))
 
 const mask = (value?: string | null) => {
@@ -244,6 +252,7 @@ export class ExpressflyService {
   private profilePath = process.env.EXPRESSFLY_PROFILE_PATH || DEFAULT_PROFILE_PATH
   private ordersPath = process.env.EXPRESSFLY_ORDERS_PATH || DEFAULT_ORDERS_PATH
   private orderRatesPath = process.env.EXPRESSFLY_ORDER_RATES_PATH || DEFAULT_ORDER_RATES_PATH
+  private shipOrderPath = process.env.EXPRESSFLY_SHIP_ORDER_PATH || DEFAULT_SHIP_ORDER_PATH
   private warehouseListPath =
     process.env.EXPRESSFLY_WAREHOUSE_LIST_PATH || DEFAULT_WAREHOUSE_LIST_PATH
   private saleOrderPath = process.env.EXPRESSFLY_SALE_ORDER_PATH || DEFAULT_SALE_ORDER_PATH
@@ -1175,6 +1184,132 @@ export class ExpressflyService {
     }
   }
 
+  private extractRates(result: ExpressflyRatesResponse | any): ExpressflyOrderRate[] {
+    const data = result?.data ?? result
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.rates)) return data.rates
+    if (Array.isArray(data?.data)) return data.data
+    return []
+  }
+
+  private getRateLogisticId(rate: ExpressflyOrderRate) {
+    return normalize(
+      rate?.logistic_id ||
+        rate?.courier_info?.logistic_id ||
+        rate?.courier_info?.id ||
+        rate?.logisticId,
+    )
+  }
+
+  private getRateCourierName(rate: ExpressflyOrderRate) {
+    return normalize(
+      rate?.logistic ||
+        rate?.logistic_name ||
+        rate?.courier_info?.logistic_name ||
+        rate?.courier_info?.name ||
+        rate?.courier_info?.api_name ||
+        rate?.courier_name ||
+        rate?.shippingProviderName,
+    )
+  }
+
+  private getRateTotal(rate: ExpressflyOrderRate) {
+    return Number(
+      rate?.total ??
+        rate?.price_info?.total ??
+        rate?.price_info?.total_charge ??
+        rate?.price_info?.amount ??
+        Number.MAX_SAFE_INTEGER,
+    )
+  }
+
+  private pickOrderRate(
+    rates: ExpressflyOrderRate[],
+    params: ExpressflyShipmentParams,
+  ): ExpressflyOrderRate | null {
+    if (!rates.length) return null
+
+    const requestedCode = normalize(params.shippingProviderCode)
+    const requestedName = normalize(params.shippingCourier)
+    const requestedKey = normalizeCarrierKey(requestedName)
+    const hasSpecificRequestedName =
+      Boolean(requestedKey) && requestedKey !== normalizeCarrierKey('Expressfly Logistics')
+
+    const byPrice = [...rates].sort((a, b) => this.getRateTotal(a) - this.getRateTotal(b))
+
+    if (requestedCode) {
+      const codeMatch = byPrice.find((rate) => {
+        const tempRateId = normalize(rate?.temp_rate_id)
+        const logisticId = this.getRateLogisticId(rate)
+        return [tempRateId, logisticId].includes(requestedCode)
+      })
+      if (codeMatch) return codeMatch
+    }
+
+    if (hasSpecificRequestedName) {
+      const nameMatch = byPrice.find((rate) => {
+        const rateKey = normalizeCarrierKey(this.getRateCourierName(rate))
+        return Boolean(rateKey) && (rateKey === requestedKey || rateKey.includes(requestedKey))
+      })
+      if (nameMatch) return nameMatch
+      return null
+    }
+
+    return byPrice[0]
+  }
+
+  private extractAwb(raw: any) {
+    const data = raw?.data ?? raw
+    return normalize(
+      data?.awb ||
+        data?.awb_number ||
+        data?.waybill ||
+        data?.trackingNumber ||
+        data?.tracking_number ||
+        raw?.awb ||
+        raw?.awb_number ||
+        raw?.waybill,
+    )
+  }
+
+  async shipOrderWithRate(tempRateId: string) {
+    await this.ensureConfigLoaded()
+    const token = await this.getAccessToken()
+    const normalizedTempRateId = normalize(tempRateId)
+
+    if (!normalizedTempRateId) {
+      throw new HttpError(400, 'Expressfly temp_rate_id is required for shipping')
+    }
+
+    this.log('Ship order request', {
+      url: this.buildUrl(this.shipOrderPath),
+      tempRateId: normalizedTempRateId,
+    })
+
+    const response = await axios.post(
+      this.buildUrl(this.shipOrderPath),
+      { temp_rate_id: normalizedTempRateId },
+      {
+        timeout: 60000,
+        headers: {
+          Authorization: token,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        validateStatus: (status) => status >= 200 && status < 500,
+      },
+    )
+
+    if (response.status >= 400 || response.data?.success === false || response.data?.status === 0) {
+      throw new HttpError(
+        response.status >= 400 ? response.status : 502,
+        this.extractErrorMessage({ response }, 'Expressfly order shipping failed'),
+      )
+    }
+
+    return response.data
+  }
+
   async createOrder(params: ExpressflyShipmentParams) {
     await this.ensureConfigLoaded()
     const token = await this.getAccessToken()
@@ -1239,12 +1374,60 @@ export class ExpressflyService {
     }
 
     const data = response.data?.data ?? response.data
+    const orderId = normalize(data?.order_id || data?.orderId)
+    if (!orderId) {
+      throw new HttpError(502, 'Expressfly order creation did not return an order id')
+    }
+
+    const ratesResult = await this.getOrderRates(orderId)
+    const rates = this.extractRates(ratesResult)
+    const selectedRate = this.pickOrderRate(rates, params)
+
+    if (!selectedRate?.temp_rate_id) {
+      const requestedCourier = normalize(params.shippingCourier || params.shippingProviderCode)
+      const availableCouriers = rates.map((rate) => this.getRateCourierName(rate)).filter(Boolean)
+      this.log('No matching Expressfly courier rate found', {
+        orderId,
+        requestedCourier: requestedCourier || null,
+        availableCouriers,
+      })
+      throw new HttpError(
+        502,
+        requestedCourier
+          ? `Expressfly did not return an available ${requestedCourier} rate for this order.`
+          : 'Expressfly did not return any available courier rate for this order.',
+      )
+    }
+
+    this.log('Selected order rate for shipping', {
+      orderId,
+      tempRateId: selectedRate.temp_rate_id,
+      logisticId: this.getRateLogisticId(selectedRate),
+      courier: this.getRateCourierName(selectedRate),
+      total: this.getRateTotal(selectedRate),
+    })
+
+    const shipRaw = await this.shipOrderWithRate(selectedRate.temp_rate_id)
+    const awb = this.extractAwb(shipRaw)
+
+    if (!awb) {
+      throw new HttpError(502, 'Expressfly shipped the order but did not return an AWB')
+    }
+
     return {
       successful: Boolean(response.data?.status === 1 || response.data?.success === true),
-      status: response.data?.status ?? response.status,
-      message: response.data?.message || 'Order created successfully.',
-      orderId: normalize(data?.order_id || data?.orderId),
-      raw: response.data,
+      status: shipRaw?.status ?? shipRaw?.success ?? response.data?.status ?? response.status,
+      message: shipRaw?.message || response.data?.message || 'Order shipped successfully.',
+      orderId,
+      shippingProviderCode: this.getRateLogisticId(selectedRate),
+      shippingProviderName: this.getRateCourierName(selectedRate) || this.shippingCourier,
+      trackingNumber: awb,
+      raw: {
+        create: response.data,
+        rates: ratesResult.raw ?? ratesResult,
+        selectedRate,
+        ship: shipRaw,
+      },
     }
   }
 
