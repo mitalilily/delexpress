@@ -109,6 +109,13 @@ export const isShopifySyncedOrderReadyForCourier = (order: BulkOrderDocumentShap
   return provider === 'shopify' && !hasAwb && !['cancelled', 'delivered', 'rto'].includes(status)
 }
 
+export const isManifestFailedOrderReadyForRebook = (order: BulkOrderDocumentShape) => {
+  const status = String(order.order_status || '').trim().toLowerCase()
+  const hasAwb = Boolean(String(order.awb_number || '').trim())
+
+  return status === 'manifest_failed' && !hasAwb
+}
+
 const sanitizeFileNameSegment = (value: string) =>
   value
     .trim()

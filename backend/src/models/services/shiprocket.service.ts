@@ -2990,16 +2990,26 @@ export async function createB2COrder({
         !String(order.awb_number || '').trim(),
     )
 
-  if (sourceOrderId && !isAttachableShopifyOrder(existingSourceOrder)) {
+  const isAttachableManifestFailedOrder = (order: any) =>
+    Boolean(
+      order &&
+        String(order.order_status || '').toLowerCase() === 'manifest_failed' &&
+        !String(order.awb_number || '').trim(),
+    )
+
+  const isAttachableSourceOrder = (order: any) =>
+    isAttachableShopifyOrder(order) || isAttachableManifestFailedOrder(order)
+
+  if (sourceOrderId && !isAttachableSourceOrder(existingSourceOrder)) {
     throw new HttpError(
       400,
-      'The selected Shopify order is not available for courier booking.',
+      'The selected order is not available for courier booking.',
     )
   }
 
-  const targetShopifyOrder = isAttachableShopifyOrder(existingSourceOrder)
+  const targetShopifyOrder = isAttachableSourceOrder(existingSourceOrder)
     ? existingSourceOrder
-    : isAttachableShopifyOrder(existingSameOrderNumber)
+    : isAttachableSourceOrder(existingSameOrderNumber)
       ? existingSameOrderNumber
       : null
 

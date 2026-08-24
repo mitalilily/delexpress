@@ -79,7 +79,7 @@ export type B2CFormData = {
   pickupLocationId?: string
   pickupLocationPincode?: string
   pickupLocationName?: string
-  integrationType?: 'delhivery' | 'ekart' | 'xpressbees' | 'icarry'
+  integrationType?: 'delhivery' | 'ekart' | 'xpressbees' | 'expressfly' | 'shadowfax' | 'icarry'
   wbn?: string
   pickupAddress?: string
   pickupLocationPOCName?: string
@@ -119,6 +119,19 @@ const normalizeSourceProducts = (products: unknown): Product[] => {
   return normalized.length ? normalized : [{ productName: 'Item', price: 0, quantity: 1 }]
 }
 
+const normalizeSourceDetails = (value: unknown): Record<string, unknown> => {
+  if (!value) return {}
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value)
+      return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch {
+      return {}
+    }
+  }
+  return typeof value === 'object' ? (value as Record<string, unknown>) : {}
+}
+
 const buildDefaultValues = (
   sourceOrder: B2COrder | null | undefined,
   defaultPickupDate: string,
@@ -142,6 +155,8 @@ const buildDefaultValues = (
   const orderType: 'prepaid' | 'cod' =
     String(sourceOrder.order_type || '').toLowerCase() === 'cod' ? 'cod' : 'prepaid'
   const orderDate = String(sourceOrder.order_date || sourceOrder.created_at || '').slice(0, 10)
+  const pickupDetails = normalizeSourceDetails(sourceOrder.pickup_details)
+  const rtoDetails = normalizeSourceDetails(sourceOrder.rto_details)
 
   return {
     ...base,
@@ -173,6 +188,24 @@ const buildDefaultValues = (
     courierPartner: '',
     courierPartnerId: '',
     integrationType: undefined,
+    pickupLocationId: sourceOrder.pickup_location_id || '',
+    pickupLocationName: String(pickupDetails.warehouse_name || ''),
+    pickupLocationPOCName: String(pickupDetails.name || ''),
+    pickupLocationPOCPhone: String(pickupDetails.phone || ''),
+    pickupAddress: String(pickupDetails.address || ''),
+    pickupCity: String(pickupDetails.city || ''),
+    pickupState: String(pickupDetails.state || ''),
+    pickupLocationPincode: String(pickupDetails.pincode || ''),
+    pickupDate: String(pickupDetails.pickup_date || defaultPickupDate).slice(0, 10),
+    pickupTime: String(pickupDetails.pickup_time || ''),
+    isRtoSame: !sourceOrder.is_rto_different,
+    rtoLocationName: String(rtoDetails.warehouse_name || ''),
+    rtoLocationPOCName: String(rtoDetails.name || ''),
+    rtoLocationPOCPhone: String(rtoDetails.phone || ''),
+    rtoAddress: String(rtoDetails.address || ''),
+    rtoCity: String(rtoDetails.city || ''),
+    rtoState: String(rtoDetails.state || ''),
+    rtoLocationPincode: String(rtoDetails.pincode || ''),
   }
 }
 

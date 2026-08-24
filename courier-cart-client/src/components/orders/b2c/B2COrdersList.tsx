@@ -71,6 +71,7 @@ import {
   getDownloadFileName,
   getOrderDocumentLabel,
   isB2CManifestEligible,
+  isManifestFailedOrderReadyForRebook,
   isShopifySyncedOrderReadyForCourier,
   resolveDocumentEntriesForDownload,
   summarizeMessages,
@@ -120,6 +121,7 @@ type ActionMenuAction =
   | 'track-shipment'
   | 'sync-live-status'
   | 'select-courier'
+  | 'rebook-courier'
   | 'reverse-shipment'
   | 'retry-manifest'
   | 'ship-now'
@@ -1381,6 +1383,11 @@ const B2COrdersList = () => {
       return
     }
 
+    if (action === 'rebook-courier') {
+      setShopifyOrderForCourier(row)
+      return
+    }
+
     if (action === 'reverse-shipment') {
       setReverseOrder(row)
       return
@@ -1857,6 +1864,7 @@ const B2COrdersList = () => {
               {isShippingNow ? 'Shipping Now...' : 'Ship Now'}
             </MenuItem>
             {(isShopifySyncedOrderReadyForCourier(actionMenuOrder) ||
+              isManifestFailedOrderReadyForRebook(actionMenuOrder) ||
               (actionMenuOrder.order_status || '').toLowerCase() === 'delivered' ||
               (String(actionMenuOrder.order_status || '').toLowerCase() === 'manifest_failed' &&
                 actionMenuOrder.can_retry_manifest === true &&
@@ -1869,6 +1877,14 @@ const B2COrdersList = () => {
                   <MdLocalShipping size={18} />
                 </ListItemIcon>
                 Select Courier
+              </MenuItem>
+            )}
+            {isManifestFailedOrderReadyForRebook(actionMenuOrder) && (
+              <MenuItem onClick={() => void runActionMenuAction('rebook-courier')}>
+                <ListItemIcon sx={{ minWidth: 34 }}>
+                  <MdLocalShipping size={18} />
+                </ListItemIcon>
+                Rebook with Different Courier
               </MenuItem>
             )}
             {(actionMenuOrder.order_status || '').toLowerCase() === 'delivered' && (
@@ -1995,7 +2011,13 @@ const B2COrdersList = () => {
           setDrawerOpen(false)
           setShopifyOrderForCourier(null)
         }}
-        title={shopifyOrderForCourier ? 'Select Courier' : 'Create New B2C Order'}
+        title={
+          shopifyOrderForCourier
+            ? isManifestFailedOrderReadyForRebook(shopifyOrderForCourier)
+              ? 'Rebook with Different Courier'
+              : 'Select Courier'
+            : 'Create New B2C Order'
+        }
       >
         {shopifyOrderForCourier ? (
           <B2COrderFormSteps

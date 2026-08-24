@@ -27,6 +27,7 @@ import {
   getDownloadFileName,
   getOrderDocumentLabel,
   isB2CManifestEligible,
+  isManifestFailedOrderReadyForRebook,
   isShopifySyncedOrderReadyForCourier,
   resolveDocumentEntriesForDownload,
   summarizeMessages,
@@ -527,7 +528,11 @@ const AllOrders = () => {
       sticky: 'right',
       stickyOffset: 0,
       render: (_v, row) => {
-        if (row.type === 'b2c' && isShopifySyncedOrderReadyForCourier(row)) {
+        if (
+          row.type === 'b2c' &&
+          (isShopifySyncedOrderReadyForCourier(row) || isManifestFailedOrderReadyForRebook(row))
+        ) {
+          const isRebook = isManifestFailedOrderReadyForRebook(row)
           return (
             <Button
               size="small"
@@ -535,7 +540,7 @@ const AllOrders = () => {
               onClick={() => setShopifyOrderForCourier(row)}
               sx={{ px: 1.25, minWidth: 0, textTransform: 'none' }}
             >
-              Select Courier
+              {isRebook ? 'Rebook Courier' : 'Select Courier'}
             </Button>
           )
         }
@@ -769,7 +774,11 @@ const AllOrders = () => {
         width={1200}
         open={Boolean(shopifyOrderForCourier)}
         onClose={() => setShopifyOrderForCourier(null)}
-        title="Select Courier"
+        title={
+          shopifyOrderForCourier && isManifestFailedOrderReadyForRebook(shopifyOrderForCourier)
+            ? 'Rebook with Different Courier'
+            : 'Select Courier'
+        }
       >
         {shopifyOrderForCourier ? (
           <B2COrderFormSteps
