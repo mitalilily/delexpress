@@ -9,6 +9,7 @@ import {
   normalizeShopifyDomain,
   upsertShopifySettingsMetafield,
 } from "../models/services/PlatformIntegration.service";
+import { exchangeShopifyClientCredentials, syncShopifyOrdersForUser } from "../models/services/shopify.service";
 import {
   updateUserChannelIntegration,
   upsertStore,
@@ -105,6 +106,8 @@ export const integrateShopifyStore = async (
     api_key,
     clientId,
     client_id,
+    clientSecret,
+    client_secret,
     adminApiAccessToken,
     adminAccessToken,
     accessToken,
@@ -145,7 +148,16 @@ export const integrateShopifyStore = async (
       firstNonBlank(storeUrl, domain, storeForUpdate?.domain)
     );
     const effectiveApiKey = firstNonBlank(apiKey, api_key, clientId, client_id, storeForUpdate?.apiKey);
-    const effectiveAdminApiAccessToken = firstNonBlank(
+    const effectiveClientSecret = firstNonBlank(
+      clientSecret,
+      client_secret,
+      webhookSecret,
+      shopifyWebhookSecret,
+      apiSecret,
+      apiSecretKey,
+      getStoreWebhookSecret(storeForUpdate)
+    );
+    let effectiveAdminApiAccessToken = firstNonBlank(
       adminApiAccessToken,
       adminAccessToken,
       accessToken,
@@ -155,18 +167,15 @@ export const integrateShopifyStore = async (
       password,
       storeForUpdate?.adminApiAccessToken
     );
-    const effectiveWebhookSecret = firstNonBlank(
-      webhookSecret,
-      shopifyWebhookSecret,
-      apiSecret,
-      apiSecretKey,
-      getStoreWebhookSecret(storeForUpdate)
-    );
+    const effectiveWebhookSecret = effectiveClientSecret;
 
     const missingFields: string[] = [];
     if (!effectiveStoreUrl) missingFields.push("Shopify store URL");
     if (!firstNonBlank(effectiveAdminApiAccessToken, effectiveApiKey)) {
-      missingFields.push("Admin API access token");
+      missingFields.push("Client ID or Admin API access token");
+    }
+    if (!firstNonBlank(effectiveAdminApiAccessToken, effectiveClientSecret)) {
+      missingFields.push("Client secret");
     }
 
     if (missingFields.length) {
@@ -174,6 +183,26 @@ export const integrateShopifyStore = async (
         error: `Missing required Shopify fields: ${missingFields.join(", ")}`,
         missingFields,
       });
+    }
+
+    let tokenExchangeWarning: string | null = null;
+    if (!effectiveAdminApiAccessToken && effectiveApiKey && effectiveClientSecret) {
+      try {
+        const tokenResponse = await exchangeShopifyClientCredentials({
+          shop: effectiveStoreUrl,
+          clientId: effectiveApiKey,
+          clientSecret: effectiveClientSecret,
+        });
+        effectiveAdminApiAccessToken = firstNonBlank(tokenResponse?.access_token);
+        if (!effectiveAdminApiAccessToken) {
+          throw new Error("Shopify did not return an Admin API access token");
+        }
+      } catch (error: any) {
+        const message = error?.response?.data?.error_description || error?.response?.data?.error || error?.message;
+        throw new Error(`Shopify client credentials token exchange failed: ${message || "unknown error"}`);
+      }
+    } else if (effectiveAdminApiAccessToken) {
+      tokenExchangeWarning = "Connected using the supplied Admin API access token.";
     }
 
     const shopifyData = await integrateWithShopify(
@@ -263,6 +292,16 @@ export const integrateShopifyStore = async (
         'Store connected. Add the Shopify API secret key later to enable webhook auto-sync.'
     }
 
+    let syncResult: any = null;
+    let syncWarning: string | null = null;
+    try {
+      syncResult = await syncShopifyOrdersForUser(userId, 50, storeId);
+    } catch (error: any) {
+      syncWarning = error?.message
+        ? `Store connected, but initial 30-day unbooked order sync failed: ${error.message}`
+        : "Store connected, but initial 30-day unbooked order sync failed";
+    }
+
     res.status(200).json({
       message: "Shopify integration successful!",
       data: {
@@ -273,8 +312,9 @@ export const integrateShopifyStore = async (
           myshopify_domain: shopifyData.shop.myshopify_domain,
         },
       },
+      sync: syncResult,
       webhooks: webhookStatus,
-      warning: [settingsWarning, webhookWarning].filter(Boolean).join(" ") || null,
+      warning: [settingsWarning, webhookWarning, syncWarning, tokenExchangeWarning].filter(Boolean).join(" ") || null,
     });
   } catch (error: any) {
     console.error("❌ Error integrating Shopify:", summarizeShopifyError(error));

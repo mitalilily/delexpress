@@ -187,6 +187,11 @@ app.post(
   express.raw({ type: 'application/json' }),
   shopifyOrderWebhookController,
 )
+app.post(
+  '/api/webhooks/shopify/order-created',
+  express.raw({ type: 'application/json' }),
+  shopifyOrderWebhookController,
+)
 
 // Razorpay validates its HMAC against the exact raw JSON payload.
 app.post(

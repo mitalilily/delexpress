@@ -336,7 +336,7 @@ const resolveExpressoproApiBaseUrl = () => {
 
 const resolveWebhookAddress = () => {
   const baseUrl = resolveExpressoproApiBaseUrl()
-  return `${baseUrl}/api/webhook/shopify/orders`
+  return `${baseUrl}/api/webhooks/shopify/order-created`
 }
 
 export const ensureShopifyOrderWebhooks = async ({

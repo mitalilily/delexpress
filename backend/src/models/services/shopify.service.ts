@@ -7,7 +7,8 @@ import { stores } from '../schema/stores'
 import { buildShopifyRequestConfig, normalizeShopifyAuthMode } from './PlatformIntegration.service'
 
 const SHOPIFY_PLATFORM_ID = 1
-const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-01'
+const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-07'
+const SHOPIFY_API_TIMEOUT_MS = Number(process.env.PLATFORM_API_TIMEOUT_MS || 15000)
 
 type ShopifyStore = typeof stores.$inferSelect
 
@@ -104,6 +105,41 @@ const mapShopifyStatus = (order: any): string => {
   if (fulfillmentStatus === 'fulfilled') return 'delivered'
   if (fulfillmentStatus === 'partial') return 'in_transit'
   return 'pending'
+}
+
+export const exchangeShopifyClientCredentials = async ({
+  shop,
+  clientId,
+  clientSecret,
+}: {
+  shop: string
+  clientId: string
+  clientSecret: string
+}) => {
+  const normalizedShop = normalizeDomain(shop)
+  if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(normalizedShop)) {
+    throw new Error('Enter a valid Shopify myshopify.com store domain')
+  }
+
+  const params = new URLSearchParams({
+    client_id: String(clientId || '').trim(),
+    client_secret: String(clientSecret || '').trim(),
+    grant_type: 'client_credentials',
+  })
+
+  const response = await axios.post(
+    `https://${normalizedShop}/admin/oauth/access_token`,
+    params.toString(),
+    {
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      timeout: SHOPIFY_API_TIMEOUT_MS,
+    },
+  )
+
+  return response.data
 }
 
 const shouldPreserveLocalCourierStatus = (existingOrder: any) => {
@@ -318,6 +354,7 @@ const fetchShopifyOrders = async (store: ShopifyStore, limit = 50) => {
   const base = `https://${normalizeDomain(store.domain)}/admin/api/${SHOPIFY_API_VERSION}`
   const requestConfig = buildShopifyStoreRequestConfig(store)
   const targetLimit = Math.max(1, Math.min(Number(limit) || 50, 250))
+  const createdAtMin = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const orders: any[] = []
   let pageInfo: string | null = null
 
@@ -326,7 +363,15 @@ const fetchShopifyOrders = async (store: ShopifyStore, limit = 50) => {
     const pageLimit = Math.min(remaining, 250)
     const res: any = await axios.get(`${base}/orders.json`, {
       ...requestConfig,
-      params: pageInfo ? { limit: pageLimit, page_info: pageInfo } : { status: 'any', limit: pageLimit },
+      params: pageInfo
+        ? { limit: pageLimit, page_info: pageInfo }
+        : {
+            status: 'any',
+            fulfillment_status: 'unshipped',
+            created_at_min: createdAtMin,
+            order: 'created_at desc',
+            limit: pageLimit,
+          },
       timeout: 30000,
     })
 
@@ -436,6 +481,10 @@ const upsertFromShopifyOrder = async (
       or(eq(b2c_orders.order_id, internalOrderId), eq(b2c_orders.order_id, legacyInternalOrderId)),
     )
     .limit(1)
+
+  if (shouldPreserveLocalCourierStatus(existingOrder)) {
+    return 'skipped' as const
+  }
 
   const resolvedOrderNumber = existingOrder?.order_number
     ? String(existingOrder.order_number)
