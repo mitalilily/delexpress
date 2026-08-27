@@ -117,6 +117,20 @@ const getCredentialedProviders = async () => {
 const filterCouriersByCredentialedProvider = (rows: any[], credentialedProviders: Set<string>) =>
   rows.filter((row) => credentialedProviders.has(normalizeProvider(row.serviceProvider)))
 
+const dedupeCouriersByScope = (rows: any[]) => {
+  const seen = new Set<string>()
+  return rows.filter((row) => {
+    const key = [
+      String(row?.id ?? '').trim(),
+      normalizeProvider(row?.serviceProvider),
+      normalizeProvider(row?.mode),
+    ].join('__')
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 const appendShadowfaxCourierIfMissing = (rows: any[], opts?: {
   search?: string
   serviceProvider?: string
@@ -250,8 +264,9 @@ export const getAllCouriersController = async (req: Request, res: Response) => {
       appendShadowfaxCourierIfMissing(courierList),
       credentialedProviders,
     ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    const dedupedCourierList = dedupeCouriersByScope(mergedCourierList)
 
-    res.json({ success: true, data: mergedCourierList })
+    res.json({ success: true, data: dedupedCourierList })
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false })
@@ -312,8 +327,9 @@ export const getAllCouriersListController = async (req: Request, res: Response) 
       }),
       credentialedProviders,
     ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    const dedupedCourierList = dedupeCouriersByScope(mergedCourierList)
 
-    res.json({ success: true, data: mergedCourierList })
+    res.json({ success: true, data: dedupedCourierList })
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false, message: 'Failed to fetch couriers' })
