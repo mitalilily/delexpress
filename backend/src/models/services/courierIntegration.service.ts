@@ -9,6 +9,10 @@ import { userPlans } from '../schema/userPlans'
 import { zones } from '../schema/zones'
 import { SHADOWFAX_COURIER_ID, buildShadowfaxCourierRow } from './couriers/shadowfax.catalog'
 import {
+  filterShippingManagementCouriers,
+  isShippingManagementCourierVisible,
+} from '../../utils/shippingManagementCourierVisibility'
+import {
   fetchShippingRateSlabs,
   normalizeB2CShippingMode,
   normalizeB2CServiceProvider,
@@ -149,7 +153,9 @@ export const getAllCouriersPaginated = async ({
   sortBy,
 }: GetAllCouriersPaginatedParams) => {
   const whereClause = buildCourierWhereClause(filters)
-  const courierRows = await db.select().from(couriers).where(whereClause)
+  const courierRows = filterShippingManagementCouriers(
+    await db.select().from(couriers).where(whereClause),
+  )
   const normalizedRows = matchesShadowfaxCourierFilters(filters) &&
     !courierRows.some((row) => Number(row.id) === SHADOWFAX_COURIER_ID)
       ? [...courierRows, shadowfaxCourierRow()]
@@ -164,14 +170,19 @@ export const getAllCouriersPaginated = async ({
 export const getCourierCount = async (filters: CourierFilters = {}) => {
   const whereClause = buildCourierWhereClause(filters)
 
-  const [result] = await db
-    .select({ count: sql<number>`count(*)` })
+  const courierRows = filterShippingManagementCouriers(
+    await db
+      .select({
+        id: couriers.id,
+        serviceProvider: couriers.serviceProvider,
+      })
     .from(couriers)
-    .where(whereClause)
+      .where(whereClause),
+  )
 
   const shadowfaxNeedsCount = matchesShadowfaxCourierFilters(filters)
   if (!shadowfaxNeedsCount) {
-    return Number(result?.count ?? 0)
+    return courierRows.length
   }
 
   const [shadowfaxExists] = await db
@@ -180,7 +191,7 @@ export const getCourierCount = async (filters: CourierFilters = {}) => {
     .where(whereClause ? and(whereClause, eq(couriers.id, SHADOWFAX_COURIER_ID)) : eq(couriers.id, SHADOWFAX_COURIER_ID))
     .limit(1)
 
-  return Number(result?.count ?? 0) + (shadowfaxExists ? 0 : 1)
+  return courierRows.length + (shadowfaxExists ? 0 : 1)
 }
 
 // =========================
@@ -190,7 +201,7 @@ export const getCourierById = async (id: number) => {
   const [courier] = await db.select().from(couriers).where(eq(couriers.id, id))
 
   if (courier) {
-    return courier
+    return isShippingManagementCourierVisible(courier) ? courier : undefined
   }
 
   if (Number(id) === SHADOWFAX_COURIER_ID) {

@@ -21,6 +21,7 @@ import {
   getEkartWaybillSeriesStatus,
   updateEkartWaybillSeries,
 } from '../../models/services/ekartWaybill.service'
+import { filterShippingManagementCouriers } from '../../utils/shippingManagementCourierVisibility'
 
 const maskCredential = (value?: string | null) => {
   const raw = (value || '').trim()
@@ -260,9 +261,11 @@ export const getAllCouriersController = async (req: Request, res: Response) => {
       .from(couriers)
       .orderBy(desc(couriers.createdAt))
 
-    const mergedCourierList = filterCouriersByCredentialedProvider(
-      appendShadowfaxCourierIfMissing(courierList),
-      credentialedProviders,
+    const mergedCourierList = filterShippingManagementCouriers(
+      filterCouriersByCredentialedProvider(
+        appendShadowfaxCourierIfMissing(courierList),
+        credentialedProviders,
+      ),
     ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
     const dedupedCourierList = dedupeCouriersByScope(mergedCourierList)
 
@@ -319,13 +322,15 @@ export const getAllCouriersListController = async (req: Request, res: Response) 
       .where(whereCondition)
       .orderBy(desc(couriers.createdAt))
 
-    const mergedCourierList = filterCouriersByCredentialedProvider(
-      appendShadowfaxCourierIfMissing(courierList, {
-        search: typeof search === 'string' ? search : undefined,
-        serviceProvider: typeof serviceProvider === 'string' ? serviceProvider : undefined,
-        businessType: typeof businessType === 'string' ? businessType : undefined,
-      }),
-      credentialedProviders,
+    const mergedCourierList = filterShippingManagementCouriers(
+      filterCouriersByCredentialedProvider(
+        appendShadowfaxCourierIfMissing(courierList, {
+          search: typeof search === 'string' ? search : undefined,
+          serviceProvider: typeof serviceProvider === 'string' ? serviceProvider : undefined,
+          businessType: typeof businessType === 'string' ? businessType : undefined,
+        }),
+        credentialedProviders,
+      ),
     ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
     const dedupedCourierList = dedupeCouriersByScope(mergedCourierList)
 
