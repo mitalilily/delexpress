@@ -2068,7 +2068,7 @@ export const fetchAvailableCouriersWithRates = async (
       const matchedIndex = findMatchingSlabIndex(computed.chargeable_weight, rateCard.slabs)
 
       if (matchedIndex >= 0) {
-        return rateCard.slabs.slice(matchedIndex).map((slab: any) => ({
+        return rateCard.slabs.slice(0, matchedIndex + 1).map((slab: any) => ({
           rate: Number(slab.rate),
           cod_charges: effectiveCodCharges,
           base_cod_charges: rateCard.cod_charges,
