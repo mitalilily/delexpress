@@ -2368,6 +2368,34 @@ export const fetchAvailableCouriersWithRates = async (
 
     combined = await filterCouriersByBusinessType(combined, 'b2c')
 
+    const hasOriginalDelhivery = combined.some(
+      (courier: any) =>
+        normalizeProviderKey(
+          courier.integration_type || courier.serviceProvider || courier.service_provider,
+        ) === 'delhivery' && Number(courier.id) === DELHIVERY_EXPRESS_SURFACE_COURIER_ID,
+    )
+    const isExpressflyDelhiveryOption = (courier: any) =>
+      normalizeProviderKey(courier.integration_type || courier.serviceProvider || courier.service_provider) ===
+        'expressfly' &&
+      String(courier.displayName || courier.name || '')
+        .toLowerCase()
+        .includes('delhivery')
+    const hasExpressflyDelhivery = combined.some(isExpressflyDelhiveryOption)
+
+    if (hasOriginalDelhivery && hasExpressflyDelhivery) {
+      combined = combined.filter((courier: any) => {
+        const optionChargeableWeight = Number(courier.chargeable_weight ?? chargeableWeight ?? 0)
+        const isOriginalDelhivery =
+          normalizeProviderKey(
+            courier.integration_type || courier.serviceProvider || courier.service_provider,
+          ) === 'delhivery' && Number(courier.id) === DELHIVERY_EXPRESS_SURFACE_COURIER_ID
+        const isExpressflyDelhivery = isExpressflyDelhiveryOption(courier)
+
+        if (optionChargeableWeight <= 2000) return !isExpressflyDelhivery
+        return !isOriginalDelhivery
+      })
+    }
+
     // 🔹 Sorting and tagging
     if (userId && combined?.length) {
       const [profile] = await db
