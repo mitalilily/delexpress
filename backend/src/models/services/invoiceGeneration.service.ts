@@ -12,8 +12,11 @@ import { b2b_orders } from '../schema/b2bOrders'
 import { b2c_orders } from '../schema/b2cOrders'
 import { billingInvoices } from '../schema/billingInvoices'
 import { invoicePayments } from '../schema/invoicePayments'
+import { rto_events } from '../schema/rto'
 import { userProfiles } from '../schema/userProfile'
 import { users } from '../schema/users'
+import { walletTransactions } from '../schema/wallet'
+import { weight_discrepancies } from '../schema/weightDiscrepancies'
 import { getAdminInvoicePreferences, getInvoicePreferences } from './invoicePreferences.service'
 import { presignDownload, presignUpload } from './upload.service'
 
@@ -23,6 +26,16 @@ interface GenerateInvoiceParams {
 }
 
 const formatAmount = (value: number) => `Rs. ${Number(value || 0).toFixed(2)}`
+const formatCsvAmount = (value: unknown) => Number(value ?? 0).toFixed(2)
+const formatCsvNumber = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return ''
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed.toFixed(3) : String(value)
+}
+const csvCell = (value: unknown) => {
+  const normalized = value === null || value === undefined ? '' : String(value)
+  return `"${normalized.replace(/"/g, '""')}"`
+}
 const BILLABLE_ORDER_STATUSES = [
   'shipment_created',
   'booked',
@@ -212,34 +225,143 @@ export const generateInvoiceForUser = async (
   const pdfPath = path.join(tmpDir, `${invoiceNo}.pdf`)
   const csvPath = path.join(tmpDir, `${invoiceNo}.csv`)
 
-  // 4️⃣ Generate CSV
-  const csvHeader = 'Order ID,Order Type,AWB,Freight Charges,COD Charges,Order Date\n'
-  const csvBody = allOrders
-    .map((o) => {
-      // Use order_type (prepaid/cod) instead of integration_type
-      const orderType = (o as any).order_type || 'prepaid'
-      const orderTypeDisplay = orderType.toLowerCase() === 'cod' ? 'COD' : 'Prepaid'
-      const billedDate = (o as any).updated_at || (o as any).created_at
-      return `${o.order_id || o.order_number},${orderTypeDisplay},${o.awb_number || '-'},${
-        (o as any).freight_charges ?? (o as any).shipping_charges ?? 0
-      },${(o as any).cod_charges ?? 0},${dayjs(billedDate).format('YYYY-MM-DD')}`
-    })
-    .join('\n')
-
-  fs.writeFileSync(csvPath, csvHeader + csvBody, 'utf-8')
-
-  // 5️⃣ Get seller info
+  // 4️⃣ Get seller info
   const [sellerRow] = await db
     .select()
     .from(userProfiles)
     .where(eq(userProfiles.userId, userId))
     .limit(1)
 
+  const billTo = sellerRow?.companyInfo?.businessName || 'N/A'
+
+  // 4️⃣ Generate CSV
+  const b2cOrderIds = b2cOrders.map((o) => o.id).filter(Boolean)
+  const b2bOrderIds = b2bOrders.map((o) => o.id).filter(Boolean)
+  const allOrderIds = allOrders.map((o: any) => o.id).filter(Boolean)
+
+  const [walletDebitRows, b2cDiscrepancyRows, b2bDiscrepancyRows, rtoRows] = await Promise.all([
+    allOrderIds.length
+      ? db
+          .select()
+          .from(walletTransactions)
+          .where(and(eq(walletTransactions.type, 'debit'), inArray(walletTransactions.ref, allOrderIds)))
+      : Promise.resolve([]),
+    b2cOrderIds.length
+      ? db
+          .select()
+          .from(weight_discrepancies)
+          .where(inArray(weight_discrepancies.b2c_order_id, b2cOrderIds))
+      : Promise.resolve([]),
+    b2bOrderIds.length
+      ? db
+          .select()
+          .from(weight_discrepancies)
+          .where(inArray(weight_discrepancies.b2b_order_id, b2bOrderIds))
+      : Promise.resolve([]),
+    b2cOrderIds.length
+      ? db.select().from(rto_events).where(inArray(rto_events.order_id, b2cOrderIds))
+      : Promise.resolve([]),
+  ])
+
+  const nonRtoDebitByOrderId = new Map<string, number>()
+  for (const row of walletDebitRows as any[]) {
+    const ref = String(row.ref || '')
+    if (!ref) continue
+    const reason = String(row.reason || '').toLowerCase()
+    if (reason.includes('rto')) continue
+    nonRtoDebitByOrderId.set(ref, (nonRtoDebitByOrderId.get(ref) || 0) + Number(row.amount || 0))
+  }
+
+  const discrepancyByOrderId = new Map<string, any>()
+  for (const row of [...(b2cDiscrepancyRows as any[]), ...(b2bDiscrepancyRows as any[])]) {
+    const orderId = String(row.b2c_order_id || row.b2b_order_id || '')
+    if (!orderId) continue
+    const existing = discrepancyByOrderId.get(orderId)
+    const existingTime = existing?.updated_at || existing?.created_at || existing?.detected_at
+    const nextTime = row.updated_at || row.created_at || row.detected_at
+    if (!existing || new Date(nextTime || 0).getTime() >= new Date(existingTime || 0).getTime()) {
+      discrepancyByOrderId.set(orderId, row)
+    }
+  }
+
+  const rtoByOrderId = new Map<string, any>()
+  for (const row of rtoRows as any[]) {
+    const orderId = String(row.order_id || '')
+    if (!orderId) continue
+    rtoByOrderId.set(orderId, row)
+  }
+
+  const csvHeader = [
+    'Order ID',
+    'Seller Name',
+    'Order Type',
+    'AWB',
+    'Courier Name',
+    'Money Debited',
+    'Freight Charges',
+    'COD Charges',
+    'Other Charges',
+    'Total Charged Weight',
+    'Dimensions (LxBxH)',
+    'Discrepancy Weight',
+    'Charges Discrepancy',
+    'RTO Status',
+    'RTO Charge',
+    'Order Date',
+  ].join(',') + '\n'
+  const csvBody = allOrders
+    .map((o) => {
+      // Use order_type (prepaid/cod) instead of integration_type
+      const anyOrder = o as any
+      const orderType = anyOrder.order_type || 'prepaid'
+      const orderTypeDisplay = orderType.toLowerCase() === 'cod' ? 'COD' : 'Prepaid'
+      const billedDate = anyOrder.updated_at || anyOrder.created_at
+      const orderId = String(anyOrder.id || '')
+      const freightCharges = Number(anyOrder.freight_charges ?? anyOrder.shipping_charges ?? 0)
+      const codCharges = Number(anyOrder.cod_charges ?? 0)
+      const otherCharges = Number(anyOrder.other_charges ?? 0)
+      const fallbackDebit = freightCharges + codCharges + otherCharges
+      const moneyDebited = nonRtoDebitByOrderId.get(orderId) ?? fallbackDebit
+      const discrepancy = discrepancyByOrderId.get(orderId)
+      const rto = rtoByOrderId.get(orderId)
+      const dimensionText =
+        anyOrder.length || anyOrder.breadth || anyOrder.height
+          ? `${anyOrder.length ?? ''}x${anyOrder.breadth ?? ''}x${anyOrder.height ?? ''}`
+          : Array.isArray(anyOrder.packages)
+            ? anyOrder.packages
+                .map((pkg: any) => `${pkg.length ?? ''}x${pkg.breadth ?? ''}x${pkg.height ?? ''}`)
+                .join(' | ')
+            : ''
+
+      return [
+        anyOrder.order_id || anyOrder.order_number,
+        billTo,
+        orderTypeDisplay,
+        anyOrder.awb_number || '-',
+        anyOrder.courier_partner || '',
+        formatCsvAmount(moneyDebited),
+        formatCsvAmount(freightCharges),
+        formatCsvAmount(codCharges),
+        formatCsvAmount(otherCharges),
+        formatCsvNumber(anyOrder.charged_weight ?? anyOrder.selected_max_slab_weight ?? anyOrder.weight),
+        dimensionText,
+        discrepancy ? formatCsvNumber(discrepancy.weight_difference) : '',
+        discrepancy ? formatCsvAmount(discrepancy.additional_charge) : '',
+        rto?.status || '',
+        rto?.rto_charges != null ? formatCsvAmount(rto.rto_charges) : '',
+        dayjs(billedDate).format('YYYY-MM-DD'),
+      ]
+        .map(csvCell)
+        .join(',')
+    })
+    .join('\n')
+
+  fs.writeFileSync(csvPath, csvHeader + csvBody, 'utf-8')
+
   const issuerName = adminPrefs?.brandName || 'ExpressoPro'
   const issuerAddress = adminPrefs?.sellerAddress || 'N/A'
   const issuerStateCode = adminPrefs?.stateCode || 'N/A'
   const issuerGST = adminPrefs?.gstNumber || 'N/A'
-  const billTo = sellerRow?.companyInfo?.businessName || 'N/A'
   const billAddress = sellerRow?.companyInfo?.companyAddress || 'N/A'
   const billCity = sellerRow?.companyInfo?.city || 'N/A'
   const billState = sellerRow?.companyInfo?.state || 'N/A'
