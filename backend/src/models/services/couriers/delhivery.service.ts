@@ -5,15 +5,37 @@ import {
   getDelhiveryShippingModeByCourierId,
   normalizeCourierId,
 } from '../../../utils/delhiveryCourier'
-import { getDelhiveryCredentials } from '../delhiveryCredentials.service'
+import {
+  DelhiveryCredentialProfile,
+  getDelhiveryCredentials,
+  getDelhiveryCredentialProfile,
+} from '../delhiveryCredentials.service'
 import { ShipmentParams } from '../shiprocket.service'
 
 export class DelhiveryService {
   private apiBase = 'https://track.delhivery.com'
   private token = ''
   private clientName = ''
+  private readonly credentialProfile?: DelhiveryCredentialProfile
+
+  constructor(credentialProfile?: DelhiveryCredentialProfile | null) {
+    this.credentialProfile = credentialProfile || undefined
+  }
 
   private async ensureCredentials() {
+    if (this.credentialProfile) {
+      this.apiBase = this.credentialProfile.apiBase
+      this.token = this.credentialProfile.apiKey
+      this.clientName = this.credentialProfile.clientName
+      return
+    }
+    const activeProfile = await getDelhiveryCredentialProfile()
+    if (activeProfile) {
+      this.apiBase = activeProfile.apiBase
+      this.token = activeProfile.apiKey
+      this.clientName = activeProfile.clientName
+      return
+    }
     const credentials = await getDelhiveryCredentials()
     this.apiBase = credentials.apiBase
     this.token = credentials.apiKey

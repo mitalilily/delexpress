@@ -9,36 +9,18 @@ import {
   Container,
   Divider,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material'
-import { useState } from 'react'
-import { FiArrowLeft, FiCheckCircle, FiDownload, FiMessageSquare, FiXCircle } from 'react-icons/fi'
+import { FiArrowLeft, FiDownload } from 'react-icons/fi'
 import { RiScales3Line } from 'react-icons/ri'
 import { useNavigate, useParams } from 'react-router-dom'
-import FileUploader, { type UploadedFileInfo } from '../../components/UI/uploader/FileUploader'
-import {
-  useAcceptDiscrepancy,
-  useCreateDispute,
-  useDiscrepancyDetails,
-  useRejectDiscrepancy,
-} from '../../hooks/useWeightReconciliation'
+import { useDiscrepancyDetails } from '../../hooks/useWeightReconciliation'
 
 export default function DiscrepancyDetails() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [showDisputeForm, setShowDisputeForm] = useState(false)
-  const [disputeForm, setDisputeForm] = useState({
-    reason: '',
-    comment: '',
-    evidenceUrls: [] as string[],
-    proposedWeight: '',
-  })
 
-  const { data, isLoading, refetch } = useDiscrepancyDetails(id!)
-  const acceptMutation = useAcceptDiscrepancy()
-  const rejectMutation = useRejectDiscrepancy()
-  const createDisputeMutation = useCreateDispute()
+  const { data, isLoading } = useDiscrepancyDetails(id!)
 
   if (isLoading) {
     return (
@@ -60,56 +42,6 @@ export default function DiscrepancyDetails() {
   // Convert grams to kg for display
   const weightDiff = Number(discrepancy.weight_difference) / 1000
   const additionalCharge = Number(discrepancy.additional_charge)
-
-  const handleAccept = () => {
-    if (confirm('Are you sure you want to accept this weight discrepancy and charges?')) {
-      acceptMutation.mutate(
-        { id: discrepancy.id },
-        {
-          onSuccess: () => refetch(),
-        },
-      )
-    }
-  }
-
-  const handleReject = () => {
-    const reason = prompt('Please enter a reason for rejection:')
-    if (!reason) return
-
-    rejectMutation.mutate(
-      { id: discrepancy.id, reason },
-      {
-        onSuccess: () => refetch(),
-      },
-    )
-  }
-
-  const handleDisputeSubmit = () => {
-    if (!disputeForm.reason) {
-      alert('Please select a dispute reason')
-      return
-    }
-
-    createDisputeMutation.mutate(
-      {
-        discrepancyId: discrepancy.id,
-        disputeReason: disputeForm.reason,
-        customerComment: disputeForm.comment,
-        evidenceUrls: disputeForm.evidenceUrls,
-        // Convert KG input to grams for storage
-        customerClaimedWeight: disputeForm.proposedWeight
-          ? Number(disputeForm.proposedWeight) * 1000
-          : undefined,
-      },
-      {
-        onSuccess: () => {
-          setShowDisputeForm(false)
-          setDisputeForm({ reason: '', comment: '', evidenceUrls: [], proposedWeight: '' })
-          refetch()
-        },
-      },
-    )
-  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -171,42 +103,6 @@ export default function DiscrepancyDetails() {
                 Order #{discrepancy.order_number}
               </Typography>
             </Box>
-            <Stack direction="row" gap={2}>
-              {discrepancy.status === 'pending' && (
-                <>
-                  <Button
-                    variant="outlined"
-                    startIcon={<FiXCircle />}
-                    onClick={handleReject}
-                    disabled={rejectMutation.isPending}
-                    sx={{
-                      borderColor: '#E74C3C',
-                      color: '#E74C3C',
-                      textTransform: 'none',
-                      '&:hover': {
-                        borderColor: '#C0392B',
-                        backgroundColor: 'rgba(231, 76, 60, 0.08)',
-                      },
-                    }}
-                  >
-                    Reject
-                  </Button>
-                  <Button
-                    variant="contained"
-                    startIcon={<FiCheckCircle />}
-                    onClick={handleAccept}
-                    disabled={acceptMutation.isPending}
-                    sx={{
-                      bgcolor: '#27AE60',
-                      textTransform: 'none',
-                      '&:hover': { bgcolor: '#229954' },
-                    }}
-                  >
-                    Accept
-                  </Button>
-                </>
-              )}
-            </Stack>
           </Stack>
         </Box>
 
@@ -494,146 +390,6 @@ export default function DiscrepancyDetails() {
                 >
                   Download Weight Slip
                 </Button>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Dispute Section */}
-        {!dispute && discrepancy.status === 'pending' && (
-          <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <CardContent>
-              {!showDisputeForm ? (
-                <Stack direction="row" alignItems="center" justifyContent="space-between">
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#333369', mb: 1 }}>
-                      Disagree with this discrepancy?
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: '#6B7280' }}>
-                      You can raise a dispute with supporting evidence
-                    </Typography>
-                  </Box>
-                  <Button
-                    variant="outlined"
-                    startIcon={<FiMessageSquare />}
-                    onClick={() => setShowDisputeForm(true)}
-                    sx={{
-                      borderColor: '#333369',
-                      color: '#333369',
-                      textTransform: 'none',
-                      '&:hover': {
-                        borderColor: '#2F3B5F',
-                        backgroundColor: 'rgba(59, 74, 116, 0.08)',
-                      },
-                    }}
-                  >
-                    Raise Dispute
-                  </Button>
-                </Stack>
-              ) : (
-                <Stack gap={3}>
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#333369' }}>
-                    Raise a Dispute
-                  </Typography>
-
-                  <TextField
-                    select
-                    fullWidth
-                    label="Dispute Reason"
-                    value={disputeForm.reason}
-                    onChange={(e) => setDisputeForm({ ...disputeForm, reason: e.target.value })}
-                    SelectProps={{ native: true }}
-                    sx={{
-                      '& .MuiOutlinedInput-root.Mui-focused fieldset': {
-                        borderColor: '#333369',
-                      },
-                    }}
-                  >
-                    <option value="">Select a reason</option>
-                    <option value="Incorrect Weight">Incorrect Weight</option>
-                    <option value="Incorrect Dimensions">Incorrect Dimensions</option>
-                    <option value="Wrong Product">Wrong Product</option>
-                    <option value="Measurement Error">Measurement Error</option>
-                    <option value="Other">Other</option>
-                  </TextField>
-
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={4}
-                    label="Your Comment"
-                    value={disputeForm.comment}
-                    onChange={(e) => setDisputeForm({ ...disputeForm, comment: e.target.value })}
-                    placeholder="Explain why you're disputing this weight discrepancy..."
-                    sx={{
-                      '& .MuiOutlinedInput-root.Mui-focused fieldset': {
-                        borderColor: '#333369',
-                      },
-                    }}
-                  />
-
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label="Proposed Weight (kg)"
-                    value={disputeForm.proposedWeight}
-                    onChange={(e) =>
-                      setDisputeForm({ ...disputeForm, proposedWeight: e.target.value })
-                    }
-                    placeholder="Enter weight in kilograms (e.g., 0.600)"
-                    inputProps={{ step: 0.001, min: 0 }}
-                    sx={{
-                      '& .MuiOutlinedInput-root.Mui-focused fieldset': {
-                        borderColor: '#333369',
-                      },
-                    }}
-                  />
-
-                  <Box>
-                    <Typography variant="body2" sx={{ color: '#6B7280', mb: 2 }}>
-                      Upload Evidence (Images, Videos, Documents)
-                    </Typography>
-                    <FileUploader
-                      variant="dnd"
-                      accept="image/*,video/*,.pdf"
-                      maxSizeMb={50}
-                      multiple
-                      folderKey="weight-disputes"
-                      onUploaded={(files: UploadedFileInfo[]) => {
-                        setDisputeForm({
-                          ...disputeForm,
-                          evidenceUrls: files.map((f) => f.url),
-                        })
-                      }}
-                    />
-                  </Box>
-
-                  <Stack direction="row" gap={2} justifyContent="flex-end">
-                    <Button
-                      variant="outlined"
-                      onClick={() => setShowDisputeForm(false)}
-                      sx={{
-                        borderColor: '#E2E8F0',
-                        color: '#6B7280',
-                        textTransform: 'none',
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="contained"
-                      onClick={handleDisputeSubmit}
-                      disabled={createDisputeMutation.isPending}
-                      sx={{
-                        bgcolor: '#333369',
-                        textTransform: 'none',
-                        '&:hover': { bgcolor: '#2F3B5F' },
-                      }}
-                    >
-                      {createDisputeMutation.isPending ? 'Submitting...' : 'Submit Dispute'}
-                    </Button>
-                  </Stack>
-                </Stack>
               )}
             </CardContent>
           </Card>

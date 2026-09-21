@@ -1,4 +1,19 @@
-import { Box, Flex, Heading, SimpleGrid, Stat, StatLabel, StatNumber, Text } from '@chakra-ui/react'
+import {
+  Box,
+  Button,
+  Flex,
+  FormControl,
+  FormLabel,
+  Heading,
+  Input,
+  SimpleGrid,
+  Stack,
+  Stat,
+  StatLabel,
+  StatNumber,
+  Text,
+  Textarea,
+} from '@chakra-ui/react'
 import StatusBadge from 'components/Badge/StatusBadge'
 import Card from 'components/Card/Card'
 import CardBody from 'components/Card/CardBody'
@@ -6,6 +21,9 @@ import CardHeader from 'components/Card/CardHeader'
 import TableFilters from 'components/Tables/TableFilters'
 import {
   useAllWeightDiscrepancies,
+  useApproveWeightDiscrepancy,
+  useCreateCsvWeightDiscrepancies,
+  useCreateManualWeightDiscrepancy,
   useWeightReconciliationStats,
 } from 'hooks/useWeightReconciliation'
 import { useState } from 'react'
@@ -69,6 +87,15 @@ export default function AdminWeightReconciliationDashboard() {
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(20)
   const [filters, setFilters] = useState({})
+  const [manualForm, setManualForm] = useState({
+    orderId: '',
+    awbNumber: '',
+    sellerWeightKg: '',
+    freightPaid: '',
+    courierWeightKg: '',
+    notes: '',
+  })
+  const [csvText, setCsvText] = useState('')
 
   // Use hooks
   const { data: stats, isLoading: statsLoading } = useWeightReconciliationStats({
@@ -81,6 +108,9 @@ export default function AdminWeightReconciliationDashboard() {
     page,
     limit: perPage,
   })
+  const createManual = useCreateManualWeightDiscrepancy()
+  const createCsv = useCreateCsvWeightDiscrepancies()
+  const approveDiscrepancy = useApproveWeightDiscrepancy()
 
   // Debug logging
   console.log('🔍 Admin Dashboard Debug:')
@@ -118,6 +148,7 @@ export default function AdminWeightReconciliationDashboard() {
     'Extra Charge',
     'Status',
     'Dispute',
+    'Action',
     'Date',
   ]
 
@@ -131,6 +162,7 @@ export default function AdminWeightReconciliationDashboard() {
     'additional_charge',
     'status',
     'has_dispute',
+    'action',
     'created_at',
   ]
 
@@ -169,6 +201,26 @@ export default function AdminWeightReconciliationDashboard() {
         {row?.discrepancy?.has_dispute ? 'Yes' : 'No'}
       </Text>
     ),
+    action: (value, row) =>
+      row?.discrepancy?.status === 'pending' ? (
+        <Button
+          size="sm"
+          colorScheme="green"
+          isLoading={approveDiscrepancy.isPending}
+          onClick={() =>
+            approveDiscrepancy.mutate({
+              discrepancyId: row.discrepancy.id,
+              data: { notes: 'Approved from admin dashboard' },
+            })
+          }
+        >
+          Approve
+        </Button>
+      ) : (
+        <Text fontSize="sm" color="gray.500">
+          -
+        </Text>
+      ),
     created_at: (value, row) => (
       <Text fontSize="xs" color="gray.500">
         {row?.discrepancy?.created_at
@@ -206,6 +258,126 @@ export default function AdminWeightReconciliationDashboard() {
           ))}
         </SimpleGrid>
       )}
+
+      <SimpleGrid columns={{ base: 1, xl: 2 }} gap={5} mb={6}>
+        <Card>
+          <CardHeader>
+            <Heading size="md">Add Manual Discrepancy</Heading>
+          </CardHeader>
+          <CardBody>
+            <Stack spacing={4}>
+              <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+                <FormControl isRequired>
+                  <FormLabel>Order ID / Order Number</FormLabel>
+                  <Input
+                    value={manualForm.orderId}
+                    onChange={(event) =>
+                      setManualForm({ ...manualForm, orderId: event.target.value })
+                    }
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>AWB</FormLabel>
+                  <Input
+                    value={manualForm.awbNumber}
+                    onChange={(event) =>
+                      setManualForm({ ...manualForm, awbNumber: event.target.value })
+                    }
+                  />
+                </FormControl>
+                <FormControl isRequired>
+                  <FormLabel>Seller Weight (kg)</FormLabel>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    value={manualForm.sellerWeightKg}
+                    onChange={(event) =>
+                      setManualForm({ ...manualForm, sellerWeightKg: event.target.value })
+                    }
+                  />
+                </FormControl>
+                <FormControl isRequired>
+                  <FormLabel>Freight Paid</FormLabel>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={manualForm.freightPaid}
+                    onChange={(event) =>
+                      setManualForm({ ...manualForm, freightPaid: event.target.value })
+                    }
+                  />
+                </FormControl>
+                <FormControl isRequired>
+                  <FormLabel>Courier Weight (kg)</FormLabel>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    value={manualForm.courierWeightKg}
+                    onChange={(event) =>
+                      setManualForm({ ...manualForm, courierWeightKg: event.target.value })
+                    }
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Notes</FormLabel>
+                  <Input
+                    value={manualForm.notes}
+                    onChange={(event) =>
+                      setManualForm({ ...manualForm, notes: event.target.value })
+                    }
+                  />
+                </FormControl>
+              </SimpleGrid>
+              <Button
+                alignSelf="flex-start"
+                colorScheme="blue"
+                isLoading={createManual.isPending}
+                onClick={() => createManual.mutate(manualForm)}
+              >
+                Create Discrepancy
+              </Button>
+            </Stack>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <Heading size="md">CSV Import</Heading>
+          </CardHeader>
+          <CardBody>
+            <Stack spacing={4}>
+              <Text fontSize="sm" color="gray.600">
+                Header: order_id, awb, seller_weight_kg, freight_paid, courier_weight_kg, notes
+              </Text>
+              <Input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (!file) return
+                  const reader = new FileReader()
+                  reader.onload = () => setCsvText(String(reader.result || ''))
+                  reader.readAsText(file)
+                }}
+              />
+              <Textarea
+                minH="140px"
+                value={csvText}
+                onChange={(event) => setCsvText(event.target.value)}
+                placeholder="Paste CSV rows here"
+              />
+              <Button
+                alignSelf="flex-start"
+                colorScheme="blue"
+                isLoading={createCsv.isPending}
+                onClick={() => createCsv.mutate(csvText)}
+              >
+                Import CSV
+              </Button>
+            </Stack>
+          </CardBody>
+        </Card>
+      </SimpleGrid>
 
       {/* Top Couriers with Discrepancies */}
       {stats?.courierStats && stats.courierStats.length > 0 && (

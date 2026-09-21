@@ -10,6 +10,10 @@ import {
   XpressbeesConfig,
   getEffectiveCourierConfig,
 } from './courierCredentials.service'
+import {
+  DelhiveryCredentialProfile,
+  getDelhiveryCredentialProfile,
+} from './delhiveryCredentials.service'
 import { DelhiveryService } from './couriers/delhivery.service'
 import { EkartService } from './couriers/ekart.service'
 
@@ -300,14 +304,19 @@ function extractEkartValidationMessage(err: any) {
   )
 }
 
-async function syncDelhiveryWarehouse(params: { pickupAddr: any; rtoAddressData: any }) {
+export async function syncDelhiveryWarehouse(params: {
+  pickupAddr: any
+  rtoAddressData: any
+  credentialProfile?: DelhiveryCredentialProfile | null
+  warehouseName?: string
+}) {
   const { pickupAddr, rtoAddressData } = params
-  const delhivery = new DelhiveryService()
+  const delhivery = new DelhiveryService(params.credentialProfile)
   const pickupAddressLine = buildCourierAddressLine(pickupAddr)
   const returnAddressLine = buildCourierAddressLine(rtoAddressData) || pickupAddressLine
   const pickupPhone = normalizeCourierPhone(pickupAddr.contactPhone)
   const delhiveryResp = await delhivery.createWarehouse({
-    name: buildDelhiveryWarehouseName(pickupAddr),
+    name: params.warehouseName || buildDelhiveryWarehouseName(pickupAddr),
     registered_name: 'ExpressoPro',
     phone: pickupPhone || pickupAddr.contactPhone,
     email: courierSafeText(pickupAddr.contactEmail),
@@ -330,6 +339,56 @@ async function syncDelhiveryWarehouse(params: { pickupAddr: any; rtoAddressData:
   }
 
   console.log(`✅ Delhivery warehouse registered: ${pickupAddr.addressNickname}`)
+}
+
+export async function syncAllDelhiveryWarehousesForProfile(profileId: string) {
+  const profile = await getDelhiveryCredentialProfile(profileId)
+  if (!profile) throw new Error('Delhivery credential profile not found.')
+
+  const rows = await db.select().from(pickupAddresses)
+  let synced = 0
+  let failed = 0
+  const failures: Array<{ pickupAddressId: string; reason: string }> = []
+
+  for (const row of rows) {
+    const [pickupAddr] = row.addressId
+      ? await db.select().from(addresses).where(eq(addresses.id, row.addressId)).limit(1)
+      : []
+    if (!pickupAddr) continue
+    const [rtoAddressData] = row.rtoAddressId
+      ? await db.select().from(addresses).where(eq(addresses.id, row.rtoAddressId)).limit(1)
+      : []
+
+    try {
+      const baseName = buildDelhiveryWarehouseName(pickupAddr)
+      const warehouseName = `EP-${String(pickupAddr.userId || row.userId || 'user').slice(0, 8)}-${baseName}`.slice(0, 100)
+      await syncDelhiveryWarehouse({
+        pickupAddr,
+        rtoAddressData: rtoAddressData || pickupAddr,
+        credentialProfile: profile,
+        warehouseName,
+      })
+      await db
+        .update(pickupAddresses)
+        .set({
+          delhiveryNewAccountSynced: true,
+          delhiveryNewAccountSyncError: null,
+          delhiveryNewAccountWarehouseName: warehouseName,
+        })
+        .where(eq(pickupAddresses.id, row.id))
+      synced += 1
+    } catch (error: any) {
+      const reason = String(error?.response?.data?.message || error?.message || 'Registration failed')
+      await db
+        .update(pickupAddresses)
+        .set({ delhiveryNewAccountSynced: false, delhiveryNewAccountSyncError: reason })
+        .where(eq(pickupAddresses.id, row.id))
+      failed += 1
+      failures.push({ pickupAddressId: row.id, reason })
+    }
+  }
+
+  return { total: rows.length, synced, failed, failures }
 }
 
 async function syncEkartWarehouse(params: { pickupAddr: any }) {

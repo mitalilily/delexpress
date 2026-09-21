@@ -9,8 +9,6 @@ import { FilterBar, type FilterField } from '../../components/FilterBar'
 import StatusChip from '../../components/UI/chip/StatusChip'
 import DataTable, { type Column } from '../../components/UI/table/DataTable'
 import {
-  useBulkAcceptDiscrepancies,
-  useBulkRejectDiscrepancies,
   useWeightDiscrepancies,
   useWeightReconciliationSummary,
 } from '../../hooks/useWeightReconciliation'
@@ -35,7 +33,6 @@ export default function WeightReconciliation() {
     toDate: undefined,
     search: undefined,
   })
-  const [selectedDiscrepancies, setSelectedDiscrepancies] = useState<string[]>([])
 
   // Build API filters
   const apiFilters: Record<string, unknown> = { page, limit: rowsPerPage }
@@ -44,11 +41,8 @@ export default function WeightReconciliation() {
   if (filters.fromDate) apiFilters.fromDate = filters.fromDate
   if (filters.toDate) apiFilters.toDate = filters.toDate
 
-  const { data: discrepanciesData, refetch } = useWeightDiscrepancies(apiFilters)
+  const { data: discrepanciesData } = useWeightDiscrepancies(apiFilters)
   const { data: summary } = useWeightReconciliationSummary(filters.fromDate, filters.toDate)
-
-  const bulkAccept = useBulkAcceptDiscrepancies()
-  const bulkReject = useBulkRejectDiscrepancies()
 
   const discrepancies = discrepanciesData?.discrepancies || []
   const totalCount = discrepanciesData?.pagination?.total || 0
@@ -86,37 +80,6 @@ export default function WeightReconciliation() {
       console.error('Failed to export weight discrepancies:', error)
       alert('Failed to export CSV. Please try again.')
     }
-  }
-
-  const handleBulkAccept = () => {
-    if (selectedDiscrepancies.length === 0) return
-    if (confirm(`Accept ${selectedDiscrepancies.length} selected discrepancies?`)) {
-      bulkAccept.mutate(
-        { discrepancyIds: selectedDiscrepancies, notes: 'Bulk accepted from dashboard' },
-        {
-          onSuccess: () => {
-            setSelectedDiscrepancies([])
-            refetch()
-          },
-        },
-      )
-    }
-  }
-
-  const handleBulkReject = () => {
-    if (selectedDiscrepancies.length === 0) return
-    const reason = prompt('Enter reason for rejecting these discrepancies:')
-    if (!reason) return
-
-    bulkReject.mutate(
-      { discrepancyIds: selectedDiscrepancies, reason },
-      {
-        onSuccess: () => {
-          setSelectedDiscrepancies([])
-          refetch()
-        },
-      },
-    )
   }
 
   const columns: Column<WeightDiscrepancy>[] = [
@@ -364,55 +327,6 @@ export default function WeightReconciliation() {
           />
         </Box>
 
-        {/* Bulk Actions */}
-        {selectedDiscrepancies.length > 0 && (
-          <Box
-            sx={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '12px',
-              border: '1px solid #333369',
-              boxShadow: '0 2px 8px rgba(59, 74, 116, 0.15)',
-              p: 2,
-            }}
-          >
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography sx={{ color: '#333369', fontWeight: 600 }}>
-                {selectedDiscrepancies.length} selected
-              </Typography>
-              <Stack direction="row" gap={2}>
-                <Button
-                  variant="contained"
-                  onClick={handleBulkAccept}
-                  disabled={bulkAccept.isPending}
-                  sx={{
-                    bgcolor: '#27AE60',
-                    textTransform: 'none',
-                    '&:hover': { bgcolor: '#229954' },
-                  }}
-                >
-                  Accept Selected
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={handleBulkReject}
-                  disabled={bulkReject.isPending}
-                  sx={{
-                    borderColor: '#E74C3C',
-                    color: '#E74C3C',
-                    textTransform: 'none',
-                    '&:hover': {
-                      borderColor: '#C0392B',
-                      backgroundColor: 'rgba(231, 76, 60, 0.08)',
-                    },
-                  }}
-                >
-                  Reject Selected
-                </Button>
-              </Stack>
-            </Stack>
-          </Box>
-        )}
-
         {/* Table */}
         <Box
           sx={{
@@ -427,14 +341,12 @@ export default function WeightReconciliation() {
             columns={columns}
             rows={filteredDiscrepancies}
             pagination
-            selectable
             currentPage={page}
             totalCount={totalCount}
             onPageChange={setPage}
             onRowsPerPageChange={setRowsPerPage}
             defaultRowsPerPage={rowsPerPage}
             rowsPerPageOptions={[10, 20, 50]}
-            onSelectRows={(ids: unknown[]) => setSelectedDiscrepancies(ids as string[])}
             renderExpandedRow={(row: WeightDiscrepancy) => (
               <Box sx={{ p: 2 }}>
                 <Stack direction="row" gap={2}>

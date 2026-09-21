@@ -41,6 +41,9 @@ export const pickupAddresses = pgTable('pickup_addresses', {
   isRTOSame: boolean('isRTOSame').default(true),
   delhiverySynced: boolean('delhiverySynced').default(false).notNull(),
   delhiverySyncError: text('delhiverySyncError'),
+  delhiveryNewAccountSynced: boolean('delhiveryNewAccountSynced').default(false).notNull(),
+  delhiveryNewAccountSyncError: text('delhiveryNewAccountSyncError'),
+  delhiveryNewAccountWarehouseName: varchar('delhiveryNewAccountWarehouseName', { length: 255 }),
   ekartSynced: boolean('ekartSynced').default(false).notNull(),
   ekartSyncError: text('ekartSyncError'),
 })

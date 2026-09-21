@@ -22,6 +22,26 @@ export const getAllWeightDiscrepancies = async (params = {}) => {
   return response.data
 }
 
+export const createManualWeightDiscrepancy = async (data) => {
+  const response = await apiClient.post('/admin/weight-reconciliation/discrepancies/manual', data)
+  return response.data
+}
+
+export const createCsvWeightDiscrepancies = async (csvText) => {
+  const response = await apiClient.post('/admin/weight-reconciliation/discrepancies/csv', {
+    csvText,
+  })
+  return response.data
+}
+
+export const approveWeightDiscrepancy = async (discrepancyId, data = {}) => {
+  const response = await apiClient.post(
+    `/admin/weight-reconciliation/discrepancies/${discrepancyId}/approve`,
+    data,
+  )
+  return response.data
+}
+
 /**
  * Get all weight disputes (all users)
  */

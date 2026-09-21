@@ -8,17 +8,12 @@ import {
   roundToWeightSlab,
 } from '../models/services/courierWeightCalculation.service'
 import {
-  acceptWeightDiscrepancy,
-  bulkAcceptDiscrepancies,
-  bulkRejectDiscrepancies,
   createWeightDiscrepancy,
-  createWeightDispute,
   getDiscrepancyById,
   getWeightDiscrepancies,
   getWeightDisputes,
   getWeightReconciliationSettings,
   getWeightReconciliationSummary,
-  rejectWeightDiscrepancy,
   updateWeightReconciliationSettings,
 } from '../models/services/weightReconciliation.service'
 import { b2b_orders, b2c_orders } from '../schema/schema'
@@ -133,16 +128,14 @@ export async function getDiscrepancyDetails(req: Request, res: Response) {
 export async function acceptDiscrepancy(req: Request, res: Response) {
   try {
     const userId = (req as any).user?.sub
-    const { id } = req.params
-    const { notes } = req.body
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
-    await acceptWeightDiscrepancy(id, userId, notes)
-
-    return res.json({ success: true, message: 'Discrepancy accepted' })
+    return res.status(403).json({
+      error: 'Weight discrepancy charges are reviewed and approved only by admin.',
+    })
   } catch (error: any) {
     console.error('Error accepting discrepancy:', error)
     return res.status(500).json({ error: error.message || 'Failed to accept discrepancy' })
@@ -156,20 +149,14 @@ export async function acceptDiscrepancy(req: Request, res: Response) {
 export async function rejectDiscrepancy(req: Request, res: Response) {
   try {
     const userId = (req as any).user?.sub
-    const { id } = req.params
-    const { reason } = req.body
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
-    if (!reason) {
-      return res.status(400).json({ error: 'Reason is required' })
-    }
-
-    await rejectWeightDiscrepancy(id, userId, reason)
-
-    return res.json({ success: true, message: 'Discrepancy rejected' })
+    return res.status(403).json({
+      error: 'Weight discrepancy rejection is not available from the seller panel.',
+    })
   } catch (error: any) {
     console.error('Error rejecting discrepancy:', error)
     return res.status(500).json({ error: error.message || 'Failed to reject discrepancy' })
@@ -183,19 +170,14 @@ export async function rejectDiscrepancy(req: Request, res: Response) {
 export async function bulkAccept(req: Request, res: Response) {
   try {
     const userId = (req as any).user?.sub
-    const { discrepancyIds, notes } = req.body
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
-    if (!discrepancyIds || !Array.isArray(discrepancyIds) || discrepancyIds.length === 0) {
-      return res.status(400).json({ error: 'Discrepancy IDs are required' })
-    }
-
-    const results = await bulkAcceptDiscrepancies(discrepancyIds, userId, notes)
-
-    return res.json({ success: true, results })
+    return res.status(403).json({
+      error: 'Bulk approval is handled only by admin.',
+    })
   } catch (error: any) {
     console.error('Error bulk accepting discrepancies:', error)
     return res.status(500).json({ error: error.message || 'Failed to bulk accept discrepancies' })
@@ -209,23 +191,14 @@ export async function bulkAccept(req: Request, res: Response) {
 export async function bulkReject(req: Request, res: Response) {
   try {
     const userId = (req as any).user?.sub
-    const { discrepancyIds, reason } = req.body
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
-    if (!discrepancyIds || !Array.isArray(discrepancyIds) || discrepancyIds.length === 0) {
-      return res.status(400).json({ error: 'Discrepancy IDs are required' })
-    }
-
-    if (!reason) {
-      return res.status(400).json({ error: 'Reason is required' })
-    }
-
-    const results = await bulkRejectDiscrepancies(discrepancyIds, userId, reason)
-
-    return res.json({ success: true, results })
+    return res.status(403).json({
+      error: 'Bulk rejection is not available from the seller panel.',
+    })
   } catch (error: any) {
     console.error('Error bulk rejecting discrepancies:', error)
     return res.status(500).json({ error: error.message || 'Failed to bulk reject discrepancies' })
@@ -244,30 +217,9 @@ export async function createDispute(req: Request, res: Response) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
-    const {
-      discrepancyId,
-      disputeReason,
-      customerComment,
-      customerClaimedWeight,
-      customerClaimedDimensions,
-      evidenceUrls,
-    } = req.body
-
-    if (!discrepancyId || !disputeReason || !customerComment) {
-      return res.status(400).json({ error: 'Missing required fields' })
-    }
-
-    const dispute = await createWeightDispute({
-      discrepancyId,
-      userId,
-      disputeReason,
-      customerComment,
-      customerClaimedWeight,
-      customerClaimedDimensions,
-      evidenceUrls,
+    return res.status(403).json({
+      error: 'Disputes are not available for weight discrepancy charges.',
     })
-
-    return res.json({ success: true, dispute })
   } catch (error: any) {
     console.error('Error creating dispute:', error)
     return res.status(500).json({ error: error.message || 'Failed to create dispute' })
@@ -492,15 +444,7 @@ export async function manuallyReportDiscrepancy(req: Request, res: Response) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
-    const {
-      orderNumber,
-      orderType = 'b2c',
-      actualWeight,
-      actualDimensions,
-      courierReportedChargedWeight,
-      evidenceUrls,
-      notes,
-    } = req.body
+    const { orderNumber, orderType = 'b2c', actualWeight, actualDimensions, courierReportedChargedWeight, notes } = req.body
 
     // Validate required fields
     if (!orderNumber) {
@@ -575,17 +519,6 @@ export async function manuallyReportDiscrepancy(req: Request, res: Response) {
       originalShippingCharge: Number(order.shipping_charges || 0),
       courierRemarks: notes,
     })
-
-    // If evidence URLs provided, create a dispute automatically
-    if (evidenceUrls && evidenceUrls.length > 0) {
-      await createWeightDispute({
-        discrepancyId: discrepancy.id,
-        userId,
-        disputeReason: 'Manual weight report with evidence',
-        customerComment: notes,
-        evidenceUrls,
-      })
-    }
 
     res.json(discrepancy)
   } catch (error) {

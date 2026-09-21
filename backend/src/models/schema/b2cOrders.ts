@@ -101,6 +101,7 @@ export const b2c_orders = pgTable(
   is_rto_different: boolean('is_rto_different').default(false),
 
   integration_type: varchar('integration_type').default('delhivery'),
+  delhivery_credential_profile_id: uuid('delhivery_credential_profile_id'),
 
   // Order source flag
   is_external_api: boolean('is_external_api').default(false), // true if created via external API, false if created locally

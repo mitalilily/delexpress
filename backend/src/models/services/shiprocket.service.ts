@@ -73,6 +73,7 @@ import {
   buildShadowfaxCourierRow,
 } from './couriers/shadowfax.catalog'
 import { DelhiveryService } from './couriers/delhivery.service'
+import { getDelhiveryCredentialProfile } from './delhiveryCredentials.service'
 import { ExpressflyService } from './couriers/expressfly.service'
 import { extractDelhiveryTrackingUpdate } from './couriers/delhiveryTracking.utils'
 import { EkartService } from './couriers/ekart.service'
@@ -528,6 +529,7 @@ export const debitManifestSuccessChargeIfNeeded = async ({ tx, order }: { tx: an
 
 interface PickupWarehouseRecord {
   pickupId: string
+  delhiveryNewAccountWarehouseName?: string | null
   addressNickname?: string | null
   addressLine1: string
   addressLine2?: string | null
@@ -566,6 +568,7 @@ async function fetchPickupWarehouseRecord(
   const [warehouse] = await db
     .select({
       pickupId: pickupAddresses.id,
+      delhiveryNewAccountWarehouseName: pickupAddresses.delhiveryNewAccountWarehouseName,
       addressNickname: addresses.addressNickname,
       addressLine1: addresses.addressLine1,
       addressLine2: addresses.addressLine2,
@@ -681,6 +684,7 @@ function buildPickupFromWarehouse(
   previousPickup?: ShipmentParams['pickup'],
   fallbackDate?: string,
   fallbackTime?: string,
+  useDelhiveryAccountName = false,
 ): ShipmentParams['pickup'] {
   const addressSegments = [warehouse.addressLine1, warehouse.addressLine2].filter(
     (segment) => typeof segment === 'string' && segment.trim().length,
@@ -689,7 +693,11 @@ function buildPickupFromWarehouse(
     addressSegments.length > 0 ? addressSegments.join(', ') : warehouse.addressLine1
 
   return {
-    warehouse_name: warehouse.addressNickname || warehouse.contactName || 'Warehouse',
+    warehouse_name:
+      (useDelhiveryAccountName ? warehouse.delhiveryNewAccountWarehouseName : null) ||
+      warehouse.addressNickname ||
+      warehouse.contactName ||
+      'Warehouse',
     address: formattedAddress,
     address_2: warehouse.addressLine2 ?? undefined,
     city: warehouse.city,
@@ -3090,6 +3098,10 @@ export async function createB2COrder({
   const rtoDetails = normalizeJsonValue(params.rto)
   const isCodOrder = params.payment_type === 'cod'
   const storedCodCharges = isCodOrder ? Number(resolvedCodCharges ?? params?.cod_charges ?? 0) : 0
+  const activeDelhiveryProfile =
+    String(params?.integration_type ?? integration_type).toLowerCase() === 'delhivery'
+      ? await getDelhiveryCredentialProfile()
+      : null
 
   try {
     const orderValues: any = {
@@ -3104,6 +3116,7 @@ export async function createB2COrder({
         order_amount: orderAmount,
         cod_charges: storedCodCharges,
         integration_type: params?.integration_type ?? integration_type,
+        delhivery_credential_profile_id: activeDelhiveryProfile?.id ?? null,
 
         // Buyer info
         buyer_name: params.consignee?.name ?? '',
@@ -3470,6 +3483,7 @@ export const createB2CShipmentService = async (
       params.pickup,
       params.pickup_date,
       params.pickup_time,
+      String(params.integration_type || '').toLowerCase() === 'delhivery',
     )
 
     const resolvedPincode = resolvedPickupWarehouse.pincode?.trim()
@@ -5220,6 +5234,10 @@ export const createB2BShipmentService = async (
       ? Number(params.courier_id)
       : undefined
   const serviceProvider = params.integration_type ?? undefined
+  const activeDelhiveryProfile =
+    String(params.integration_type || '').toLowerCase() === 'delhivery'
+      ? await getDelhiveryCredentialProfile()
+      : null
 
   let activePlanId: string | null = null
   try {
@@ -5330,6 +5348,7 @@ export const createB2BShipmentService = async (
       pickup_details: pickupDetails,
       rto_details: rtoDetails,
       is_rto_different: params.is_rto_different === 'yes',
+      delhivery_credential_profile_id: activeDelhiveryProfile?.id ?? null,
       is_external_api: is_external_api ?? false,
       created_at: new Date(),
       updated_at: new Date(),

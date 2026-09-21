@@ -22,6 +22,8 @@ import {
   updateEkartWaybillSeries,
 } from '../../models/services/ekartWaybill.service'
 import { filterShippingManagementCouriers } from '../../utils/shippingManagementCourierVisibility'
+import { cutoverDelhiveryCredential } from '../../models/services/delhiveryCredentials.service'
+import { syncAllDelhiveryWarehousesForProfile } from '../../models/services/pickupAddresses.service'
 
 const maskCredential = (value?: string | null) => {
   const raw = (value || '').trim()
@@ -661,38 +663,24 @@ export const updateDelhiveryCredentialsController = async (req: Request, res: Re
     const nextApiKey = typeof apiKey === 'string' ? apiKey.trim() : undefined
     const hasNewApiKey = typeof nextApiKey === 'string' && nextApiKey.length > 0
 
-    const [existing] = await db
-      .select({ id: courier_credentials.id })
+    if (!hasNewApiKey) {
+      return res.status(400).json({ success: false, message: 'A new Delhivery API key is required for credential cutover.' })
+    }
+
+    const [currentCredential] = await db
+      .select({ apiBase: courier_credentials.apiBase, clientName: courier_credentials.clientName })
       .from(courier_credentials)
       .where(eq(courier_credentials.provider, 'delhivery'))
       .limit(1)
 
-    if (existing) {
-      const updatePayload: Record<string, any> = {
-        updatedAt: new Date(),
-      }
-      if (nextApiBase !== undefined) {
-        updatePayload.apiBase = nextApiBase || 'https://track.delhivery.com'
-      }
-      if (nextClientName !== undefined) {
-        updatePayload.clientName = nextClientName
-      }
-      if (hasNewApiKey) {
-        updatePayload.apiKey = nextApiKey
-      }
-
-      await db
-        .update(courier_credentials)
-        .set(updatePayload)
-        .where(eq(courier_credentials.provider, 'delhivery'))
-    } else {
-      await db.insert(courier_credentials).values({
-        provider: 'delhivery',
-        apiBase: nextApiBase || 'https://track.delhivery.com',
-        clientName: nextClientName || '',
-        apiKey: hasNewApiKey ? nextApiKey : '',
-      })
-    }
+    const cutover = await cutoverDelhiveryCredential({
+      apiBase: nextApiBase || currentCredential?.apiBase || 'https://track.delhivery.com',
+      clientName: nextClientName || currentCredential?.clientName || '',
+      apiKey: nextApiKey!,
+    })
+    const warehouseSync = cutover.newProfileId
+      ? await syncAllDelhiveryWarehousesForProfile(cutover.newProfileId)
+      : { total: 0, synced: 0, failed: 0, failures: [] }
 
     const [saved] = await db
       .select({
@@ -707,6 +695,12 @@ export const updateDelhiveryCredentialsController = async (req: Request, res: Re
     res.json({
       success: true,
       message: 'Delhivery credentials updated successfully',
+      cutover: {
+        changed: cutover.changed,
+        oldShipmentsPreserved: Boolean(cutover.oldProfileId),
+        newProfileId: cutover.newProfileId,
+        warehouseSync,
+      },
       data: {
         provider: 'delhivery',
         apiBase: saved?.apiBase || 'https://track.delhivery.com',

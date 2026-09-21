@@ -162,7 +162,7 @@ export const generateInvoiceForUser = async (
 
   // Billing subtotal should reflect only costs we bill the seller for
   // Exclude customer-facing charges like transaction fee, gift wrap, discount
-  const subtotal = totalShipping + totalCOD
+  let subtotal = totalShipping + totalCOD
   // GST calculation (default 18%) — compute fully after fetching seller profile
   const gstRate = 0
 
@@ -263,6 +263,28 @@ export const generateInvoiceForUser = async (
       : Promise.resolve([]),
   ])
 
+  const allDiscrepancyRows = [...(b2cDiscrepancyRows as any[]), ...(b2bDiscrepancyRows as any[])]
+  const discrepancyOrderByRef = new Map<string, string>()
+  for (const row of allDiscrepancyRows) {
+    const status = String(row.status || '').toLowerCase()
+    const orderId = String(row.b2c_order_id || row.b2b_order_id || '')
+    const additionalCharge = Number(row.additional_charge || 0)
+    if (!orderId || additionalCharge <= 0 || !['accepted', 'resolved'].includes(status)) continue
+    discrepancyOrderByRef.set(`weight_discrepancy_${row.id}`, orderId)
+  }
+
+  const discrepancyDebitRows = discrepancyOrderByRef.size
+    ? await db
+        .select()
+        .from(walletTransactions)
+        .where(
+          and(
+            eq(walletTransactions.type, 'debit'),
+            inArray(walletTransactions.ref, Array.from(discrepancyOrderByRef.keys())),
+          ),
+        )
+    : []
+
   const nonRtoDebitByOrderId = new Map<string, number>()
   for (const row of walletDebitRows as any[]) {
     const ref = String(row.ref || '')
@@ -272,8 +294,23 @@ export const generateInvoiceForUser = async (
     nonRtoDebitByOrderId.set(ref, (nonRtoDebitByOrderId.get(ref) || 0) + Number(row.amount || 0))
   }
 
+  const discrepancyDebitByOrderId = new Map<string, number>()
+  for (const row of discrepancyDebitRows as any[]) {
+    const orderId = discrepancyOrderByRef.get(String(row.ref || ''))
+    if (!orderId) continue
+    discrepancyDebitByOrderId.set(
+      orderId,
+      (discrepancyDebitByOrderId.get(orderId) || 0) + Number(row.amount || 0),
+    )
+  }
+  const totalWeightDiscrepancyCharges = Array.from(discrepancyDebitByOrderId.values()).reduce(
+    (sum, amount) => sum + amount,
+    0,
+  )
+  subtotal += totalWeightDiscrepancyCharges
+
   const discrepancyByOrderId = new Map<string, any>()
-  for (const row of [...(b2cDiscrepancyRows as any[]), ...(b2bDiscrepancyRows as any[])]) {
+  for (const row of allDiscrepancyRows) {
     const orderId = String(row.b2c_order_id || row.b2b_order_id || '')
     if (!orderId) continue
     const existing = discrepancyByOrderId.get(orderId)
@@ -301,6 +338,7 @@ export const generateInvoiceForUser = async (
     'Freight Charges',
     'COD Charges',
     'Other Charges',
+    'Weight Discrepancy Debit',
     'Total Charged Weight',
     'Dimensions (LxBxH)',
     'Discrepancy Weight',
@@ -321,7 +359,8 @@ export const generateInvoiceForUser = async (
       const codCharges = Number(anyOrder.cod_charges ?? 0)
       const otherCharges = Number(anyOrder.other_charges ?? 0)
       const fallbackDebit = freightCharges + codCharges + otherCharges
-      const moneyDebited = nonRtoDebitByOrderId.get(orderId) ?? fallbackDebit
+      const weightDiscrepancyDebit = discrepancyDebitByOrderId.get(orderId) || 0
+      const moneyDebited = (nonRtoDebitByOrderId.get(orderId) ?? fallbackDebit) + weightDiscrepancyDebit
       const discrepancy = discrepancyByOrderId.get(orderId)
       const rto = rtoByOrderId.get(orderId)
       const dimensionText =
@@ -343,6 +382,7 @@ export const generateInvoiceForUser = async (
         formatCsvAmount(freightCharges),
         formatCsvAmount(codCharges),
         formatCsvAmount(otherCharges),
+        formatCsvAmount(weightDiscrepancyDebit),
         formatCsvNumber(anyOrder.charged_weight ?? anyOrder.selected_max_slab_weight ?? anyOrder.weight),
         dimensionText,
         discrepancy ? formatCsvNumber(discrepancy.weight_difference) : '',
@@ -664,6 +704,23 @@ export const generateInvoiceForUser = async (
                       ],
                     ]
                   : []),
+                ...(totalWeightDiscrepancyCharges > 0
+                  ? [
+                      [
+                        { text: 'Weight Discrepancy Charges', fontSize },
+                        {
+                          text: discrepancyDebitByOrderId.size.toString(),
+                          fontSize,
+                          alignment: 'center',
+                        },
+                        {
+                          text: formatAmount(totalWeightDiscrepancyCharges),
+                          fontSize,
+                          alignment: 'right',
+                        },
+                      ],
+                    ]
+                  : []),
               ],
             },
             layout: 'lightHorizontalLines',
@@ -860,6 +917,27 @@ export const generateInvoiceForUser = async (
                         { text: 'COD Charges', style: 'tableCell' },
                         { text: allOrders.length.toString(), style: 'tableCellCenter' },
                         { text: formatAmount(totalCOD), style: 'tableCellRight' },
+                      ],
+                    ]
+                  : []),
+                ...(totalWeightDiscrepancyCharges > 0
+                  ? [
+                      [
+                        {
+                          text: String(
+                            (totalShipping > 0 ? 1 : 0) + (totalCOD > 0 ? 1 : 0) + 1,
+                          ),
+                          style: 'tableCell',
+                        },
+                        { text: 'Weight Discrepancy Charges', style: 'tableCell' },
+                        {
+                          text: discrepancyDebitByOrderId.size.toString(),
+                          style: 'tableCellCenter',
+                        },
+                        {
+                          text: formatAmount(totalWeightDiscrepancyCharges),
+                          style: 'tableCellRight',
+                        },
                       ],
                     ]
                   : []),

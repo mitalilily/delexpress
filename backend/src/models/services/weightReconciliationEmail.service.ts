@@ -283,6 +283,46 @@ export async function sendWeightDiscrepancyEmail(data: WeightDiscrepancyNotifica
   }
 }
 
+export async function sendAdminWeightDiscrepancyEmail(data: WeightDiscrepancyNotification & {
+  originalShippingCharge?: number
+  revisedShippingCharge?: number
+  approved?: boolean
+}) {
+  const subject = data.approved
+    ? `Weight discrepancy charge debited - Order ${data.orderNumber}`
+    : `Weight discrepancy added - Order ${data.orderNumber}`
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#222">
+      <h2 style="background:#333369;color:#fff;padding:16px;border-radius:6px 6px 0 0;margin:0">
+        ${data.approved ? 'Weight Discrepancy Debited' : 'Weight Discrepancy Added'}
+      </h2>
+      <div style="border:1px solid #ddd;padding:20px">
+        <p>Hi ${data.userName || 'User'},</p>
+        <p>A weight discrepancy has been ${data.approved ? 'approved by admin and debited from your wallet' : 'added by admin and is pending approval'}.</p>
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="padding:8px;border-bottom:1px solid #eee"><b>Order</b></td><td>${data.orderNumber}</td></tr>
+          ${data.awbNumber ? `<tr><td style="padding:8px;border-bottom:1px solid #eee"><b>AWB</b></td><td>${data.awbNumber}</td></tr>` : ''}
+          ${data.courierPartner ? `<tr><td style="padding:8px;border-bottom:1px solid #eee"><b>Courier</b></td><td>${data.courierPartner}</td></tr>` : ''}
+          <tr><td style="padding:8px;border-bottom:1px solid #eee"><b>Seller Declared Weight</b></td><td>${data.declaredWeight.toFixed(3)} kg</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #eee"><b>Courier Charged Weight</b></td><td>${data.chargedWeight.toFixed(3)} kg</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #eee"><b>Weight Difference</b></td><td>${data.weightDifference.toFixed(3)} kg</td></tr>
+          ${data.originalShippingCharge != null ? `<tr><td style="padding:8px;border-bottom:1px solid #eee"><b>Original Freight</b></td><td>Rs. ${data.originalShippingCharge.toFixed(2)}</td></tr>` : ''}
+          ${data.revisedShippingCharge != null ? `<tr><td style="padding:8px;border-bottom:1px solid #eee"><b>Revised Freight</b></td><td>Rs. ${data.revisedShippingCharge.toFixed(2)}</td></tr>` : ''}
+          <tr><td style="padding:8px;border-bottom:1px solid #eee"><b>Extra Charge</b></td><td><b>Rs. ${data.additionalCharge.toFixed(2)}</b></td></tr>
+        </table>
+        <p style="font-size:13px;color:#666;margin-top:20px">This is an admin generated discrepancy. No dispute action is required from your side.</p>
+      </div>
+    </div>
+  `
+
+  try {
+    await sendEmail(data.userEmail, subject, html)
+  } catch (error) {
+    console.error('Error sending admin weight discrepancy email:', error)
+  }
+}
+
 /**
  * Send daily weight reconciliation summary
  */

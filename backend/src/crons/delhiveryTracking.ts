@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, notInArray, or } from 'drizzle-orm'
 import { db } from '../models/client'
 import { DelhiveryService } from '../models/services/couriers/delhivery.service'
+import { getDelhiveryCredentialProfile } from '../models/services/delhiveryCredentials.service'
 import { extractDelhiveryTrackingUpdate } from '../models/services/couriers/delhiveryTracking.utils'
 import { processDelhiveryWebhook } from '../models/services/webhookProcessor'
 import { b2b_orders } from '../models/schema/b2bOrders'
@@ -64,13 +65,20 @@ export async function pollDelhiveryTracking(
 
   if (!pending.length) return
 
-  const delhivery = new DelhiveryService()
+  const serviceCache = new Map<string, DelhiveryService>()
 
   for (const { order, orderType } of pending) {
     const awb = String(order.awb_number || '').trim()
     if (!awb) continue
 
     try {
+      const profileId = String(order.delhivery_credential_profile_id || 'active')
+      let delhivery = serviceCache.get(profileId)
+      if (!delhivery) {
+        const profile = profileId === 'active' ? null : await getDelhiveryCredentialProfile(profileId)
+        delhivery = new DelhiveryService(profile)
+        serviceCache.set(profileId, delhivery)
+      }
       const raw = await delhivery.trackShipment(awb)
       const trackingUpdate = extractDelhiveryTrackingUpdate(raw)
       const mappedStatus = trackingUpdate.internalStatus

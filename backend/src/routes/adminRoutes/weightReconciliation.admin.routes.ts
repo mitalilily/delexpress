@@ -1,6 +1,9 @@
 import { Router } from 'express'
 import {
   approveDispute,
+  approveWeightDiscrepancy,
+  createCsvWeightDiscrepancies,
+  createManualWeightDiscrepancy,
   getAdminWeightStats,
   getAllDiscrepancies,
   getAllDisputes,
@@ -16,6 +19,9 @@ router.use(requireAuth, isAdminMiddleware)
 
 // Discrepancies
 router.get('/discrepancies', getAllDiscrepancies)
+router.post('/discrepancies/manual', createManualWeightDiscrepancy)
+router.post('/discrepancies/csv', createCsvWeightDiscrepancies)
+router.post('/discrepancies/:id/approve', approveWeightDiscrepancy)
 
 // Disputes
 router.get('/disputes', getAllDisputes)

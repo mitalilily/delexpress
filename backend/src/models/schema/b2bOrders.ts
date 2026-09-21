@@ -115,6 +115,7 @@ export const b2b_orders = pgTable(
   pickup_details: jsonb('pickup_details'), // warehouse_name, name, address, city, state, pincode, phone, gst_number
   rto_details: jsonb('rto_details'),
   is_rto_different: boolean('is_rto_different').default(false),
+  delhivery_credential_profile_id: uuid('delhivery_credential_profile_id'),
 
   // 🔹 Order source flag
   is_external_api: boolean('is_external_api').default(false), // true if created via external API, false if created locally
