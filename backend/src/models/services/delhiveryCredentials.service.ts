@@ -1,4 +1,5 @@
 import { and, eq, isNull, notInArray, or, sql } from 'drizzle-orm'
+import { randomUUID } from 'crypto'
 import { db } from '../client'
 import { courier_credentials } from '../schema/courierCredentials'
 import { delhiveryCredentialProfiles } from '../schema/delhiveryCredentialProfiles'
@@ -113,6 +114,7 @@ export const cutoverDelhiveryCredential = async (next: {
       : await tx
           .insert(delhiveryCredentialProfiles)
           .values({
+            id: randomUUID(),
             label: 'Delhivery legacy account',
             apiBase: current.apiBase || 'https://track.delhivery.com',
             clientName: current.clientName || '',
@@ -130,6 +132,7 @@ export const cutoverDelhiveryCredential = async (next: {
     const [created] = await tx
       .insert(delhiveryCredentialProfiles)
       .values({
+        id: randomUUID(),
         label: 'Delhivery active account',
         apiBase: next.apiBase,
         clientName: next.clientName,
