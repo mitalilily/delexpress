@@ -358,10 +358,10 @@ export async function syncAllDelhiveryWarehousesForProfile(profileId: string) {
     const [rtoAddressData] = row.rtoAddressId
       ? await db.select().from(addresses).where(eq(addresses.id, row.rtoAddressId)).limit(1)
       : []
+    const baseName = buildDelhiveryWarehouseName(pickupAddr)
+    const warehouseName = `EP-${String(pickupAddr.userId || row.userId || 'user').slice(0, 8)}-${baseName}`.slice(0, 100)
 
     try {
-      const baseName = buildDelhiveryWarehouseName(pickupAddr)
-      const warehouseName = `EP-${String(pickupAddr.userId || row.userId || 'user').slice(0, 8)}-${baseName}`.slice(0, 100)
       await syncDelhiveryWarehouse({
         pickupAddr,
         rtoAddressData: rtoAddressData || pickupAddr,
@@ -379,6 +379,19 @@ export async function syncAllDelhiveryWarehousesForProfile(profileId: string) {
       synced += 1
     } catch (error: any) {
       const reason = String(error?.response?.data?.message || error?.message || 'Registration failed')
+      const providerError = JSON.stringify(error?.response?.data || error || '').toLowerCase()
+      if (providerError.includes('already exists')) {
+        await db
+          .update(pickupAddresses)
+          .set({
+            delhiveryNewAccountSynced: true,
+            delhiveryNewAccountSyncError: null,
+            delhiveryNewAccountWarehouseName: warehouseName,
+          })
+          .where(eq(pickupAddresses.id, row.id))
+        synced += 1
+        continue
+      }
       await db
         .update(pickupAddresses)
         .set({ delhiveryNewAccountSynced: false, delhiveryNewAccountSyncError: reason })
