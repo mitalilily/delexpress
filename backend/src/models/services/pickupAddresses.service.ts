@@ -378,7 +378,14 @@ export async function syncAllDelhiveryWarehousesForProfile(profileId: string) {
         .where(eq(pickupAddresses.id, row.id))
       synced += 1
     } catch (error: any) {
-      const reason = String(error?.response?.data?.message || error?.message || 'Registration failed')
+      const providerData = error?.response?.data
+      const reason = String(
+        providerData?.error?.[0] ||
+          providerData?.errors?.[0] ||
+          providerData?.message ||
+          error?.message ||
+          'Registration failed',
+      )
       const providerError = JSON.stringify(error?.response?.data || error || '').toLowerCase()
       if (providerError.includes('already exists')) {
         await db
