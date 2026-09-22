@@ -1925,17 +1925,14 @@ export const fetchAvailableCouriersWithRates = async (
       }
 
       let activePlanId: string | null | undefined = planIdOverride ?? null
-      let activePlanName: string | null = null
-
       if (!activePlanId && userId) {
         const [returnedUser] = await db
-          .select({ planId: userPlans.plan_id, planName: plans.name })
+          .select({ planId: userPlans.plan_id })
           .from(userPlans)
           .leftJoin(plans, eq(plans.id, userPlans.plan_id))
           .where(and(eq(userPlans.userId, userId), eq(userPlans.is_active, true)))
           .limit(1)
         activePlanId = returnedUser?.planId ?? null
-        activePlanName = returnedUser?.planName ?? null
       }
 
       if (!activePlanId && effectivePlanFallbackName) {
@@ -1946,18 +1943,15 @@ export const fetchAvailableCouriersWithRates = async (
           .where(sql`lower(${plans.name}) = ${normalizedFallback}`)
           .limit(1)
         activePlanId = fallbackPlan?.id ?? null
-        activePlanName = fallbackPlan?.name ?? null
-      }
-
-      if (activePlanId && !activePlanName) {
-        activePlanName = await resolvePlanNameById(activePlanId)
       }
 
       if (activePlanId) {
         localRates = await fetchPlanRateCardsWithFallback(activePlanId)
       }
 
-      if (!localRates.length && effectivePlanFallbackName) {
+      // A signed-in merchant must never inherit another plan's pricing. The
+      // Basic fallback is reserved for guest/calculator requests without a user.
+      if (!localRates.length && effectivePlanFallbackName && !userId) {
         const fallbackPlanId = await resolvePlanIdByName(effectivePlanFallbackName)
 
         if (fallbackPlanId && fallbackPlanId !== activePlanId) {
@@ -1965,31 +1959,6 @@ export const fetchAvailableCouriersWithRates = async (
         }
       }
 
-      const localRateProviderKeys = new Set(
-        localRates.map((rateCard: any) => normalizeProviderKey(rateCard.service_provider)),
-      )
-      const missingServiceableProviders = Array.from(serviceableProviders.keys()).filter(
-        (providerKey) => providerKey && !localRateProviderKeys.has(providerKey),
-      )
-
-      if (missingServiceableProviders.length && !isKishoriPlanName(activePlanName)) {
-        const fallbackPlanId = await resolvePlanIdByName('Basic')
-        if (fallbackPlanId && fallbackPlanId !== activePlanId) {
-          const fallbackRates = await fetchPlanRateCardsWithFallback(fallbackPlanId)
-          const mergedRates = mergeMissingRateCards(localRates, fallbackRates)
-          if (mergedRates.length > localRates.length) {
-            console.log(
-              '[RateCalculator] Added Basic fallback B2C rate cards for missing serviceable providers',
-              {
-                zone: approxZone,
-                missingServiceableProviders,
-                added: mergedRates.length - localRates.length,
-              },
-            )
-            localRates = mergedRates
-          }
-        }
-      }
     }
 
     // 🔹 Calculate chargeable weight if dimensions are provided
