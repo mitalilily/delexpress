@@ -58,6 +58,7 @@ import { plans } from '../schema/plans'
 import { userPlans } from '../schema/userPlans'
 import { userProfiles } from '../schema/userProfile'
 import { b2bPincodes, b2bZoneToZoneRates, zones } from '../schema/zones'
+import { tracking_events } from '../schema/trackingEvents'
 import { calculateB2BRate } from './b2bAdmin.service'
 import {
   computeB2CRateCardCharge,
@@ -8054,6 +8055,73 @@ const sortHistoryDescending = (history: TrackingHistoryItem[]) => {
   history.sort((a, b) => new Date(b.event_time).getTime() - new Date(a.event_time).getTime())
 }
 
+const sortHistoryAscending = (history: TrackingHistoryItem[]) => {
+  history.sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime())
+}
+
+const getPersistedTrackingEventTime = (raw: unknown, createdAt: unknown) => {
+  const value = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  return toIsoString(
+    value._delhivery_event_time ??
+      value.event_time ??
+      value.eventTime ??
+      value.scanDateTime ??
+      value.scan_datetime ??
+      value.created_at,
+    toIsoString(createdAt),
+  )
+}
+
+const trackingHistoryKey = (event: TrackingHistoryItem) =>
+  [event.status_code, event.message, event.location, event.event_time]
+    .map((value) => sanitizeString(value).toLowerCase())
+    .join('|')
+
+const mergeTrackingHistory = (
+  persisted: TrackingHistoryItem[],
+  providerHistory: TrackingHistoryItem[],
+) => {
+  const merged: TrackingHistoryItem[] = []
+  const seen = new Set<string>()
+
+  for (const event of [...persisted, ...providerHistory]) {
+    const normalized = {
+      status_code: sanitizeString(event.status_code, event.message || 'Status Update'),
+      location: sanitizeString(event.location),
+      event_time: toIsoString(event.event_time),
+      message: sanitizeString(event.message, event.status_code || 'Status Update'),
+    }
+    const key = trackingHistoryKey(normalized)
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push(normalized)
+  }
+
+  sortHistoryAscending(merged)
+  return merged
+}
+
+const fetchPersistedTrackingHistory = async (orderId: string): Promise<TrackingHistoryItem[]> => {
+  const rows = await db
+    .select({
+      statusCode: tracking_events.status_code,
+      statusText: tracking_events.status_text,
+      location: tracking_events.location,
+      raw: tracking_events.raw,
+      createdAt: tracking_events.created_at,
+    })
+    .from(tracking_events)
+    .where(eq(tracking_events.order_id, orderId))
+    .orderBy(asc(tracking_events.created_at))
+
+  return rows.map((row) => ({
+    status_code: sanitizeString(row.statusCode, row.statusText || 'Status Update'),
+    location: sanitizeString(row.location),
+    event_time: getPersistedTrackingEventTime(row.raw, row.createdAt),
+    message: sanitizeString(row.statusText, row.statusCode || 'Status Update'),
+  }))
+}
+
 const mapDelhiveryTracking = (raw: any, order: OrderSummary): ProviderNormalizedTracking => {
   const history: TrackingHistoryItem[] = []
   const shipmentWrapper = Array.isArray(raw?.ShipmentData)
@@ -8226,10 +8294,10 @@ const buildTrackingResponse = (
     )
   }
 
-  sortHistoryDescending(history)
+  sortHistoryAscending(history)
 
   const status = sanitizeString(
-    providerData.status ?? history[0]?.message ?? order.order_status,
+    providerData.status ?? history[history.length - 1]?.message ?? order.order_status,
     'In Transit',
   )
 
@@ -8385,6 +8453,12 @@ export const trackByAwbService = async (awb: string): Promise<TrackingServiceRes
     const message =
       err?.response?.data?.message ?? err?.message ?? 'Failed to fetch tracking information'
     throw new HttpError(status, message)
+  }
+
+  const persistedHistory = await fetchPersistedTrackingHistory(order.id)
+  providerData = {
+    ...providerData,
+    history: mergeTrackingHistory(persistedHistory, providerData.history),
   }
 
   return buildTrackingResponse(order, providerData)
