@@ -904,32 +904,21 @@ export class ExpressflyService {
   private selectWarehouseForPickup(warehouses: Array<Record<string, any>>, pickup?: ExpressflyShipmentParams['pickup']) {
     if (!warehouses.length) return null
 
-    const activeWarehouses = warehouses.filter((warehouse) => warehouse?.is_active !== false)
-    const candidates = activeWarehouses.length ? activeWarehouses : warehouses
-    const pickupPincode = normalize(pickup?.pincode)
-    const pickupWarehouseName = normalizeComparable(pickup?.warehouse_name)
-    const pickupContactName = normalizeComparable(pickup?.name)
-
-    if (pickupPincode) {
-      const pincodeMatch = candidates.find((warehouse) => normalize(warehouse?.pincode) === pickupPincode)
-      if (pincodeMatch) return pincodeMatch
+    const expected = [pickup?.warehouse_name, pickup?.pincode,
+      [pickup?.address, pickup?.address_2].filter(Boolean).join(' '), pickup?.city, pickup?.state]
+      .map(normalizeComparable)
+    if (expected.some((value) => !value)) return null
+    const matches = warehouses.filter((warehouse) =>
+      ![false, 0, '0', 'false'].includes(warehouse?.is_active) &&
+      isExpressflyObjectId(warehouse?._id || warehouse?.id) &&
+      [warehouse?.warehouse_name, warehouse?.pincode, warehouse?.address_line1,
+        warehouse?.city, warehouse?.state].map(normalizeComparable)
+        .every((value, index) => value === expected[index]),
+    )
+    if (matches.length > 1) {
+      throw new HttpError(400, 'Multiple Expressfly warehouses match this pickup. Resolve duplicate warehouses before booking.')
     }
-
-    if (pickupWarehouseName) {
-      const nameMatch = candidates.find(
-        (warehouse) => normalizeComparable(warehouse?.warehouse_name) === pickupWarehouseName,
-      )
-      if (nameMatch) return nameMatch
-    }
-
-    if (pickupContactName) {
-      const contactMatch = candidates.find(
-        (warehouse) => normalizeComparable(warehouse?.contact_person_name) === pickupContactName,
-      )
-      if (contactMatch) return contactMatch
-    }
-
-    return candidates[0]
+    return matches[0] || null
   }
 
   private async resolvePickupAddressId(
@@ -937,28 +926,48 @@ export class ExpressflyService {
     pickup?: ExpressflyShipmentParams['pickup'],
   ) {
     const explicit = normalize(explicitPickupId)
-    if (isExpressflyObjectId(explicit)) return explicit
-
-    if (explicit) {
-      this.log('Ignoring non-Expressfly pickup id for booking', {
-        providedPickupId: explicit,
-        pickupWarehouseName: normalize(pickup?.warehouse_name) || null,
-        pickupPincode: normalize(pickup?.pincode) || null,
-      })
+    if (!pickup || [pickup.warehouse_name, pickup.address, pickup.city, pickup.state,
+      pickup.pincode, pickup.name, pickup.phone].some((value) => !normalize(value))) {
+      throw new HttpError(400, 'Complete selected pickup warehouse details are required for Expressfly booking.')
     }
-
-    const envPickupId = normalize(this.pickupAddressId)
-    if (isExpressflyObjectId(envPickupId)) return envPickupId
-
-    const warehouseList = await this.getWarehouseList({ forceRefresh: false, limit: 1000, page: 1 })
-    const warehouses = Array.isArray(warehouseList.data) ? warehouseList.data : []
-    const selectedWarehouse = this.selectWarehouseForPickup(warehouses, pickup)
+    const loadWarehouses = async () => {
+      const warehouses: Array<Record<string, any>> = []
+      let page = 1
+      let pages = 1
+      do {
+        const result = await this.getWarehouseList({ limit: 1000, page })
+        warehouses.push(...result.data)
+        pages = Math.max(1, result.totalPages || 1)
+        page += 1
+      } while (page <= pages)
+      return warehouses
+    }
+    let warehouses = await loadWarehouses()
+    let selectedWarehouse = this.selectWarehouseForPickup(warehouses, pickup)
+    if (isExpressflyObjectId(explicit) &&
+      normalize(selectedWarehouse?._id || selectedWarehouse?.id) !== explicit) {
+      throw new HttpError(400, 'Expressfly warehouse ID does not match the selected pickup address.')
+    }
+    if (!selectedWarehouse) {
+      // Register the selected address, then verify it through the provider's warehouse list.
+      await this.createWarehouse({
+        warehouse_name: pickup.warehouse_name,
+        contact_person_name: pickup.name,
+        contact_no: pickup.phone,
+        address_line1: [pickup.address, pickup.address_2].filter(Boolean).join(' '),
+        city: pickup.city,
+        state: pickup.state,
+        pincode: pickup.pincode,
+      })
+      warehouses = await loadWarehouses()
+      selectedWarehouse = this.selectWarehouseForPickup(warehouses, pickup)
+    }
     const resolved = normalize(selectedWarehouse?._id || selectedWarehouse?.id)
 
-    if (!resolved) {
+    if (!isExpressflyObjectId(resolved)) {
       throw new HttpError(
         400,
-        'Expressfly pickup address id is missing and no warehouse records were found.',
+        'Could not verify the selected pickup warehouse in Expressfly. Booking stopped to prevent an incorrect pickup.',
       )
     }
 
