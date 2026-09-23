@@ -1028,8 +1028,18 @@ export const computeB2CFreightForOrder = async (params: {
     throw new HttpError(400, 'No active plan found for user to compute freight')
   }
 
-  // Determine zone
-  const zoneRow = params.zoneIdOverride
+  // Always derive the B2C zone from the actual pincodes. A client-supplied zone
+  // can be stale after the seller changes the pickup or destination address.
+  const [originLoc, destLoc] = await Promise.all([
+    fetchLocationByPincode(params.originPincode),
+    fetchLocationByPincode(params.destinationPincode),
+  ])
+  const { key: derivedZoneKey, reason: derivedZoneReason } = determineB2CZoneKey(
+    originLoc,
+    destLoc,
+  )
+  const derivedZoneRow = await fetchZoneIdByKey(derivedZoneKey)
+  const suppliedZoneRow = params.zoneIdOverride
     ? (
         await db
           .select({ id: zones.id, code: zones.code, name: zones.name })
@@ -1039,16 +1049,17 @@ export const computeB2CFreightForOrder = async (params: {
       )[0]
     : null
 
-  const resolvedZoneRow =
-    zoneRow ??
-    (await (async () => {
-      const [originLoc, destLoc] = await Promise.all([
-        fetchLocationByPincode(params.originPincode),
-        fetchLocationByPincode(params.destinationPincode),
-      ])
-      const { key: zoneKey } = determineB2CZoneKey(originLoc, destLoc)
-      return fetchZoneIdByKey(zoneKey)
-    })())
+  if (suppliedZoneRow?.id && suppliedZoneRow.id !== derivedZoneRow.id) {
+    console.warn('[B2C] Ignoring stale zone override', {
+      originPincode: params.originPincode,
+      destinationPincode: params.destinationPincode,
+      suppliedZone: suppliedZoneRow.code,
+      derivedZone: derivedZoneRow.code,
+      reason: derivedZoneReason,
+    })
+  }
+
+  const resolvedZoneRow = derivedZoneRow
 
   const rateType = params.isReverse ? 'rto' : 'forward'
   const resolvedServiceProvider =
@@ -1110,6 +1121,9 @@ export const computeB2CFreightForOrder = async (params: {
 
   return {
     ...freightCalc,
+    zone_id: resolvedZoneRow.id,
+    zone_code: resolvedZoneRow.code,
+    zone_name: resolvedZoneRow.name,
     cod_charges: Number(rateCard.cod_charges ?? 0),
     cod_percent: Number(rateCard.cod_percent ?? 0),
     effective_cod_charges: computeEffectiveCodCharge({
@@ -1120,7 +1134,6 @@ export const computeB2CFreightForOrder = async (params: {
     other_charges: Number(rateCard.other_charges ?? 0),
     slab_weight: freightCalc.slab_weight,
     base_price: freightCalc.base_price,
-    zone_id: resolvedZoneRow.id,
     plan_id: userPlan.planId,
     selected_slab: freightCalc.selected_slab,
   }
@@ -3772,6 +3785,9 @@ export const createB2CShipmentService = async (
     volumetric_weight: number | null
     chargeable_weight: number | null
     slabs: number | null
+    zone_id?: string
+    zone_code?: string
+    zone_name?: string
     cod_charges?: number
     cod_percent?: number
     effective_cod_charges?: number
@@ -3803,6 +3819,9 @@ export const createB2CShipmentService = async (
       })
       if (computedFreight?.freight !== undefined) {
         slabbedFreight = computedFreight
+        params.zone_id = computedFreight.zone_id
+        params.zone = computedFreight.zone_code
+        params.delivery_location = computedFreight.zone_code
         freightCharges = Number(computedFreight.freight)
         if (isCodOrder && computedFreight.effective_cod_charges !== undefined) {
           codCharges = Number(computedFreight.effective_cod_charges)
