@@ -5633,6 +5633,34 @@ export const getB2COrdersByUserService = async (
   const { sanitizeOrdersForCustomer } = await import('../../utils/orderSanitizer')
   const orders = await sanitizeOrdersForCustomer(ordersRaw)
 
+  // ExpressFly is an aggregator. Show the courier selected inside ExpressFly
+  // in seller-facing order details, while keeping integration_type unchanged.
+  const expressflyCourierIds = Array.from(
+    new Set(
+      orders
+        .filter((order: any) => String(order.integration_type || '').toLowerCase() === 'expressfly')
+        .map((order: any) => Number(order.courier_id))
+        .filter((id: number) => Number.isInteger(id) && id > 0),
+    ),
+  )
+  if (expressflyCourierIds.length) {
+    const expressflyCouriers = await db
+      .select({ id: couriers.id, name: couriers.name })
+      .from(couriers)
+      .where(
+        and(
+          inArray(couriers.id, expressflyCourierIds),
+          eq(sql`lower(${couriers.serviceProvider})`, 'expressfly'),
+        ),
+      )
+    const courierNames = new Map(expressflyCouriers.map((courier) => [courier.id, courier.name]))
+    orders.forEach((order: any) => {
+      if (String(order.integration_type || '').toLowerCase() !== 'expressfly') return
+      const courierName = courierNames.get(Number(order.courier_id))
+      if (courierName) order.courier_partner = courierName
+    })
+  }
+
   return {
     orders,
     totalCount: total,
