@@ -2119,6 +2119,14 @@ export const fetchAvailableCouriersWithRates = async (
       if (!localRates.length) return []
 
       const rateType = isReverseShipment ? 'rto' : 'forward'
+      // Do not re-add a courier from its local rate card after its provider
+      // rejected this route's origin or destination pincode.
+      const liveServiceabilityProviders = new Set([
+        'delhivery',
+        'ekart',
+        'xpressbees',
+        'shadowfax',
+      ])
 
       return localRates.flatMap((rateCard: any) => {
         if (rateCard.type !== rateType) return []
@@ -2136,6 +2144,9 @@ export const fetchAvailableCouriersWithRates = async (
           normalizeProviderKey(rateCard.service_provider) ||
           normalizeProviderKey(courierRow.serviceProvider)
         if (!providerKey || !isCourierInSystem(providerKey, rateCard.courier_id)) return []
+        if (liveServiceabilityProviders.has(providerKey) && !serviceableProviders.has(providerKey)) {
+          return []
+        }
 
         const applicableRateOptions = buildServiceabilityRateOptions(rateCard)
         if (!applicableRateOptions.length) return []
@@ -4387,6 +4398,51 @@ export const createB2CShipmentService = async (
         isReverseShipment,
         envOverride: String(process.env.SHADOWFAX_FLOW_MODE || '').trim() || null,
       })
+
+      if (!isReverseShipment) {
+        const originPin = bookingPickupPincode
+        const destinationPin = bookingDestinationPincode
+        const pickupService = shadowfaxFlow === 'warehouse' ? 'warehouse_pickup' : 'seller_pickup'
+        const deliveryService =
+          shadowfaxFlow === 'warehouse' ? 'warehouse_return' : 'customer_delivery'
+
+        try {
+          const [pickupResp, deliveryResp] = await Promise.all([
+            shadowfax.checkServiceability({
+              service: pickupService,
+              page: 1,
+              count: 25,
+              pincodes: [originPin],
+            }),
+            shadowfax.checkServiceability({
+              service: deliveryService,
+              page: 1,
+              count: 25,
+              pincodes: [destinationPin],
+            }),
+          ])
+
+          if (!pickupResp.serviceable) {
+            throw new HttpError(
+              400,
+              `Shadowfax origin pincode ${originPin} is unserviceable. Please select a different pickup location.`,
+            )
+          }
+          if (!deliveryResp.serviceable) {
+            throw new HttpError(
+              400,
+              `Shadowfax destination pincode ${destinationPin} is unserviceable. Please select a different delivery address.`,
+            )
+          }
+        } catch (error: any) {
+          if (error instanceof HttpError) throw error
+          throw new HttpError(
+            502,
+            `Shadowfax serviceability check failed for origin ${originPin} and destination ${destinationPin}. ${error?.message || 'Please try again later.'}`,
+          )
+        }
+      }
+
       const courierSafeText = (value: unknown, fallback = '') => {
         const cleaned = String(value ?? '')
           .normalize('NFKD')

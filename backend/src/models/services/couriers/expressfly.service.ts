@@ -145,6 +145,7 @@ type ExpressflyWarehouseListParams = {
   limit?: number
   search?: string
   userId?: string
+  includeUserFilter?: boolean
 }
 
 type ExpressflyWarehouseListResponse = {
@@ -729,7 +730,9 @@ export class ExpressflyService {
     }
 
     const userId =
-      normalize(params.userId) || normalize(profile?.data?._id || profile?.data?.id) || ''
+      params.includeUserFilter === false
+        ? ''
+        : normalize(params.userId) || normalize(profile?.data?._id || profile?.data?.id) || ''
 
     const response = await this.requestWarehouseList(token, {
       page: params.page,
@@ -921,6 +924,42 @@ export class ExpressflyService {
     return matches[0] || null
   }
 
+  private selectWarehouseByIdentity(
+    warehouses: Array<Record<string, any>>,
+    pickup?: ExpressflyShipmentParams['pickup'],
+  ) {
+    if (!warehouses.length || !pickup) return null
+
+    const expected = [pickup.warehouse_name, pickup.pincode, pickup.city, pickup.state].map(
+      normalizeComparable,
+    )
+    if (expected.some((value) => !value)) return null
+
+    const matches = warehouses.filter(
+      (warehouse) =>
+        ![false, 0, '0', 'false'].includes(warehouse?.is_active) &&
+        isExpressflyObjectId(warehouse?._id || warehouse?.id) &&
+        [warehouse?.warehouse_name, warehouse?.pincode, warehouse?.city, warehouse?.state]
+          .map(normalizeComparable)
+          .every((value, index) => value === expected[index]),
+    )
+
+    if (matches.length > 1) {
+      throw new HttpError(
+        400,
+        'Multiple Expressfly warehouses match this pickup. Resolve duplicate warehouses before booking.',
+      )
+    }
+
+    return matches[0] || null
+  }
+
+  private isDuplicateWarehouseError(error: any) {
+    return /duplicate key|already exists|duplicate warehouse/i.test(
+      normalize(error?.message || error),
+    )
+  }
+
   private async resolvePickupAddressId(
     explicitPickupId?: string,
     pickup?: ExpressflyShipmentParams['pickup'],
@@ -930,12 +969,16 @@ export class ExpressflyService {
       pickup.pincode, pickup.name, pickup.phone].some((value) => !normalize(value))) {
       throw new HttpError(400, 'Complete selected pickup warehouse details are required for Expressfly booking.')
     }
-    const loadWarehouses = async () => {
+    const loadWarehouses = async (includeUserFilter = true) => {
       const warehouses: Array<Record<string, any>> = []
       let page = 1
       let pages = 1
       do {
-        const result = await this.getWarehouseList({ limit: 1000, page })
+        const result = await this.getWarehouseList({
+          limit: 1000,
+          page,
+          includeUserFilter,
+        })
         warehouses.push(...result.data)
         pages = Math.max(1, result.totalPages || 1)
         page += 1
@@ -950,17 +993,40 @@ export class ExpressflyService {
     }
     if (!selectedWarehouse) {
       // Register the selected address, then verify it through the provider's warehouse list.
-      await this.createWarehouse({
-        warehouse_name: pickup.warehouse_name,
-        contact_person_name: pickup.name,
-        contact_no: pickup.phone,
-        address_line1: [pickup.address, pickup.address_2].filter(Boolean).join(' '),
-        city: pickup.city,
-        state: pickup.state,
-        pincode: pickup.pincode,
-      })
-      warehouses = await loadWarehouses()
-      selectedWarehouse = this.selectWarehouseForPickup(warehouses, pickup)
+      try {
+        await this.createWarehouse({
+          warehouse_name: pickup.warehouse_name,
+          contact_person_name: pickup.name,
+          contact_no: pickup.phone,
+          address_line1: [pickup.address, pickup.address_2].filter(Boolean).join(' '),
+          city: pickup.city,
+          state: pickup.state,
+          pincode: pickup.pincode,
+        })
+      } catch (error: any) {
+        if (!this.isDuplicateWarehouseError(error)) throw error
+
+        // ExpressFly can hide an existing warehouse behind its user filter
+        // while still enforcing its unique warehouse-name index. Re-read the
+        // provider list without that filter and reuse the existing ID.
+        this.log('Warehouse already exists; resolving existing provider record', {
+          warehouseName: normalize(pickup.warehouse_name),
+          pincode: normalize(pickup.pincode),
+        })
+        warehouses = await loadWarehouses(false)
+        selectedWarehouse = this.selectWarehouseForPickup(warehouses, pickup)
+        if (!selectedWarehouse) {
+          selectedWarehouse = this.selectWarehouseByIdentity(warehouses, pickup)
+        }
+      }
+
+      if (!selectedWarehouse) {
+        warehouses = await loadWarehouses(false)
+        selectedWarehouse = this.selectWarehouseForPickup(warehouses, pickup)
+        if (!selectedWarehouse) {
+          selectedWarehouse = this.selectWarehouseByIdentity(warehouses, pickup)
+        }
+      }
     }
     const resolved = normalize(selectedWarehouse?._id || selectedWarehouse?.id)
 
