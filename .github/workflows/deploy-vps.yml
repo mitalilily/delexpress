@@ -31,11 +31,14 @@ jobs:
       - name: Sync repository to server
         run: |
           rsync -az --delete \
+            --no-owner \
+            --no-group \
             --exclude '.git' \
             --exclude 'node_modules' \
             --exclude 'dist' \
             --exclude 'build' \
             --exclude '.env.production' \
+            --exclude 'backend/uploads/' \
             ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/srv/expressopro/current/"
 
       - name: Build and restart services
