@@ -955,8 +955,17 @@ export class ExpressflyService {
   }
 
   private isDuplicateWarehouseError(error: any) {
-    return /duplicate key|already exists|duplicate warehouse/i.test(
-      normalize(error?.message || error),
+    const responseData = error?.response?.data
+    const candidates = [
+      error?.message,
+      error?.response?.data?.message,
+      error?.response?.data?.error,
+      error?.response?.data?.description,
+      responseData ? JSON.stringify(responseData) : '',
+    ]
+
+    return candidates.some((candidate) =>
+      /duplicate key|already exists|duplicate warehouse/i.test(normalize(candidate)),
     )
   }
 
