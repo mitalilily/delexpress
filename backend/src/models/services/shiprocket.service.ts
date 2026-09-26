@@ -2456,11 +2456,18 @@ export const fetchAvailableCouriersWithRates = async (
 
     combined = await filterCouriersByBusinessType(combined, 'b2c')
 
-    const hasOriginalDelhivery = combined.some(
-      (courier: any) =>
-        normalizeProviderKey(
-          courier.integration_type || courier.serviceProvider || courier.service_provider,
-        ) === 'delhivery' && Number(courier.id) === DELHIVERY_EXPRESS_SURFACE_COURIER_ID,
+    const delhiveryPolicyRateType = isReverseShipment ? 'rto' : 'forward'
+    const hasOriginalDelhivery = localRates.some(
+      (rateCard: any) =>
+        String(rateCard.type || '').toLowerCase() === delhiveryPolicyRateType &&
+        normalizeProviderKey(rateCard.service_provider) === 'delhivery' &&
+        Number(rateCard.courier_id) === DELHIVERY_EXPRESS_SURFACE_COURIER_ID,
+    )
+    const hasExpressflyDelhiveryRateCard = localRates.some(
+      (rateCard: any) =>
+        String(rateCard.type || '').toLowerCase() === delhiveryPolicyRateType &&
+        normalizeProviderKey(rateCard.service_provider) === 'expressfly' &&
+        /delhivery/i.test(String(rateCard.courier_name || '')),
     )
     const isExpressflyDelhiveryOption = (courier: any) =>
       normalizeProviderKey(courier.integration_type || courier.serviceProvider || courier.service_provider) ===
@@ -2468,7 +2475,8 @@ export const fetchAvailableCouriersWithRates = async (
       String(courier.displayName || courier.name || '')
         .toLowerCase()
         .includes('delhivery')
-    const hasExpressflyDelhivery = combined.some(isExpressflyDelhiveryOption)
+    const hasExpressflyDelhivery =
+      hasExpressflyDelhiveryRateCard || combined.some(isExpressflyDelhiveryOption)
 
     if (hasOriginalDelhivery && hasExpressflyDelhivery) {
       combined = combined.filter((courier: any) => {
