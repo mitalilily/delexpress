@@ -58,6 +58,7 @@ import { plans } from '../schema/plans'
 import { userPlans } from '../schema/userPlans'
 import { userProfiles } from '../schema/userProfile'
 import { b2bPincodes, b2bZoneToZoneRates, zones } from '../schema/zones'
+import { shippingRates } from '../schema/shippingRates'
 import { tracking_events } from '../schema/trackingEvents'
 import { calculateB2BRate } from './b2bAdmin.service'
 import {
@@ -768,6 +769,8 @@ interface NimbusServiceabilityParams {
   pickupId?: string
   // Hint that this call is coming from a rate calculator UI (we can skip heavy live checks)
   isCalculator?: boolean
+  // Admin-only response detail. Seller-facing responses keep slab capacity internal.
+  exposeSlabNames?: boolean
 }
 
 // Delhivery-only serviceability.
@@ -1107,13 +1110,92 @@ export const computeB2CFreightForOrder = async (params: {
   if (!rateCard) {
     throw new HttpError(400, 'No rate card found for selected courier/zone')
   }
+  const previewCharge = computeB2CRateCardCharge({
+    actual_weight_g: params.weightG,
+    length_cm: params.lengthCm,
+    width_cm: params.breadthCm,
+    height_cm: params.heightCm,
+    rateCard,
+  })
+  const selectedMaxSlabWeight = params.selectedMaxSlabWeight ?? null
+  const selectedProvider = String(resolvedServiceProvider ?? '').trim().toLowerCase()
+  const [selectedCourier] = await db
+    .select({ name: couriers.name })
+    .from(couriers)
+    .where(eq(couriers.id, Number(params.courierId)))
+    .limit(1)
+  const isOriginalDelhivery =
+    selectedProvider === 'delhivery' && Number(params.courierId) === LIVE_DELHIVERY_SURFACE_COURIER_ID
+  const isExpressflyDelhivery =
+    selectedProvider === 'expressfly' && /delhivery/i.test(String(selectedCourier?.name ?? ''))
+
+  if (isOriginalDelhivery || isExpressflyDelhivery) {
+    const [expressflyDelhiveryRates] = await Promise.all([
+      db
+        .select({ courierId: shippingRates.courier_id })
+        .from(shippingRates)
+        .where(
+          and(
+            eq(shippingRates.plan_id, userPlan.planId),
+            eq(shippingRates.business_type, 'b2c'),
+            eq(shippingRates.zone_id, resolvedZoneRow.id),
+            eq(shippingRates.type, rateType),
+            eq(shippingRates.service_provider, 'expressfly'),
+            ilike(shippingRates.courier_name, '%delhivery%'),
+          ),
+        ),
+    ])
+    const hasOriginalDelhiveryRate = (
+      await fetchResolvedB2CRateCards({
+        planId: userPlan.planId,
+        zoneId: resolvedZoneRow.id,
+        courierId: LIVE_DELHIVERY_SURFACE_COURIER_ID,
+        serviceProvider: 'delhivery',
+        mode: 'surface',
+        type: rateType,
+      })
+    ).length > 0
+    const hasExpressflyDelhiveryRate = expressflyDelhiveryRates.length > 0
+    const bothDelhiveryPathsConfigured = hasOriginalDelhiveryRate && hasExpressflyDelhiveryRate
+    const chargeableWeightG = previewCharge.chargeable_weight
+
+    if (bothDelhiveryPathsConfigured) {
+      if (chargeableWeightG > 2000 && isOriginalDelhivery) {
+        throw new HttpError(400, 'Normal Delhivery is available only up to 2 kg when ExpressFly Delhivery is configured.')
+      }
+      if (chargeableWeightG <= 2000 && isExpressflyDelhivery) {
+        throw new HttpError(400, 'ExpressFly Delhivery is available above 2 kg when normal Delhivery is configured.')
+      }
+      if (chargeableWeightG > 10000 && isExpressflyDelhivery) {
+        throw new HttpError(400, 'ExpressFly Delhivery is configured only up to 10 kg for this plan.')
+      }
+      if (isExpressflyDelhivery && chargeableWeightG > 2000 && chargeableWeightG <= 7000) {
+        if (selectedMaxSlabWeight !== null && Math.abs(Number(selectedMaxSlabWeight) - 5) > 0.0001) {
+          throw new HttpError(400, 'The ExpressFly Delhivery 5 kg option is required through 7 kg.')
+        }
+      }
+      if (isExpressflyDelhivery && chargeableWeightG > 7000 && chargeableWeightG <= 10000) {
+        if (selectedMaxSlabWeight !== null && Math.abs(Number(selectedMaxSlabWeight) - 10) > 0.0001) {
+          throw new HttpError(400, 'The ExpressFly Delhivery 10 kg option is required above 7 kg.')
+        }
+      }
+    }
+  }
+  const effectiveSelectedMaxSlabWeight =
+    isExpressflyDelhivery &&
+    selectedMaxSlabWeight !== null &&
+    previewCharge.chargeable_weight > 5000 &&
+    previewCharge.chargeable_weight <= 7000 &&
+    Math.abs(Number(selectedMaxSlabWeight) - 5) < 0.0001
+      ? null
+      : selectedMaxSlabWeight
   const freightCalc = computeB2CRateCardCharge({
     actual_weight_g: params.weightG,
     length_cm: params.lengthCm,
     width_cm: params.breadthCm,
     height_cm: params.heightCm,
     rateCard,
-    selected_max_slab_weight: params.selectedMaxSlabWeight ?? null,
+    selected_max_slab_weight: effectiveSelectedMaxSlabWeight,
   })
 
   if (rateCard.slabs.length && freightCalc.freight <= 0) {
@@ -1157,9 +1239,12 @@ export const fetchAvailableCouriersWithRatesAdmin = async (
   params: NimbusServiceabilityParams,
   planId?: string,
 ) => {
-  return fetchAvailableCouriersWithRates(params, {
-    planIdOverride: planId ?? null,
-  })
+  return fetchAvailableCouriersWithRates(
+    { ...params, exposeSlabNames: true },
+    {
+      planIdOverride: planId ?? null,
+    },
+  )
 }
 
 function parseEddToDays(edd: string | null | undefined): number {
@@ -1261,6 +1346,7 @@ export const fetchAvailableCouriersWithRates = async (
         : (userOrOptions ?? {})
 
     const { userId, planIdOverride, planFallbackName } = options
+    const exposeSlabNames = params.exposeSlabNames === true
 
     const isCalculator = params.isCalculator === true
     const effectivePlanFallbackName = planFallbackName || (isCalculator ? 'Basic' : null)
@@ -2153,7 +2239,7 @@ export const fetchAvailableCouriersWithRates = async (
 
         return applicableRateOptions.map((applicableRate: any) => {
           const displayName =
-            applicableRate.matched_by !== 'legacy'
+            exposeSlabNames && applicableRate.matched_by !== 'legacy'
               ? formatCourierOptionName(courierRow.name, applicableRate.max_slab_weight)
               : courierRow.name
 
@@ -2278,11 +2364,11 @@ export const fetchAvailableCouriersWithRates = async (
             max_slab_weight: applicableRate.max_slab_weight ?? null,
           }),
           name:
-            applicableRate.matched_by !== 'legacy'
+            exposeSlabNames && applicableRate.matched_by !== 'legacy'
               ? formatCourierOptionName(courier.name, applicableRate.max_slab_weight)
               : courier.name,
           displayName:
-            applicableRate.matched_by !== 'legacy'
+            exposeSlabNames && applicableRate.matched_by !== 'legacy'
               ? formatCourierOptionName(courier.name, applicableRate.max_slab_weight)
               : courier.name,
           localRates: { [rateType]: applicableRate },
@@ -2393,8 +2479,18 @@ export const fetchAvailableCouriersWithRates = async (
           ) === 'delhivery' && Number(courier.id) === DELHIVERY_EXPRESS_SURFACE_COURIER_ID
         const isExpressflyDelhivery = isExpressflyDelhiveryOption(courier)
 
-        if (optionChargeableWeight <= 2000) return !isExpressflyDelhivery
-        return !isOriginalDelhivery
+        if (isOriginalDelhivery) return optionChargeableWeight <= 2000
+        if (!isExpressflyDelhivery) return true
+
+        if (optionChargeableWeight <= 2000 || optionChargeableWeight > 10000) return false
+
+        const maxSlabWeight = Number(courier.max_slab_weight)
+        if (!Number.isFinite(maxSlabWeight)) return false
+
+        // The seller sees one generic Delhivery option. The slab endpoint is
+        // retained in courier_option_key/max_slab_weight for booking and admin.
+        if (optionChargeableWeight <= 7000) return Math.abs(maxSlabWeight - 5) < 0.0001
+        return Math.abs(maxSlabWeight - 10) < 0.0001
       })
     }
 
@@ -2423,7 +2519,7 @@ export const fetchAvailableCouriersWithRates = async (
               (fallbackMatches.length === 1 ? fallbackMatches[0] : null)
             if (matchedCourier) {
               const personalisedDisplayName =
-                matchedCourier.max_slab_weight != null
+                exposeSlabNames && matchedCourier.max_slab_weight != null
                   ? formatCourierSlabDisplayName(p.name, matchedCourier.max_slab_weight)
                   : p.name
               ordered.push({
