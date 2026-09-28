@@ -88,6 +88,11 @@ type ExpressflyShipmentParams = {
   integration_type?: string
   shippingProviderCode?: string
   shippingCourier?: string
+  selectedMaxSlabWeight?: number | null
+  physicalWeightKg?: number | null
+  lengthCm?: number | null
+  breadthCm?: number | null
+  heightCm?: number | null
 }
 
 type ExpressflyOrderListParams = {
@@ -1307,6 +1312,13 @@ export class ExpressflyService {
     )
   }
 
+  private getRateSlabWeight(rate: ExpressflyOrderRate) {
+    const name = this.getRateCourierName(rate)
+    const match = name.match(/(?:^|\D)(\d+(?:\.\d+)?)\s*KG(?:\D|$)/i)
+    const value = match ? Number(match[1]) : NaN
+    return Number.isFinite(value) ? value : null
+  }
+
   private pickOrderRate(
     rates: ExpressflyOrderRate[],
     params: ExpressflyShipmentParams,
@@ -1315,11 +1327,27 @@ export class ExpressflyService {
 
     const requestedCode = normalize(params.shippingProviderCode)
     const requestedName = normalize(params.shippingCourier)
+    const requestedSlabWeight = Number(params.selectedMaxSlabWeight)
     const requestedKey = normalizeCarrierKey(requestedName)
     const hasSpecificRequestedName =
       Boolean(requestedKey) && requestedKey !== normalizeCarrierKey('Expressfly Logistics')
 
     const byPrice = [...rates].sort((a, b) => this.getRateTotal(a) - this.getRateTotal(b))
+
+    if (Number.isFinite(requestedSlabWeight) && requestedSlabWeight > 0) {
+      const slabMatch = byPrice.find(
+        (rate) => Math.abs(Number(this.getRateSlabWeight(rate)) - requestedSlabWeight) < 0.0001,
+      )
+      if (slabMatch) return slabMatch
+      this.log('Required Expressfly slab was not returned', {
+        requestedSlabWeight,
+        availableSlabs: byPrice.map((rate) => ({
+          courier: this.getRateCourierName(rate),
+          slab: this.getRateSlabWeight(rate),
+        })),
+      })
+      return null
+    }
 
     if (requestedCode) {
       const codeMatch = byPrice.find((rate) => {
@@ -1425,10 +1453,10 @@ export class ExpressflyService {
       product_quantity,
       ...(orderType === 1 ? { cod_amount: orderValue } : {}),
       order_value: orderValue,
-      physical_weight: 1,
-      product_length: 10,
-      product_width: 10,
-      product_height: 10,
+      physical_weight: Number(params.physicalWeightKg),
+      product_length: Number(params.lengthCm) || 10,
+      product_width: Number(params.breadthCm) || 10,
+      product_height: Number(params.heightCm) || 10,
       pickup_address_id: pickupAddressId,
       productdetatis,
     }
@@ -1488,6 +1516,8 @@ export class ExpressflyService {
       tempRateId: selectedRate.temp_rate_id,
       logisticId: this.getRateLogisticId(selectedRate),
       courier: this.getRateCourierName(selectedRate),
+      slabWeight: this.getRateSlabWeight(selectedRate),
+      physicalWeightKg: params.physicalWeightKg,
       total: this.getRateTotal(selectedRate),
     })
 

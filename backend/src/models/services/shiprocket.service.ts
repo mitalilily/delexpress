@@ -4438,6 +4438,12 @@ export const createB2CShipmentService = async (
         pickup_location_id: params.pickup_location_id,
         integration_type: params.integration_type,
         shippingCourier: expressflyCourierName,
+        selectedMaxSlabWeight,
+        physicalWeightKg:
+          normalizeServiceabilityWeightToGrams(params.package_weight ?? params.weight ?? 0) / 1000,
+        lengthCm: Number(params.package_length ?? params.length ?? 0),
+        breadthCm: Number(params.package_breadth ?? params.breadth ?? 0),
+        heightCm: Number(params.package_height ?? params.height ?? 0),
       } as any)
 
       const expressflyPackage = shipmentData?.raw || shipmentData
