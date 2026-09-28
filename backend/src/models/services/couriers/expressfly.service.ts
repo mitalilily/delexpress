@@ -1439,6 +1439,10 @@ export class ExpressflyService {
     const orderValue =
       Number(params.order_amount ?? productItems.reduce((sum, item) => sum + item.totalPrice, 0)) ||
       0
+    const physicalWeightKg = Number(params.physicalWeightKg)
+    if (!Number.isFinite(physicalWeightKg) || physicalWeightKg <= 0) {
+      throw new HttpError(400, 'Expressfly booking requires a valid computed shipment weight.')
+    }
     const payload = {
       name: params.consignee.name,
       mobile_no: params.consignee.phone,
@@ -1453,7 +1457,7 @@ export class ExpressflyService {
       product_quantity,
       ...(orderType === 1 ? { cod_amount: orderValue } : {}),
       order_value: orderValue,
-      physical_weight: Number(params.physicalWeightKg),
+      physical_weight: physicalWeightKg,
       product_length: Number(params.lengthCm) || 10,
       product_width: Number(params.breadthCm) || 10,
       product_height: Number(params.heightCm) || 10,
