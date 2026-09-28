@@ -89,6 +89,8 @@ import { syncShopifyStatusForLocalOrder } from './shopify.service'
 const KISHORI_PLAN_NAME = 'kishori'
 const KISHORI_LEGACY_DELHIVERY_SURFACE_COURIER_ID = 6
 const LIVE_DELHIVERY_SURFACE_COURIER_ID = 99
+const NORMAL_DELHIVERY_MAX_WEIGHT_G = 4000
+const EXPRESSFLY_DELHIVERY_FIVE_KG_MAX_WEIGHT_G = 7000
 
 const isKishoriPlanName = (value?: string | null) =>
   String(value ?? '')
@@ -1160,21 +1162,18 @@ export const computeB2CFreightForOrder = async (params: {
     const chargeableWeightG = previewCharge.chargeable_weight
 
     if (bothDelhiveryPathsConfigured) {
-      if (chargeableWeightG > 2000 && isOriginalDelhivery) {
-        throw new HttpError(400, 'Normal Delhivery is available only up to 2 kg when ExpressFly Delhivery is configured.')
+      if (chargeableWeightG > NORMAL_DELHIVERY_MAX_WEIGHT_G && isOriginalDelhivery) {
+        throw new HttpError(400, 'Normal Delhivery is available only up to 4 kg when ExpressFly Delhivery is configured.')
       }
-      if (chargeableWeightG <= 2000 && isExpressflyDelhivery) {
-        throw new HttpError(400, 'ExpressFly Delhivery is available above 2 kg when normal Delhivery is configured.')
+      if (chargeableWeightG <= NORMAL_DELHIVERY_MAX_WEIGHT_G && isExpressflyDelhivery) {
+        throw new HttpError(400, 'ExpressFly Delhivery is available above 4 kg when normal Delhivery is configured.')
       }
-      if (chargeableWeightG > 10000 && isExpressflyDelhivery) {
-        throw new HttpError(400, 'ExpressFly Delhivery is configured only up to 10 kg for this plan.')
-      }
-      if (isExpressflyDelhivery && chargeableWeightG > 2000 && chargeableWeightG <= 7000) {
+      if (isExpressflyDelhivery && chargeableWeightG > NORMAL_DELHIVERY_MAX_WEIGHT_G && chargeableWeightG <= EXPRESSFLY_DELHIVERY_FIVE_KG_MAX_WEIGHT_G) {
         if (selectedMaxSlabWeight !== null && Math.abs(Number(selectedMaxSlabWeight) - 5) > 0.0001) {
-          throw new HttpError(400, 'The ExpressFly Delhivery 5 kg option is required through 7 kg.')
+          throw new HttpError(400, 'The ExpressFly Delhivery 5 kg option is required above 4 kg through 7 kg.')
         }
       }
-      if (isExpressflyDelhivery && chargeableWeightG > 7000 && chargeableWeightG <= 10000) {
+      if (isExpressflyDelhivery && chargeableWeightG > EXPRESSFLY_DELHIVERY_FIVE_KG_MAX_WEIGHT_G) {
         if (selectedMaxSlabWeight !== null && Math.abs(Number(selectedMaxSlabWeight) - 10) > 0.0001) {
           throw new HttpError(400, 'The ExpressFly Delhivery 10 kg option is required above 7 kg.')
         }
@@ -1185,7 +1184,7 @@ export const computeB2CFreightForOrder = async (params: {
     isExpressflyDelhivery &&
     selectedMaxSlabWeight !== null &&
     previewCharge.chargeable_weight > 5000 &&
-    previewCharge.chargeable_weight <= 7000 &&
+    previewCharge.chargeable_weight <= EXPRESSFLY_DELHIVERY_FIVE_KG_MAX_WEIGHT_G &&
     Math.abs(Number(selectedMaxSlabWeight) - 5) < 0.0001
       ? null
       : selectedMaxSlabWeight
@@ -2490,14 +2489,16 @@ export const fetchAvailableCouriersWithRates = async (
         if (isOriginalDelhivery) return optionChargeableWeight <= 2000
         if (!isExpressflyDelhivery) return true
 
-        if (optionChargeableWeight <= 2000 || optionChargeableWeight > 10000) return false
+        if (optionChargeableWeight <= NORMAL_DELHIVERY_MAX_WEIGHT_G) return false
 
         const maxSlabWeight = Number(courier.max_slab_weight)
         if (!Number.isFinite(maxSlabWeight)) return false
 
         // The seller sees one generic Delhivery option. The slab endpoint is
         // retained in courier_option_key/max_slab_weight for booking and admin.
-        if (optionChargeableWeight <= 7000) return Math.abs(maxSlabWeight - 5) < 0.0001
+        if (optionChargeableWeight <= EXPRESSFLY_DELHIVERY_FIVE_KG_MAX_WEIGHT_G) {
+          return Math.abs(maxSlabWeight - 5) < 0.0001
+        }
         return Math.abs(maxSlabWeight - 10) < 0.0001
       })
     }
