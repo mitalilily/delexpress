@@ -89,7 +89,7 @@ import { syncShopifyStatusForLocalOrder } from './shopify.service'
 const KISHORI_PLAN_NAME = 'kishori'
 const KISHORI_LEGACY_DELHIVERY_SURFACE_COURIER_ID = 6
 const LIVE_DELHIVERY_SURFACE_COURIER_ID = 99
-const NORMAL_DELHIVERY_MAX_WEIGHT_G = 4000
+const NORMAL_DELHIVERY_MAX_WEIGHT_G = 5000
 const EXPRESSFLY_DELHIVERY_FIVE_KG_MAX_WEIGHT_G = 7000
 
 const isKishoriPlanName = (value?: string | null) =>
@@ -1163,14 +1163,14 @@ export const computeB2CFreightForOrder = async (params: {
 
     if (bothDelhiveryPathsConfigured) {
       if (chargeableWeightG > NORMAL_DELHIVERY_MAX_WEIGHT_G && isOriginalDelhivery) {
-        throw new HttpError(400, 'Normal Delhivery is available only up to 4 kg when ExpressFly Delhivery is configured.')
+        throw new HttpError(400, 'Normal Delhivery is available only up to 5 kg when ExpressFly Delhivery is configured.')
       }
       if (chargeableWeightG <= NORMAL_DELHIVERY_MAX_WEIGHT_G && isExpressflyDelhivery) {
-        throw new HttpError(400, 'ExpressFly Delhivery is available above 4 kg when normal Delhivery is configured.')
+        throw new HttpError(400, 'ExpressFly Delhivery is available above 5 kg when normal Delhivery is configured.')
       }
       if (isExpressflyDelhivery && chargeableWeightG > NORMAL_DELHIVERY_MAX_WEIGHT_G && chargeableWeightG <= EXPRESSFLY_DELHIVERY_FIVE_KG_MAX_WEIGHT_G) {
         if (selectedMaxSlabWeight !== null && Math.abs(Number(selectedMaxSlabWeight) - 5) > 0.0001) {
-          throw new HttpError(400, 'The ExpressFly Delhivery 5 kg option is required above 4 kg through 7 kg.')
+          throw new HttpError(400, 'The ExpressFly Delhivery 5 kg option is required above 5 kg through 7 kg.')
         }
       }
       if (isExpressflyDelhivery && chargeableWeightG > EXPRESSFLY_DELHIVERY_FIVE_KG_MAX_WEIGHT_G) {
@@ -2486,7 +2486,7 @@ export const fetchAvailableCouriersWithRates = async (
           ) === 'delhivery' && Number(courier.id) === DELHIVERY_EXPRESS_SURFACE_COURIER_ID
         const isExpressflyDelhivery = isExpressflyDelhiveryOption(courier)
 
-        if (isOriginalDelhivery) return optionChargeableWeight <= 2000
+        if (isOriginalDelhivery) return optionChargeableWeight <= NORMAL_DELHIVERY_MAX_WEIGHT_G
         if (!isExpressflyDelhivery) return true
 
         if (optionChargeableWeight <= NORMAL_DELHIVERY_MAX_WEIGHT_G) return false
