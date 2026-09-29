@@ -18,6 +18,7 @@ import {
   useUpdateExpressflyCredentials,
   useUpdateEkartCredentials,
   useUpdateShadowfaxCredentials,
+  useUpdateShiprocketCargoCredentials,
   useUpdateXpressbeesCredentials,
 } from 'hooks/useCouriers'
 
@@ -35,6 +36,7 @@ const CourierCredentials = () => {
   const updateExpressfly = useUpdateExpressflyCredentials()
   const updateEkart = useUpdateEkartCredentials()
   const updateShadowfax = useUpdateShadowfaxCredentials()
+  const updateShiprocketCargo = useUpdateShiprocketCargoCredentials()
   const updateXpressbees = useUpdateXpressbeesCredentials()
 
   const [form, setForm] = useState({
@@ -63,6 +65,10 @@ const CourierCredentials = () => {
   const [shadowfaxForm, setShadowfaxForm] = useState({
     apiBase: '',
     apiKey: '',
+  })
+  const [shiprocketCargoForm, setShiprocketCargoForm] = useState({
+    accessToken: '',
+    refreshToken: '',
   })
   const [xpressbeesForm, setXpressbeesForm] = useState({
     apiBase: '',
@@ -166,6 +172,26 @@ const CourierCredentials = () => {
             status: 'error',
           })
         },
+      },
+    )
+  }
+
+  const handleSaveShiprocketCargo = () => {
+    updateShiprocketCargo.mutate(
+      {
+        ...(shiprocketCargoForm.accessToken ? { accessToken: shiprocketCargoForm.accessToken } : {}),
+        ...(shiprocketCargoForm.refreshToken ? { refreshToken: shiprocketCargoForm.refreshToken } : {}),
+      },
+      {
+        onSuccess: () => {
+          toast({ title: 'Shiprocket Cargo credentials updated', status: 'success' })
+          setShiprocketCargoForm({ accessToken: '', refreshToken: '' })
+        },
+        onError: (err) => toast({
+          title: 'Failed to update Shiprocket Cargo credentials',
+          description: err?.message,
+          status: 'error',
+        }),
       },
     )
   }
@@ -395,6 +421,41 @@ const CourierCredentials = () => {
               alignSelf="flex-start"
             >
               Save Expressfly Credentials
+            </Button>
+          </VStack>
+        </Box>
+
+        <Box borderWidth="1px" borderRadius="lg" p={5} minW="320px" flex="1" maxW="520px">
+          <VStack spacing={4} align="stretch">
+            <Flex justify="space-between" align="center">
+              <Text fontWeight="semibold">Shiprocket Cargo B2B</Text>
+              <Badge
+                colorScheme={data?.['shiprocket-cargo']?.hasAccessToken && data?.['shiprocket-cargo']?.hasRefreshToken ? 'green' : 'orange'}
+              >
+                {data?.['shiprocket-cargo']?.hasAccessToken && data?.['shiprocket-cargo']?.hasRefreshToken ? 'Configured' : 'Missing tokens'}
+              </Badge>
+            </Flex>
+            <FormControl>
+              <FormLabel>Access Token</FormLabel>
+              <Input
+                type="password"
+                value={shiprocketCargoForm.accessToken}
+                onChange={(e) => setShiprocketCargoForm((prev) => ({ ...prev, accessToken: e.target.value }))}
+                placeholder={data?.['shiprocket-cargo']?.accessTokenMasked || 'Enter access token'}
+              />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Refresh Token</FormLabel>
+              <Input
+                type="password"
+                value={shiprocketCargoForm.refreshToken}
+                onChange={(e) => setShiprocketCargoForm((prev) => ({ ...prev, refreshToken: e.target.value }))}
+                placeholder={data?.['shiprocket-cargo']?.refreshTokenMasked || 'Enter refresh token'}
+              />
+            </FormControl>
+            <Text fontSize="xs" color="gray.500">Tokens are stored server-side and masked after saving.</Text>
+            <Button colorScheme="blue" onClick={handleSaveShiprocketCargo} isLoading={updateShiprocketCargo.isPending} alignSelf="flex-start">
+              Save Shiprocket Cargo Credentials
             </Button>
           </VStack>
         </Box>

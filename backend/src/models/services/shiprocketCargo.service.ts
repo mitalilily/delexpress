@@ -1,4 +1,5 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios'
+import { getEffectiveCourierConfig, ShiprocketCargoConfig } from './courierCredentials.service'
 
 const DEFAULT_BASE_URL = 'https://admin-cargo.shiprocket.in'
 
@@ -32,11 +33,18 @@ class ShiprocketCargoClient {
   private accessToken = process.env.SHIPROCKET_CARGO_ACCESS_TOKEN?.trim() || ''
   private refreshToken = process.env.SHIPROCKET_CARGO_REFRESH_TOKEN?.trim() || ''
 
+  private async loadDatabaseCredentials() {
+    const config = await getEffectiveCourierConfig<ShiprocketCargoConfig>('shiprocket-cargo', 'b2b')
+    if (config?.accessToken) this.accessToken = config.accessToken
+    if (config?.refreshToken) this.refreshToken = config.refreshToken
+  }
+
   private get baseUrl() {
     return normalizeBaseUrl(process.env.SHIPROCKET_CARGO_API_BASE || DEFAULT_BASE_URL)
   }
 
   private async request<T>(config: AxiosRequestConfig, authenticated = true): Promise<CargoResponse<T>> {
+    await this.loadDatabaseCredentials()
     const headers = {
       Accept: 'application/json',
       ...(config.data ? { 'Content-Type': 'application/json' } : {}),
@@ -73,6 +81,7 @@ class ShiprocketCargoClient {
   }
 
   async refresh(): Promise<CargoResponse<{ access?: string; refresh?: string }>> {
+    await this.loadDatabaseCredentials()
     if (!this.accessToken || !this.refreshToken) {
       throw new ShiprocketCargoError(
         503,

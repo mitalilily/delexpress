@@ -94,6 +94,7 @@ const providerHasUsableCredentials = (row: {
   }
   if (provider === 'expressfly') return hasValue(row.apiKey) && hasValue(row.clientId)
   if (provider === 'shadowfax') return hasValue(row.apiKey)
+  if (provider === 'shiprocket-cargo') return hasValue(row.apiKey) && hasValue(row.password)
 
   return false
 }
@@ -109,12 +110,18 @@ const getCredentialedProviders = async () => {
     })
     .from(courier_credentials)
 
-  return new Set(
+  const providers = new Set(
     credentialRows
       .filter(providerHasUsableCredentials)
       .map((row) => normalizeProvider(row.provider))
       .filter(Boolean),
   )
+
+  if (process.env.SHIPROCKET_CARGO_ACCESS_TOKEN && process.env.SHIPROCKET_CARGO_REFRESH_TOKEN) {
+    providers.add('shiprocket-cargo')
+  }
+
+  return providers
 }
 
 const filterCouriersByCredentialedProvider = (rows: any[], credentialedProviders: Set<string>) =>
@@ -409,7 +416,7 @@ export const getServiceProvidersController = async (req: Request, res: Response)
     await ensureShadowfaxCourierRow()
 
     // Only expose the main integrated service providers in the enable/disable UI
-    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax']
+    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax', 'shiprocket-cargo']
 
     const rows = await db
       .select({
@@ -455,7 +462,7 @@ export const updateServiceProviderStatusController = async (req: Request, res: R
   const { isEnabled } = req.body
 
   try {
-    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax']
+    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax', 'shiprocket-cargo']
 
     if (!serviceProvider || typeof isEnabled !== 'boolean') {
       return res.status(400).json({
@@ -523,6 +530,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
           'xpressbees',
           'expressfly',
           'shadowfax',
+          'shiprocket-cargo',
         ]),
       )
 
@@ -572,6 +580,13 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         apiKey: '',
         apiKeyMasked: '',
         hasApiKey: false,
+      },
+      'shiprocket-cargo': {
+        provider: 'shiprocket-cargo',
+        hasAccessToken: Boolean(process.env.SHIPROCKET_CARGO_ACCESS_TOKEN?.trim()),
+        accessTokenMasked: maskCredential(process.env.SHIPROCKET_CARGO_ACCESS_TOKEN),
+        hasRefreshToken: Boolean(process.env.SHIPROCKET_CARGO_REFRESH_TOKEN?.trim()),
+        refreshTokenMasked: maskCredential(process.env.SHIPROCKET_CARGO_REFRESH_TOKEN),
       },
     }
 
@@ -639,6 +654,16 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
           apiBase: row.apiBase || '',
           apiKeyMasked: maskCredential(apiKey),
           hasApiKey: Boolean(apiKey.trim()),
+        }
+      } else if (provider === 'shiprocket-cargo') {
+        const accessToken = row.apiKey || ''
+        const refreshToken = row.password || ''
+        acc['shiprocket-cargo'] = {
+          provider: 'shiprocket-cargo',
+          hasAccessToken: Boolean(accessToken.trim()),
+          accessTokenMasked: maskCredential(accessToken),
+          hasRefreshToken: Boolean(refreshToken.trim()),
+          refreshTokenMasked: maskCredential(refreshToken),
         }
       }
       return acc
@@ -1051,6 +1076,65 @@ export const updateShadowfaxCredentialsController = async (req: Request, res: Re
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false, message: 'Failed to update Shadowfax credentials' })
+  }
+}
+
+export const updateShiprocketCargoCredentialsController = async (req: Request, res: Response) => {
+  const { accessToken, refreshToken } = req.body || {}
+  const nextAccessToken = typeof accessToken === 'string' ? accessToken.trim() : ''
+  const nextRefreshToken = typeof refreshToken === 'string' ? refreshToken.trim() : ''
+
+  try {
+    if (!nextAccessToken && !nextRefreshToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one Shiprocket Cargo token is required.',
+      })
+    }
+
+    const [existing] = await db
+      .select({ id: courier_credentials.id, apiKey: courier_credentials.apiKey, password: courier_credentials.password })
+      .from(courier_credentials)
+      .where(eq(courier_credentials.provider, 'shiprocket-cargo'))
+      .limit(1)
+
+    if (existing) {
+      await db
+        .update(courier_credentials)
+        .set({
+          ...(nextAccessToken ? { apiKey: nextAccessToken } : {}),
+          ...(nextRefreshToken ? { password: nextRefreshToken } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(courier_credentials.provider, 'shiprocket-cargo'))
+    } else {
+      await db.insert(courier_credentials).values({
+        provider: 'shiprocket-cargo',
+        apiKey: nextAccessToken,
+        password: nextRefreshToken,
+      })
+    }
+
+    const [saved] = await db
+      .select({ apiKey: courier_credentials.apiKey, password: courier_credentials.password })
+      .from(courier_credentials)
+      .where(eq(courier_credentials.provider, 'shiprocket-cargo'))
+      .limit(1)
+
+    return res.json({
+      success: true,
+      message: 'Shiprocket Cargo credentials updated successfully',
+      data: {
+        provider: 'shiprocket-cargo',
+        hasAccessToken: Boolean(saved?.apiKey?.trim()),
+        accessTokenMasked: maskCredential(saved?.apiKey),
+        hasRefreshToken: Boolean(saved?.password?.trim()),
+        refreshTokenMasked: maskCredential(saved?.password),
+      },
+    })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ success: false, message: 'Failed to update Shiprocket Cargo credentials' })
   }
 }
 

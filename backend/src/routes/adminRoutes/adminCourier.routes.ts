@@ -25,6 +25,7 @@ import {
   getShadowfaxPodDetailsController,
   updateShadowfaxOrderController,
   updateShadowfaxCredentialsController,
+  updateShiprocketCargoCredentialsController,
   updateXpressbeesCredentialsController,
   updateShippingRateController,
 } from '../../controllers/admin/courier.controller'
@@ -69,6 +70,12 @@ router.put(
   requireAuth,
   isAdminMiddleware,
   updateShadowfaxCredentialsController,
+)
+router.put(
+  '/credentials/shiprocket-cargo',
+  requireAuth,
+  isAdminMiddleware,
+  updateShiprocketCargoCredentialsController,
 )
 router.post(
   '/shadowfax/awbs/generate',

@@ -10,6 +10,7 @@ export type ServiceProviderId =
   | 'ekart'
   | 'expressfly'
   | 'shadowfax'
+  | 'shiprocket-cargo'
 
 export type DelhiveryConfig = {
   apiKey?: string
@@ -51,6 +52,11 @@ export type ShadowfaxConfig = {
   apiKey?: string
 }
 
+export type ShiprocketCargoConfig = {
+  accessToken?: string
+  refreshToken?: string
+}
+
 export type SmartshipConfig = {
   username?: string
   password?: string
@@ -77,6 +83,7 @@ export type CourierConfig =
   | EkartConfig
   | ExpressflyConfig
   | ShadowfaxConfig
+  | ShiprocketCargoConfig
 
 export interface CourierCredentialsUpsertPayload {
   serviceProvider: ServiceProviderId
@@ -111,6 +118,7 @@ const KNOWN_PROVIDERS: ServiceProviderId[] = [
   'ekart',
   'expressfly',
   'shadowfax',
+  'shiprocket-cargo',
 ]
 
 const hasEnvForProviderAndType = (provider: ServiceProviderId, _type: BusinessType): boolean => {
@@ -145,6 +153,9 @@ const hasEnvForProviderAndType = (provider: ServiceProviderId, _type: BusinessTy
   }
   if (provider === 'shadowfax') {
     return !!(process.env.SHADOWFAX_API_KEY || process.env.SHADOWFAX_API_BASE)
+  }
+  if (provider === 'shiprocket-cargo') {
+    return !!(process.env.SHIPROCKET_CARGO_ACCESS_TOKEN && process.env.SHIPROCKET_CARGO_REFRESH_TOKEN)
   }
   return false
 }
@@ -215,6 +226,14 @@ const buildConfigFromRow = (provider: ServiceProviderId, row: typeof courierCred
     const cfg: ShadowfaxConfig = {
       apiBase: normalize(row.apiBase),
       apiKey: normalize(row.apiKey || row.password),
+    }
+    return cfg
+  }
+
+  if (provider === 'shiprocket-cargo') {
+    const cfg: ShiprocketCargoConfig = {
+      accessToken: normalize(row.apiKey),
+      refreshToken: normalize(row.password),
     }
     return cfg
   }

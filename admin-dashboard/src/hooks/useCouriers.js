@@ -15,6 +15,7 @@ import {
   updateEkartCredentials,
   updateXpressbeesCredentials,
   updateShadowfaxCredentials,
+  updateShiprocketCargoCredentials,
   updateCourierStatus,
   updateServiceProviderStatus,
   updateShippingRate,
@@ -169,6 +170,14 @@ export const useUpdateShadowfaxCredentials = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['courierCredentials'])
     },
+  })
+}
+
+export const useUpdateShiprocketCargoCredentials = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: updateShiprocketCargoCredentials,
+    onSuccess: () => queryClient.invalidateQueries(['courierCredentials']),
   })
 }
 
