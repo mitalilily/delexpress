@@ -19,6 +19,7 @@
     "sync:ekart-couriers": "ts-node src/scripts/syncEkartCouriers.ts",
     "sync:xpressbees-couriers": "ts-node src/scripts/syncXpressbeesCouriers.ts",
     "sync:expressfly-couriers": "ts-node src/scripts/syncExpressflyCouriers.ts",
+    "sync:expressfly-tracking": "ts-node src/scripts/syncExpressflyTracking.ts",
     "sync:shadowfax-couriers": "ts-node src/scripts/syncShadowfaxCouriers.ts",
     "sync:shadowfax-surface-rate-cards": "ts-node src/scripts/syncShadowfaxSurfaceRateCards.ts",
     "sync:shiprocket-cargo-couriers": "ts-node src/scripts/syncShiprocketCargoCouriers.ts",

@@ -1775,11 +1775,81 @@ export class ExpressflyService {
     }
   }
 
-  async trackShipment(trackingNumber: string) {
-    return {
-      success: false,
-      message: 'Expressfly tracking endpoint has not been wired yet.',
-      trackingNumber,
+  async trackShipment(trackingNumber: string, lookupIds: string[] = []) {
+    const candidates = Array.from(
+      new Set([...(lookupIds || []), trackingNumber].map((value) => normalize(value)).filter(Boolean)),
+    )
+    let lastError: any = null
+
+    for (const candidate of candidates) {
+      try {
+        const response = await this.getOrder(candidate)
+        return {
+          success: true,
+          trackingNumber,
+          lookupId: candidate,
+          data: response.data,
+          raw: response.raw ?? response.data,
+        }
+      } catch (error: any) {
+        lastError = error
+        const status = Number(error?.statusCode ?? error?.status ?? error?.response?.status ?? 0)
+        if (status && status !== 404) throw error
+      }
     }
+
+    // Some ExpressFly accounts reject the local shipment id even when the
+    // shipment is searchable. Resolve the provider id from the order search
+    // endpoint before reporting the tracking lookup as unavailable.
+    try {
+      const searchTerms = Array.from(new Set([trackingNumber, ...lookupIds].map(normalize).filter(Boolean)))
+      for (const search of searchTerms) {
+        const searchResult = await this.getOrders({ offset: 0, limit: 100, search })
+        const orders = searchResult.data?.orders || []
+        const matchingOrder = orders.find((item: any) => {
+          const values = [
+            item?.id,
+            item?._id,
+            item?.orderId,
+            item?.order_id,
+            item?.orderNumber,
+            item?.order_number,
+            item?.saleOrderCode,
+            item?.awb,
+            item?.awb_number,
+            item?.trackingNumber,
+            item?.tracking_number,
+            item?.order_info?.orderNumber,
+            item?.order_info?.order_number,
+            item?.order_info?.saleOrderCode,
+            item?.order_info?.awb,
+            item?.order_info?.awb_number,
+            item?.order_info?.trackingNumber,
+            item?.order_info?.tracking_number,
+          ].map((value) => normalize(value))
+          return values.includes(search)
+        })
+        const providerId = normalize(
+          matchingOrder?.id ||
+            matchingOrder?._id ||
+            matchingOrder?.orderId ||
+            matchingOrder?.order_id,
+        )
+        if (providerId && !candidates.includes(providerId)) {
+          const response = await this.getOrder(providerId)
+          return {
+            success: true,
+            trackingNumber,
+            lookupId: providerId,
+            data: response.data,
+            raw: response.raw ?? response.data,
+          }
+        }
+      }
+    } catch (searchError: any) {
+      lastError = searchError
+    }
+
+    throw lastError || new HttpError(404, `Expressfly tracking not found for ${trackingNumber}`)
   }
 }

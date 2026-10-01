@@ -83,6 +83,10 @@ import { extractShadowfaxTrackingUpdate } from './couriers/shadowfaxTracking.uti
 import { ShadowfaxService } from './couriers/shadowfax.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
 import { calculateOrderWeights } from './courierWeightCalculation.service'
+import {
+  normalizeExpressflyTrackingPayload,
+  persistExpressflyTracking,
+} from './expressflyTracking.service'
 import { generateLabelForOrder } from './generateCustomLabelService'
 import { syncShopifyStatusForLocalOrder } from './shopify.service'
 
@@ -8469,6 +8473,25 @@ const mapShadowfaxTracking = (raw: any, order: OrderSummary): ProviderNormalized
   }
 }
 
+const mapExpressflyTracking = (raw: any, order: OrderSummary): ProviderNormalizedTracking => {
+  const normalized = normalizeExpressflyTrackingPayload(raw?.raw ?? raw, order.awb_number)
+  const history = normalized.events.map((event) => ({
+    status_code: event.statusCode,
+    location: event.location,
+    event_time: event.eventTime || toIsoString(order.updated_at ?? order.created_at),
+    message: event.statusText,
+  }))
+  const latest = normalized.events[normalized.events.length - 1]
+
+  return {
+    history,
+    status: latest?.statusText || order.order_status || 'In Transit',
+    edd: undefined,
+    shipment_info: latest?.statusText || undefined,
+    courier_name: order.courier_partner || 'ExpressFly',
+  }
+}
+
 const buildTrackingResponse = (
   order: OrderSummary,
   providerData: ProviderNormalizedTracking,
@@ -8622,7 +8645,7 @@ export const trackByAwbService = async (awb: string): Promise<TrackingServiceRes
 
   let providerKey = sanitizeString(order.integration_type ?? 'delhivery').toLowerCase()
 
-  if (!['delhivery', 'shadowfax'].includes(providerKey) && order.courier_partner) {
+  if (!order.integration_type && order.courier_partner) {
     const partner = order.courier_partner.toLowerCase()
     if (partner.includes('delhivery')) providerKey = 'delhivery'
     if (partner.includes('shadowfax')) providerKey = 'shadowfax'
@@ -8639,6 +8662,18 @@ export const trackByAwbService = async (awb: string): Promise<TrackingServiceRes
       const shadowfaxService = new ShadowfaxService()
       const raw = await shadowfaxService.trackOrder(awb)
       providerData = mapShadowfaxTracking(raw, order)
+    } else if (providerKey === 'expressfly') {
+      const expressflyService = new ExpressflyService()
+      const raw = await expressflyService.trackShipment(
+        awb,
+        [order.shipment_id, order.order_number].filter(Boolean) as string[],
+      )
+      try {
+        await persistExpressflyTracking(raw?.raw ?? raw, awb)
+      } catch (persistError: any) {
+        console.warn('ExpressFly tracking persistence failed:', persistError?.message || persistError)
+      }
+      providerData = mapExpressflyTracking(raw, order)
     } else {
       throw new HttpError(400, 'Unsupported integration_type for tracking')
     }
@@ -8671,6 +8706,49 @@ export const trackByOrderService = async ({
   if (!orderNumber || (!email && !phone)) {
     throw new Error('Order number and either email or phone are required')
   }
+
+  const normalizedOrderNumber = String(orderNumber).trim()
+  const normalizedContact = String(email || phone || '').trim()
+  const normalizedPhone = normalizedContact.replace(/\D/g, '')
+  const orderNumberConditions = (orderColumn: any, orderIdColumn: any) =>
+    or(eq(orderColumn, normalizedOrderNumber), eq(orderIdColumn, normalizedOrderNumber))
+  const contactConditions = (emailColumn: any, phoneColumn: any) => {
+    const conditions: SQL[] = [
+      sql`lower(coalesce(${emailColumn}, '')) = ${normalizedContact.toLowerCase()}`,
+    ]
+    if (normalizedPhone.length >= 7) {
+      conditions.push(
+        sql`regexp_replace(coalesce(${phoneColumn}, ''), '[^0-9]', '', 'g') = ${normalizedPhone}`,
+      )
+    }
+    return or(...conditions)
+  }
+
+  const [b2cByRecipient] = await db
+    .select({ awb_number: b2c_orders.awb_number })
+    .from(b2c_orders)
+    .where(
+      and(
+        orderNumberConditions(b2c_orders.order_number, b2c_orders.order_id),
+        contactConditions(b2c_orders.buyer_email, b2c_orders.buyer_phone),
+      ),
+    )
+    .limit(1)
+
+  if (b2cByRecipient) return b2cByRecipient
+
+  const [b2bByRecipient] = await db
+    .select({ awb_number: b2b_orders.awb_number })
+    .from(b2b_orders)
+    .where(
+      and(
+        orderNumberConditions(b2b_orders.order_number, b2b_orders.order_id),
+        contactConditions(b2b_orders.buyer_email, b2b_orders.buyer_phone),
+      ),
+    )
+    .limit(1)
+
+  if (b2bByRecipient) return b2bByRecipient
 
   // 1️⃣ Find user
   const user = await db

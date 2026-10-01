@@ -16,6 +16,7 @@ import {
   delhiveryWebhookHandler,
 } from './controllers/webhooks/delhivery.webhook'
 import { ekartWebhookHandler } from './controllers/webhooks/ekart.webhook'
+import { expressflyWebhookHandler } from './controllers/webhooks/expressfly.webhook'
 import { razorpayWebhook } from './controllers/webhooks/razorpay.webhooks'
 import { shadowfaxWebhookHandler } from './controllers/webhooks/shadowfax.webhook'
 import { xpressbeesWebhookHandler } from './controllers/webhooks/xpressbees.webhook'
@@ -255,6 +256,60 @@ app.use('/api/v1', externalApiRoutes)
 // Ekart webhook
 app.post('/api/webhook/ekart', express.json(), ekartWebhookHandler)
 app.post('/api/webhook/ekart/track', express.json(), ekartWebhookHandler)
+app.post(
+  '/api/webhook/expressfly',
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf8')
+    },
+  }),
+  expressflyWebhookHandler,
+)
+app.post(
+  '/api/webhook/expressfly/create',
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf8')
+    },
+  }),
+  expressflyWebhookHandler,
+)
+app.post(
+  '/api/webhook/expressfly/edit',
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf8')
+    },
+  }),
+  expressflyWebhookHandler,
+)
+app.post(
+  '/api/webhook/expressfly/cancel',
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf8')
+    },
+  }),
+  expressflyWebhookHandler,
+)
+app.post(
+  '/api/webhook/expressfly/ship',
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf8')
+    },
+  }),
+  expressflyWebhookHandler,
+)
+app.post(
+  '/api/webhook/expressfly/track',
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf8')
+    },
+  }),
+  expressflyWebhookHandler,
+)
 app.post('/api/webhook/shadowfax', express.json(), shadowfaxWebhookHandler)
 app.post('/api/webhook/shadowfax/track', express.json(), shadowfaxWebhookHandler)
 app.post('/api/webhook/shadowfax/staging', express.json(), shadowfaxWebhookHandler)
