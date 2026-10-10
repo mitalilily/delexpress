@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import { and, between, eq, inArray } from 'drizzle-orm'
 import fileType from 'file-type'
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
 import PdfPrinter from 'pdfmake'
 import { sendInvoiceReadyEmail } from '../../utils/emailSender'
@@ -219,7 +220,8 @@ export const generateInvoiceForUser = async (
     'DD MMM YYYY',
   )}`
 
-  const tmpDir = path.join(process.cwd(), 'tmp', 'invoices')
+  // Keep generated files outside the deployed checkout, which may be read-only.
+  const tmpDir = process.env.INVOICE_TMP_DIR || path.join(os.tmpdir(), 'expressopro', 'invoices')
   if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true })
 
   const pdfPath = path.join(tmpDir, `${invoiceNo}.pdf`)
