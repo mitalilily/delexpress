@@ -28,6 +28,11 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
+      - name: Prepare writable deployment tree
+        run: |
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            'sudo chown -R deploy:deploy /srv/expressopro/current'
+
       - name: Sync repository to server
         run: |
           rsync -az --delete \
