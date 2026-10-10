@@ -21,6 +21,7 @@ import { IconLogout } from '@tabler/icons-react'
 import { SettingsIcon } from 'components/Icons/Icons'
 import SidebarResponsive from 'components/Sidebar/SidebarResponsive'
 import PropTypes from 'prop-types'
+import { useHistory } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import routes from 'routes.js'
 import { useAuthStore } from 'store/useAuthStore'
@@ -29,6 +30,7 @@ import api from 'services/axios'
 
 export default function HeaderLinks({ variant, children, fixed, secondary, onOpen, ...rest }) {
   const settingsRef = useRef()
+  const history = useHistory()
   const searchRef = useRef()
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -168,8 +170,9 @@ export default function HeaderLinks({ variant, children, fixed, secondary, onOpe
                   borderColor={inputBorder}
                   _hover={{ bg: hoverBg }}
                   onClick={() => {
-                    window.location.href = result.link
+                    setSearch('')
                     setIsSearchOpen(false)
+                    history.push(result.link)
                   }}
                 >
                   <Text fontSize="xs" color={styles.accent} fontWeight="700" textTransform="uppercase">
