@@ -255,11 +255,11 @@ const mapMarketplaceFallback = (statusId: string, statusText: string) => {
   if (
     signal.includes('rts') ||
     signal.includes('rto') ||
-    signal.includes('in_transit_return') ||
-    signal.includes('reverse hub')
+    signal.includes('in_transit_return')
   ) {
     return 'rto_in_transit'
   }
+  if (signal.includes('reverse hub')) return 'in_transit'
   if (signal.includes('delivered')) return 'delivered'
   if (
     signal.includes('ofd') ||
