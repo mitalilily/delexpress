@@ -61,11 +61,11 @@ export function useDeleteUser() {
 }
 
 // Search sellers for autocomplete
-export function useSearchSellers(query, limit = 20) {
+export function useSearchSellers(query, limit = 20, includeAll = false) {
   return useQuery({
-    queryKey: ['search-sellers', query, limit],
-    queryFn: () => searchSellers(query, limit),
-    enabled: Boolean(query && query.trim().length >= 2),
+    queryKey: ['search-sellers', query, limit, includeAll],
+    queryFn: () => searchSellers(query, limit, includeAll),
+    enabled: includeAll || Boolean(query && query.trim().length >= 2),
     staleTime: 30 * 1000, // cache for 30 seconds
     refetchOnWindowFocus: false,
   })

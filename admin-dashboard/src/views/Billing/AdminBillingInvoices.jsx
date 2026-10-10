@@ -1439,6 +1439,7 @@ export default function AdminBillingInvoices() {
                 onChange={(userId) => setGenerateForm({ ...generateForm, userId })}
                 placeholder="Search seller by name..."
                 isRequired
+                showAllOnFocus
               />
             </FormControl>
             <FormControl isRequired>

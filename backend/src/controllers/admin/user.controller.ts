@@ -230,13 +230,15 @@ export async function searchSellers(req: any, res: Response) {
     const search = (req.query.q as string) || ''
     const limit = parseInt(req.query.limit as string) || 20
 
-    if (!search.trim()) {
+    const includeAll = String(req.query.all || '').toLowerCase() === 'true'
+
+    if (!search.trim() && !includeAll) {
       return res.status(200).json({ success: true, data: [] })
     }
 
     const { data } = await getAllUsersWithRoleUser({
       page: 1,
-      perPage: limit,
+      perPage: Math.min(Math.max(limit, 1), 1000),
       search: search.trim(),
       sortBy: 'companyName',
       sortOrder: 'asc',

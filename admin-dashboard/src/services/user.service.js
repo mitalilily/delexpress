@@ -102,12 +102,12 @@ export const getTicketsByUserId = async (userId, page = 1, perPage = 10) => {
 }
 
 // Search sellers for autocomplete
-export const searchSellers = async (query, limit = 20) => {
-  if (!query || query.trim().length < 2) {
+export const searchSellers = async (query, limit = 20, includeAll = false) => {
+  if ((!query || query.trim().length < 2) && !includeAll) {
     return { success: true, data: [] }
   }
   const { data } = await api.get('/admin/users/search-sellers', {
-    params: { q: query.trim(), limit },
+    params: { q: query?.trim() || undefined, limit, all: includeAll ? 'true' : undefined },
   })
   return data
 }

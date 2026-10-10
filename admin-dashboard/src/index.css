@@ -15,3 +15,18 @@
   --rdp-accent-color-dark: #5D7E96; /* primary-600 */
   --rdp-text-color: #1A1A1A; /* text-primary */
 }
+
+.admin-date-picker {
+  margin: 0;
+  width: 100%;
+  --rdp-cell-size: 40px;
+}
+
+.admin-date-picker .rdp-months,
+.admin-date-picker .rdp-month {
+  width: 100%;
+}
+
+.admin-date-picker .rdp-months {
+  justify-content: center;
+}

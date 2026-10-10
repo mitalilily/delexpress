@@ -19,6 +19,7 @@ export const SellerAutocomplete = ({
   onChange,
   placeholder = 'Search seller by name...',
   isRequired = false,
+  showAllOnFocus = false,
 }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [isOpen, setIsOpen] = useState(false)
@@ -41,7 +42,11 @@ export const SellerAutocomplete = ({
     debouncedSearch,
   ])
 
-  const { data: searchData, isLoading, isError } = useSearchSellers(searchQuery, 20)
+  const { data: searchData, isLoading, isError } = useSearchSellers(
+    searchQuery,
+    showAllOnFocus ? 1000 : 20,
+    showAllOnFocus,
+  )
 
   const options = searchData?.data || []
 
@@ -74,12 +79,12 @@ export const SellerAutocomplete = ({
 
   useEffect(() => {
     // Show dropdown when searching or when there are results/errors
-    if (debouncedSearch.trim().length >= 2 || isLoading) {
+    if (showAllOnFocus || debouncedSearch.trim().length >= 2 || isLoading) {
       setIsOpen(true)
     } else if (!debouncedSearch.trim() && !shouldFetchById) {
       setIsOpen(false)
     }
-  }, [debouncedSearch, isLoading, shouldFetchById])
+  }, [debouncedSearch, isLoading, shouldFetchById, showAllOnFocus])
 
   const handleSelect = (option) => {
     setSelectedOption(option)
@@ -99,7 +104,7 @@ export const SellerAutocomplete = ({
   }
 
   const handleInputFocus = () => {
-    if (searchTerm.trim().length >= 2 && options.length > 0) {
+    if ((showAllOnFocus || searchTerm.trim().length >= 2) && options.length > 0) {
       setIsOpen(true)
     }
   }
@@ -125,7 +130,7 @@ export const SellerAutocomplete = ({
           autoComplete="off"
         />
       </InputGroup>
-      {isOpen && (searchQuery.trim().length >= 2 || isLoading) && (
+      {isOpen && (showAllOnFocus || searchQuery.trim().length >= 2 || isLoading) && (
         <Box
           position="absolute"
           top="100%"
