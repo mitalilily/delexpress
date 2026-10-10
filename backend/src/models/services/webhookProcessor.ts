@@ -21,6 +21,7 @@ import {
 } from './couriers/delhiveryTracking.utils'
 import {
   extractShadowfaxTrackingUpdate,
+  isShadowfaxTerminalRtoStatus,
   mapShadowfaxStatusToInternal,
 } from './couriers/shadowfaxTracking.utils'
 import {
@@ -2184,6 +2185,12 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
   const deliveryMessage = event.remark || event.description || statusText
   const orderKind = isB2B ? 'b2b' : 'b2c'
   const currentStatus = (order.order_status || '').toLowerCase()
+  const isTerminalRto = isShadowfaxTerminalRtoStatus(
+    event.statusId,
+    event.statusText,
+    internalStatus,
+  )
+  const preserveTerminalRto = currentStatus === 'rto_delivered' && !isTerminalRto
 
   if (currentStatus === 'pickup_initiated' && internalStatus === 'booked') {
     console.log(
@@ -2197,7 +2204,7 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
   }
 
   const updateData: any = {
-    order_status: internalStatus,
+    order_status: preserveTerminalRto ? currentStatus : internalStatus,
     delivery_location: event.location,
     delivery_message: deliveryMessage || null,
     updated_at: new Date(),
@@ -2285,7 +2292,9 @@ export async function processShadowfaxWebhook(payload: any, tx = db) {
 
   if (internalStatus.startsWith('rto')) {
     try {
-      const rtoCharge = await applyRtoChargeOnce(tx, order, 'Shadowfax')
+      const rtoCharge = isTerminalRto
+        ? await applyRtoChargeOnce(tx, order, 'Shadowfax')
+        : null
       await captureRtoEventFromWebhook({
         order,
         awbNumber: order.awb_number || undefined,

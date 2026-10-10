@@ -59,7 +59,8 @@ const MARKETPLACE_STATUS_MAP: Record<string, string> = {
   picked: 'in_transit',
   assigned_for_seller_pickup: 'pickup_initiated',
   ofp: 'pickup_initiated',
-  recd_at_rev_hub: 'rto_in_transit',
+  // Reverse-hub is an intermediate scan, not proof of final return to origin.
+  recd_at_rev_hub: 'in_transit',
   item_manifested: 'in_transit',
   recd_at_fwd_hub: 'in_transit',
   recd_at_fwd_dc: 'in_transit',
@@ -351,6 +352,26 @@ export const mapShadowfaxStatusToInternal = (
     WAREHOUSE_STATUS_MAP[id] ||
     mapMarketplaceFallback(id, text) ||
     mapWarehouseFallback(id, text)
+  )
+}
+
+export const isShadowfaxTerminalRtoStatus = (
+  statusId?: unknown,
+  statusText?: unknown,
+  internalStatus?: unknown,
+) => {
+  const id = normalizeStatusId(statusId)
+  const signal = normalizeText(statusId, statusText)
+  const mapped = normalizeStatusId(internalStatus)
+
+  return (
+    mapped === 'rto_delivered' ||
+    id === 'rts_d' ||
+    id === 'rto_d' ||
+    signal.includes('rto delivered') ||
+    signal.includes('return delivered') ||
+    signal.includes('returned to client') ||
+    signal.includes('return to origin delivered')
   )
 }
 
