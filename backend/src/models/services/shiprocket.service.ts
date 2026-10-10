@@ -1166,13 +1166,13 @@ export const computeB2CFreightForOrder = async (params: {
     const chargeableWeightG = previewCharge.chargeable_weight
 
     if (bothDelhiveryPathsConfigured) {
-      if (chargeableWeightG > NORMAL_DELHIVERY_MAX_WEIGHT_G && isOriginalDelhivery) {
+      if (chargeableWeightG >= NORMAL_DELHIVERY_MAX_WEIGHT_G && isOriginalDelhivery) {
         throw new HttpError(400, 'Normal Delhivery is available only up to 5 kg when ExpressFly Delhivery is configured.')
       }
-      if (chargeableWeightG <= NORMAL_DELHIVERY_MAX_WEIGHT_G && isExpressflyDelhivery) {
+      if (chargeableWeightG < NORMAL_DELHIVERY_MAX_WEIGHT_G && isExpressflyDelhivery) {
         throw new HttpError(400, 'ExpressFly Delhivery is available above 5 kg when normal Delhivery is configured.')
       }
-      if (isExpressflyDelhivery && chargeableWeightG > NORMAL_DELHIVERY_MAX_WEIGHT_G && chargeableWeightG <= EXPRESSFLY_DELHIVERY_FIVE_KG_MAX_WEIGHT_G) {
+      if (isExpressflyDelhivery && chargeableWeightG >= NORMAL_DELHIVERY_MAX_WEIGHT_G && chargeableWeightG <= EXPRESSFLY_DELHIVERY_FIVE_KG_MAX_WEIGHT_G) {
         if (selectedMaxSlabWeight !== null && Math.abs(Number(selectedMaxSlabWeight) - 5) > 0.0001) {
           throw new HttpError(400, 'The ExpressFly Delhivery 5 kg option is required above 5 kg through 7 kg.')
         }
@@ -2490,10 +2490,10 @@ export const fetchAvailableCouriersWithRates = async (
           ) === 'delhivery' && Number(courier.id) === DELHIVERY_EXPRESS_SURFACE_COURIER_ID
         const isExpressflyDelhivery = isExpressflyDelhiveryOption(courier)
 
-        if (isOriginalDelhivery) return optionChargeableWeight <= NORMAL_DELHIVERY_MAX_WEIGHT_G
+        if (isOriginalDelhivery) return optionChargeableWeight < NORMAL_DELHIVERY_MAX_WEIGHT_G
         if (!isExpressflyDelhivery) return true
 
-        if (optionChargeableWeight <= NORMAL_DELHIVERY_MAX_WEIGHT_G) return false
+        if (optionChargeableWeight < NORMAL_DELHIVERY_MAX_WEIGHT_G) return false
 
         const maxSlabWeight = Number(courier.max_slab_weight)
         if (!Number.isFinite(maxSlabWeight)) return false
