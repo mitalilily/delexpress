@@ -187,14 +187,8 @@ const B2BRateMatrix = ({ planId }) => {
       return
     }
 
-    // Create zone name map for easier lookup
-    const zoneMap = new Map()
-    zones.forEach((zone) => {
-      zoneMap.set(zone.id, zone.name)
-    })
-
-    // Build headers: Origin Zone, Destination Zone, Rate Per Kg
-    const headers = ['Origin Zone', 'Destination Zone', 'Rate Per Kg']
+    // Keep export headers and values aligned with the backend import contract.
+    const headers = ['origin_zone_code', 'destination_zone_code', 'rate_per_kg']
 
     let rows = []
 
@@ -202,15 +196,16 @@ const B2BRateMatrix = ({ planId }) => {
       // Generate template with all zone combinations
       zones.forEach((originZone) => {
         zones.forEach((destZone) => {
-          rows.push([originZone.name, destZone.name, '']) // Rate Per Kg only
+          rows.push([originZone.code, destZone.code, ''])
         })
       })
     } else {
       // Build rows from rates data
       rows = rates.map((rate) => {
-        const originName = zoneMap.get(rate.origin_zone_id || rate.originZoneId) || 'Unknown'
-        const destName =
-          zoneMap.get(rate.destination_zone_id || rate.destinationZoneId) || 'Unknown'
+        const originId = rate.origin_zone_id || rate.originZoneId
+        const destinationId = rate.destination_zone_id || rate.destinationZoneId
+        const originName = zones.find((zone) => zone.id === originId)?.code || 'Unknown'
+        const destName = zones.find((zone) => zone.id === destinationId)?.code || 'Unknown'
         return [
           originName,
           destName,
@@ -258,12 +253,11 @@ const B2BRateMatrix = ({ planId }) => {
 
   // Sample CSV headers for template download
   // Use first zone if available, otherwise use placeholder
-  const firstZoneName = zones.length > 0 ? zones[0].name : 'N1'
   const sampleCSVHeaders = [
     {
-      'Origin Zone': firstZoneName,
-      'Destination Zone': firstZoneName,
-      'Rate Per Kg': '100',
+      origin_zone_code: zones.length > 0 ? zones[0].code : 'N1',
+      destination_zone_code: zones.length > 0 ? zones[0].code : 'N1',
+      rate_per_kg: '100',
     },
   ]
 
@@ -290,6 +284,7 @@ const B2BRateMatrix = ({ planId }) => {
       originZoneId: formData.originZoneId || selectedCell?.originZone?.id,
       destinationZoneId: formData.destinationZoneId || selectedCell?.destZone?.id,
       ratePerKg: formData.ratePerKg, // Only rate per kg needed
+      planId: planId || undefined,
       courier_id: formData.courier_id || courierId || undefined,
       service_provider: formData.service_provider || serviceProvider || undefined,
     }
@@ -547,8 +542,8 @@ const B2BRateMatrix = ({ planId }) => {
               CSV Format Requirements:
             </Text>
             <VStack align="stretch" spacing={1} fontSize="xs" color="blue.600">
-              <Text>• Columns: Origin Zone, Destination Zone, Rate Per Kg</Text>
-              <Text>• Zone names must match existing zone names exactly</Text>
+              <Text>• Columns: origin_zone_code, destination_zone_code, rate_per_kg</Text>
+              <Text>• Use zone codes shown in the matrix, such as N1 or W1</Text>
               <Text>• Rate Per Kg should be a number only (no currency symbols)</Text>
               <Text>• Empty cells will be treated as null/not set</Text>
             </VStack>

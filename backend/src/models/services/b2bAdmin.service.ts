@@ -779,6 +779,9 @@ export const upsertZoneToZoneRate = async (payload: {
         rate_per_kg: payload.ratePerKg.toString(),
         updated_at: new Date(),
       }
+      if (payload.volumetricFactor !== undefined) {
+        updateData.volumetric_factor = Number(payload.volumetricFactor).toString()
+      }
 
       // Note: we deliberately DO NOT change courier_id, service_provider or plan_id when editing by id.
       // Those scopes are considered part of the identity of the rate and are controlled by how the user
@@ -841,10 +844,13 @@ export const upsertZoneToZoneRate = async (payload: {
       .where(and(...whereConditions))
       .limit(1)
 
-    const updateData = {
+    const updateData: any = {
       rate_per_kg: payload.ratePerKg.toString(),
       plan_id: payload.planId ?? null,
       updated_at: new Date(),
+    }
+    if (payload.volumetricFactor !== undefined) {
+      updateData.volumetric_factor = Number(payload.volumetricFactor).toString()
     }
 
     let record
@@ -867,6 +873,10 @@ export const upsertZoneToZoneRate = async (payload: {
           courier_id: courierId,
           service_provider: serviceProvider,
           plan_id: payload.planId ?? null,
+          volumetric_factor:
+            payload.volumetricFactor !== undefined
+              ? Number(payload.volumetricFactor).toString()
+              : undefined,
         })
         .returning()
       record = inserted
@@ -937,17 +947,28 @@ export const deleteZoneToZoneRate = async (id: string) => {
 }
 
 type ZoneRateCsvRecord = {
-  origin_zone_code: string
-  destination_zone_code: string
-  rate_per_kg: string
-  min_charge?: string
-  max_weight_limit?: string
+  [key: string]: string | undefined
+}
+
+const normalizeCsvHeader = (value: string) =>
+  value.trim().toLowerCase().replace(/[\s-]+/g, '_')
+
+const getCsvValue = (row: ZoneRateCsvRecord, ...headers: string[]) => {
+  const values = new Map(
+    Object.entries(row).map(([key, value]) => [normalizeCsvHeader(key), value] as const),
+  )
+  for (const header of headers) {
+    const value = values.get(normalizeCsvHeader(header))
+    if (value !== undefined) return value.trim()
+  }
+  return ''
 }
 
 export const importZoneRatesFromCsv = async (
   fileBuffer: Buffer,
   options: {
     courierScope?: CourierScope
+    planId?: string
   },
 ) => {
   const csv = fileBuffer.toString('utf8')
@@ -960,17 +981,22 @@ export const importZoneRatesFromCsv = async (
     throw new Error(`CSV parse error: ${parsed.errors[0].message}`)
   }
 
-  const rows = parsed.data.filter((row) => row.origin_zone_code && row.destination_zone_code)
+  const rows = parsed.data
   const zoneCache = new Map<string, string>()
 
-  const resolveZoneId = async (code: string) => {
-    const key = code.trim().toUpperCase()
+  const resolveZoneId = async (codeOrName: string) => {
+    const key = codeOrName.trim().toUpperCase()
     if (zoneCache.has(key)) return zoneCache.get(key) as string
 
     const [zone] = await db
       .select({ id: zones.id })
       .from(zones)
-      .where(and(eq(zones.code, key), eq(zones.business_type, 'B2B')))
+      .where(
+        and(
+          eq(zones.business_type, 'B2B'),
+          key.includes('ZONE') ? eq(zones.name, codeOrName.trim()) : eq(zones.code, key),
+        ),
+      )
       .limit(1)
 
     if (!zone) throw new Error(`Zone code ${key} not found`)
@@ -984,13 +1010,37 @@ export const importZoneRatesFromCsv = async (
 
   for (const row of rows) {
     try {
-      const originZoneId = await resolveZoneId(row.origin_zone_code)
-      const destinationZoneId = await resolveZoneId(row.destination_zone_code)
+      const originZone = getCsvValue(row, 'origin_zone_code', 'origin zone code', 'origin zone')
+      const destinationZone = getCsvValue(
+        row,
+        'destination_zone_code',
+        'destination zone code',
+        'destination zone',
+      )
+      const rateValue = getCsvValue(row, 'rate_per_kg', 'rate per kg', 'rate')
+
+      if (!originZone && !destinationZone && !rateValue) continue
+      if (!originZone || !destinationZone) {
+        throw new Error('Origin and destination zones are required')
+      }
+      // Blank template rates are intentionally ignored rather than creating a
+      // zero-value rate.
+      if (!rateValue) continue
+      const numericRate = Number(rateValue)
+      if (!Number.isFinite(numericRate) || numericRate < 0) {
+        throw new Error('Rate per kg must be a non-negative number')
+      }
+
+      const volumetricValue = getCsvValue(row, 'volumetric_factor', 'volumetric factor')
+      const originZoneId = await resolveZoneId(originZone)
+      const destinationZoneId = await resolveZoneId(destinationZone)
 
       await upsertZoneToZoneRate({
         originZoneId,
         destinationZoneId,
-        ratePerKg: Number(row.rate_per_kg),
+        ratePerKg: numericRate,
+        volumetricFactor: volumetricValue ? Number(volumetricValue) : undefined,
+        planId: options.planId,
         courierScope: options.courierScope,
       })
 
