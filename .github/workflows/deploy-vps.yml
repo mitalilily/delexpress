@@ -78,6 +78,7 @@ jobs:
           sudo install -d -m 755 -o deploy -g deploy /srv/expressopro/current/backend/tmp/invoices
           npm ci
           NODE_ENV=production npm run build
+          NODE_ENV=production npm run sync:b2b-zones
           NODE_ENV=production npm run ensure:admin
 
           cd /srv/expressopro/current/admin-dashboard
