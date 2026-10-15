@@ -125,14 +125,40 @@ const dashRoutes = [
         ),
         layout: '/admin',
       },
+      // Pickups UI removed; cancellation is available from Orders or API
+    ],
+  },
+
+  // ========== MANUAL COURIERS ==========
+  {
+    category: true,
+    name: 'Manual Couriers',
+    state: 'manualCourierCollapse',
+    icon: <IconTools size={20} />,
+    layout: '/admin',
+    views: [
       {
-        path: '/ops/manual-courier-shipments',
-        name: 'Manual Courier Shipments',
-        icon: <IconTruck />,
-        component: () => (<AdminRoute><ManualCourierShipments /></AdminRoute>),
+        path: '/manual-couriers',
+        name: 'Courier Setup',
+        icon: <IconTools />,
+        component: () => (
+          <AdminRoute>
+            <ManualCourierSetup />
+          </AdminRoute>
+        ),
         layout: '/admin',
       },
-      // Pickups UI removed; cancellation is available from Orders or API
+      {
+        path: '/ops/manual-courier-shipments',
+        name: 'Shipment Operations',
+        icon: <IconPackageExport />,
+        component: () => (
+          <AdminRoute>
+            <ManualCourierShipments />
+          </AdminRoute>
+        ),
+        layout: '/admin',
+      },
     ],
   },
 
@@ -203,13 +229,6 @@ const dashRoutes = [
             <Couriers />
           </AdminRoute>
         ),
-        layout: '/admin',
-      },
-      {
-        path: '/manual-couriers',
-        name: 'Manual Courier Setup',
-        icon: <IconTools />,
-        component: () => (<AdminRoute><ManualCourierSetup /></AdminRoute>),
         layout: '/admin',
       },
       {
