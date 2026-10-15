@@ -33,6 +33,19 @@ export async function listManualCouriers(search = '', includeInactive = true) {
   return result.rows
 }
 
+export async function getServiceableManualCouriers(serviceType: 'b2c' | 'b2b', origin: string, destination: string, weightKg?: number) {
+  const weight = Number(weightKg ?? 0)
+  const result = await db.execute(sql`
+    SELECT * FROM manual_couriers
+    WHERE is_active = true
+      AND service_types @> ${JSON.stringify([serviceType])}::jsonb
+      AND pincodes @> ARRAY[${String(origin).trim()}, ${String(destination).trim()}]::text[]
+      AND (max_weight_kg IS NULL OR max_weight_kg >= ${weight})
+    ORDER BY name
+  `)
+  return result.rows
+}
+
 export async function createManualCourier(input: any) {
   const name = String(input.name || '').trim()
   const serviceTypes = types(input.serviceTypes || input.service_types)

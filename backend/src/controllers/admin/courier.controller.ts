@@ -125,7 +125,10 @@ const getCredentialedProviders = async () => {
 }
 
 const filterCouriersByCredentialedProvider = (rows: any[], credentialedProviders: Set<string>) =>
-  rows.filter((row) => credentialedProviders.has(normalizeProvider(row.serviceProvider)))
+  rows.filter((row) => {
+    const provider = normalizeProvider(row.serviceProvider)
+    return provider === 'manual' || credentialedProviders.has(provider)
+  })
 
 const dedupeCouriersByScope = (rows: any[]) => {
   const seen = new Set<string>()

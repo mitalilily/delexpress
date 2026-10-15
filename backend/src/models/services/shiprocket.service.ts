@@ -24,6 +24,7 @@ import {
 } from '../../utils/delhiveryCourier'
 import { getBucketName } from '../../utils/functions'
 import { db } from '../client'
+import { getServiceableManualCouriers } from './manualCourier.service'
 import { b2b_orders } from '../schema/b2bOrders'
 import { b2c_orders } from '../schema/b2cOrders'
 import { invoicePreferences } from '../schema/invoicePreferences'
@@ -1375,7 +1376,7 @@ export const fetchAvailableCouriersWithRates = async (
 
     // Build registry of enabled couriers by service provider
     // Filter by business type: check if business_type JSONB array contains 'b2c'
-    const SUPPORTED_PROVIDERS = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax']
+    const SUPPORTED_PROVIDERS = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax', 'manual']
     const DELHIVERY_EXPRESS_SURFACE_COURIER_ID = 99
     let systemCourierRows = await db
       .select({
@@ -1849,11 +1850,39 @@ export const fetchAvailableCouriersWithRates = async (
       })
     }
 
+    const manualServiceableCourierIds = new Set<number>()
+    const manualOrigin = String(params.origin ?? params.source_pincode ?? '').trim()
+    const manualDestination = String(params.destination ?? params.destination_pincode ?? '').trim()
+    if (manualOrigin && manualDestination) {
+      const manualWeightKg = normalizeServiceabilityWeightToGrams(params.weight ?? 0) / 1000
+      const manualRows = await getServiceableManualCouriers(
+        'b2c',
+        manualOrigin,
+        manualDestination,
+        manualWeightKg,
+      )
+      manualRows.forEach((row) => manualServiceableCourierIds.add(Number(row.courier_id)))
+      if (manualRows.length) {
+        registerServiceableProvider('manual', {
+          providerId: 'manual',
+          providerName: 'Manual Courier',
+          codAvailable: true,
+          prepaidAvailable: true,
+          edd: '3-5 Days',
+          raw: { courier_ids: manualRows.map((row) => Number(row.courier_id)) },
+        })
+      }
+    }
+
     for (const [providerKey, bucket] of providerCourierBuckets.entries()) {
       const providerMeta = serviceableProviders.get(providerKey)
       if (!providerMeta) continue
 
       for (const courier of bucket.rows) {
+        if (
+          providerKey === 'manual' &&
+          !manualServiceableCourierIds.has(Number(courier.id))
+        ) continue
         const xpressbeesRecord =
           providerKey === 'xpressbees'
             ? xpressbeesResp?.records?.find(
@@ -2215,6 +2244,7 @@ export const fetchAvailableCouriersWithRates = async (
         'ekart',
         'xpressbees',
         'shadowfax',
+        'manual',
       ])
 
       return localRates.flatMap((rateCard: any) => {
@@ -2756,6 +2786,13 @@ export const fetchAvailableCouriersWithRatesB2B = async (
       return acc
     }, {})
 
+    const manualB2BOrigin = String(originPincode || '').trim()
+    const manualB2BDestination = String(destinationPincode || '').trim()
+    const manualB2BRows = manualB2BOrigin && manualB2BDestination
+      ? await getServiceableManualCouriers('b2b', manualB2BOrigin, manualB2BDestination, inputWeightKg)
+      : []
+    const manualB2BIds = new Set(manualB2BRows.map((row) => Number(row.courier_id)))
+
     // Fetch zone-to-zone rates for all enabled couriers
     const effectiveDate = new Date()
     const fetchZoneToZoneRatesForPlan = async (planId: string | null | undefined) => {
@@ -2817,7 +2854,8 @@ export const fetchAvailableCouriersWithRatesB2B = async (
 
       // Check if courier is enabled
       const providerKey = (rate.serviceProvider || '').toLowerCase()
-      const isEnabled = providerKey && systemCourierMap[providerKey]?.has(Number(rate.courierId))
+      const isEnabled = providerKey && systemCourierMap[providerKey]?.has(Number(rate.courierId)) &&
+        (providerKey !== 'manual' || manualB2BIds.has(Number(rate.courierId)))
 
       if (!isEnabled) continue
 
@@ -4073,10 +4111,10 @@ export const createB2CShipmentService = async (
   try {
     // 1️⃣ CREATE SHIPMENT
     const requestedIntegrationType = String(params.integration_type || '').toLowerCase()
-    const allowedIntegrationTypes = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax']
+    const allowedIntegrationTypes = ['delhivery', 'ekart', 'xpressbees', 'expressfly', 'shadowfax', 'manual']
     if (!requestedIntegrationType || !allowedIntegrationTypes.includes(requestedIntegrationType)) {
       throw new Error(
-        `Invalid integration_type: ${params.integration_type}. Supported values: delhivery, ekart, xpressbees, expressfly, shadowfax.`,
+        `Invalid integration_type: ${params.integration_type}. Supported values: delhivery, ekart, xpressbees, expressfly, shadowfax, manual.`,
       )
     }
 
@@ -4086,6 +4124,7 @@ export const createB2CShipmentService = async (
       | 'xpressbees'
       | 'expressfly'
       | 'shadowfax'
+      | 'manual'
     if (integrationType === 'ekart' && params.pickup) {
       const ekartPickupAlias = buildEkartWarehouseAliasFromPickup({
         warehouse_name: params.pickup.warehouse_name,
@@ -4111,7 +4150,9 @@ export const createB2CShipmentService = async (
           ? 'Xpressbees'
           : integrationType === 'expressfly'
             ? 'Expressfly Logistics'
-            : 'Shadowfax'
+            : integrationType === 'manual'
+              ? 'Manual Courier'
+              : 'Shadowfax'
 
     let manifestFailure: DelhiveryManifestError | null = null
     let shipmentSuccessPackage: any = null
@@ -4853,6 +4894,23 @@ export const createB2CShipmentService = async (
         courier_cost: providerCourierCost,
         sort_code: providerSortCode,
       }
+    } else if (integrationType === 'manual') {
+      const manualOrigin = String(bookingPickupPincode || '').trim()
+      const manualDestination = String(bookingDestinationPincode || '').trim()
+      const manualWeightKg = normalizeServiceabilityWeightToGrams(params.package_weight ?? params.weight ?? 0) / 1000
+      const manualRows = await getServiceableManualCouriers('b2c', manualOrigin, manualDestination, manualWeightKg)
+      const manualCourier = manualRows.find((row) => Number(row.courier_id) === Number(params.courier_id))
+      if (!manualCourier) {
+        throw new HttpError(400, `Manual courier is not serviceable for origin ${manualOrigin}, destination ${manualDestination}, or weight ${manualWeightKg} kg.`)
+      }
+      shipmentData = { success: true, manual: true, status: 'booked' }
+      shipmentMeta = {
+        shipment_id: String(params.order_number || ''),
+        awb_number: undefined,
+        courier_name: String(manualCourier.name || 'Manual Courier'),
+        courier_id: Number(manualCourier.courier_id),
+        courier_cost: null,
+      }
     } else {
       throw new Error(`Unsupported integration_type: ${integrationType}`)
     }
@@ -5060,7 +5118,7 @@ export const createB2CShipmentService = async (
         integrationType === 'delhivery' &&
         !isReverseShipment &&
         shipmentData?.deferred_manifest === true
-      const orderStatus = integrationType === 'shadowfax' ? 'pickup_initiated' : 'booked'
+      const orderStatus = integrationType === 'shadowfax' ? 'pickup_initiated' : integrationType === 'manual' ? 'manual_booked' : 'booked'
       const manifestErrorMessage = null
 
       const newOrder = await createB2COrder({
