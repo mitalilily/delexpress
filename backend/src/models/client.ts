@@ -6,6 +6,7 @@ import type { PoolClient } from 'pg'
 import * as schema from '../schema/schema'
 import { ensureCodRemittanceTypeSchema } from '../scripts/ensureCodRemittanceTypeSchema'
 import { ensureNdrRtoActiveTables } from '../scripts/ensureNdrRtoActiveTables'
+import { ensureManualCourierSchema } from '../scripts/ensureManualCourierSchema'
 
 // Load environment file based on NODE_ENV
 const env = process.env.NODE_ENV || 'development'
@@ -96,6 +97,7 @@ export const testDatabaseConnection = async (): Promise<boolean> => {
       console.log('✅ Database connection succeeded')
       await ensureCodRemittanceTypeSchema(client)
       await ensureNdrRtoActiveTables(client)
+      await ensureManualCourierSchema()
       
       // Parse PostgreSQL version (format: "PostgreSQL 15.3 on x86_64...")
       const versionMatch = pg_version.match(/PostgreSQL\s+([\d.]+)/)

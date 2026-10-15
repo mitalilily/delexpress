@@ -24,6 +24,7 @@
     "sync:shadowfax-surface-rate-cards": "ts-node src/scripts/syncShadowfaxSurfaceRateCards.ts",
     "sync:shiprocket-cargo-couriers": "ts-node src/scripts/syncShiprocketCargoCouriers.ts",
     "sync:b2b-zones": "ts-node src/scripts/syncB2BZoneCatalogue.ts",
+    "ensure:manual-couriers": "ts-node src/scripts/ensureManualCourierSchema.ts",
     "restore:delhivery-express-surface": "ts-node src/scripts/restoreDelhiveryExpressSurface.ts",
     "fix:expressopro-cod-wallet-debits": "ts-node src/scripts/fixExpressoproCodWalletDebits.ts"
   },

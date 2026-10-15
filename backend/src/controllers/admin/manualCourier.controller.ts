@@ -1,0 +1,10 @@
+import { Response } from 'express'
+import { createManualCourier, deleteManualCourier, listManualCouriers, listManualShipments, replaceManualAwb, updateManualCourier, updateManualShipment } from '../../models/services/manualCourier.service'
+
+export const listManualCouriersController = async (req: any, res: Response) => { try { res.json({ success: true, data: await listManualCouriers(String(req.query.search || ''), req.query.includeInactive !== 'false') }) } catch (e: any) { res.status(400).json({ success: false, message: e.message }) } }
+export const createManualCourierController = async (req: any, res: Response) => { try { res.status(201).json({ success: true, data: await createManualCourier(req.body) }) } catch (e: any) { res.status(400).json({ success: false, message: e.message }) } }
+export const updateManualCourierController = async (req: any, res: Response) => { try { res.json({ success: true, data: await updateManualCourier(req.params.id, req.body) }) } catch (e: any) { res.status(400).json({ success: false, message: e.message }) } }
+export const deleteManualCourierController = async (req: any, res: Response) => { try { res.json({ success: true, data: await deleteManualCourier(req.params.id) }) } catch (e: any) { res.status(400).json({ success: false, message: e.message }) } }
+export const listManualShipmentsController = async (req: any, res: Response) => { try { res.json({ success: true, data: await listManualShipments(req.query) }) } catch (e: any) { res.status(400).json({ success: false, message: e.message }) } }
+export const updateManualShipmentController = async (req: any, res: Response) => { try { res.json({ success: true, data: await updateManualShipment(req.params.id, req.body, req.user?.sub) }) } catch (e: any) { res.status(400).json({ success: false, message: e.message }) } }
+export const replaceManualAwbController = async (req: any, res: Response) => { try { res.json({ success: true, data: await replaceManualAwb(req.params.id, req.body, req.user?.sub) }) } catch (e: any) { res.status(400).json({ success: false, message: e.message }) } }

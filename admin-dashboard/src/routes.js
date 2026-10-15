@@ -56,6 +56,8 @@ import AdminWallets from 'views/Wallets/AdminWallets'
 import AdminDisputeManagement from 'views/WeightReconciliation/AdminDisputeManagement'
 import AdminWeightReconciliationDashboard from 'views/WeightReconciliation/AdminWeightReconciliationDashboard'
 import ZoneMappingsPage from 'views/Zones/ZoneMappingsPage'
+import ManualCourierSetup from 'views/Couriers/ManualCourierSetup'
+import ManualCourierShipments from 'views/Ops/ManualCourierShipments'
 
 // Lazy load pricing management pages
 const B2BPricingManagement = lazy(() => import('views/Pricing/B2BPricingManagement'))
@@ -121,6 +123,13 @@ const dashRoutes = [
             <AdminRto />
           </AdminRoute>
         ),
+        layout: '/admin',
+      },
+      {
+        path: '/ops/manual-courier-shipments',
+        name: 'Manual Courier Shipments',
+        icon: <IconTruck />,
+        component: () => (<AdminRoute><ManualCourierShipments /></AdminRoute>),
         layout: '/admin',
       },
       // Pickups UI removed; cancellation is available from Orders or API
@@ -194,6 +203,13 @@ const dashRoutes = [
             <Couriers />
           </AdminRoute>
         ),
+        layout: '/admin',
+      },
+      {
+        path: '/manual-couriers',
+        name: 'Manual Courier Setup',
+        icon: <IconTools />,
+        component: () => (<AdminRoute><ManualCourierSetup /></AdminRoute>),
         layout: '/admin',
       },
       {
