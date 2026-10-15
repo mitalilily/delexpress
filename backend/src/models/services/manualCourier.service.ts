@@ -22,6 +22,7 @@ const list = (value: unknown) => {
   return Array.from(new Set((Array.isArray(source) ? source : String(source || '').split(/[,\n]/)).map((v) => String(v).trim()).filter(Boolean)))
 }
 const types = (value: unknown) => list(value).map((v) => v.toLowerCase()).filter((v) => v === 'b2b' || v === 'b2c')
+const pgTextArray = (values: string[]) => sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`
 
 export async function listManualCouriers(search = '', includeInactive = true) {
   const conditions = []
@@ -44,7 +45,7 @@ export async function createManualCourier(input: any) {
   if (maxWeight != null && (!Number.isFinite(maxWeight) || maxWeight <= 0)) throw new Error('Maximum weight must be positive')
   const courierId = stableId(name)
   return db.transaction(async (tx) => {
-    const row = await tx.execute(sql`INSERT INTO manual_couriers (courier_id,name,service_types,pincodes,max_weight_kg,is_active) VALUES (${courierId},${name},${JSON.stringify(serviceTypes)}::jsonb,${pincodes},${maxWeight},true) RETURNING *`)
+    const row = await tx.execute(sql`INSERT INTO manual_couriers (courier_id,name,service_types,pincodes,max_weight_kg,is_active) VALUES (${courierId},${name},${JSON.stringify(serviceTypes)}::jsonb,${pgTextArray(pincodes)},${maxWeight},true) RETURNING *`)
     await tx.execute(sql`INSERT INTO couriers (id,name,"serviceProvider","isEnabled",business_type) VALUES (${courierId},${name},'manual',true,${JSON.stringify(serviceTypes)}::jsonb) ON CONFLICT (id,"serviceProvider") DO UPDATE SET name=EXCLUDED.name,"isEnabled"=true,business_type=EXCLUDED.business_type,updated_at=now()`)
     return row.rows[0]
   })
@@ -67,7 +68,7 @@ export async function importManualCourierPincodes(id: string, buffer: Buffer) {
   const incoming = parsePincodeCsv(buffer)
   if (!incoming.length) throw new Error('CSV must contain at least one valid 6-digit pincode')
   const merged = Array.from(new Set([...list(current.rows[0].pincodes), ...incoming]))
-  const result = await db.execute(sql`UPDATE manual_couriers SET pincodes=${merged},updated_at=now() WHERE id=${id} RETURNING *`)
+  const result = await db.execute(sql`UPDATE manual_couriers SET pincodes=${pgTextArray(merged)},updated_at=now() WHERE id=${id} RETURNING *`)
   return { courier: result.rows[0], added: incoming.length, total: merged.length }
 }
 
@@ -79,7 +80,7 @@ export async function updateManualCourier(id: string, input: any) {
   const pincodes = list(input.pincodes ?? current.rows[0].pincodes).filter((p) => /^\d{6}$/.test(p))
   const maxWeight = input.maxWeightKg === '' ? null : input.maxWeightKg == null ? current.rows[0].max_weight_kg : Number(input.maxWeightKg)
   if (!name || !serviceTypes.length || !pincodes.length) throw new Error('Name, service type and at least one valid pincode are required')
-  const result = await db.execute(sql`UPDATE manual_couriers SET name=${name},service_types=${JSON.stringify(serviceTypes)}::jsonb,pincodes=${pincodes},max_weight_kg=${maxWeight},is_active=${input.isActive == null ? current.rows[0].is_active : Boolean(input.isActive)},updated_at=now() WHERE id=${id} RETURNING *`)
+  const result = await db.execute(sql`UPDATE manual_couriers SET name=${name},service_types=${JSON.stringify(serviceTypes)}::jsonb,pincodes=${pgTextArray(pincodes)},max_weight_kg=${maxWeight},is_active=${input.isActive == null ? current.rows[0].is_active : Boolean(input.isActive)},updated_at=now() WHERE id=${id} RETURNING *`)
   await db.execute(sql`UPDATE couriers SET name=${name},"isEnabled"=${input.isActive == null ? current.rows[0].is_active : Boolean(input.isActive)},business_type=${JSON.stringify(serviceTypes)}::jsonb,updated_at=now() WHERE id=${current.rows[0].courier_id} AND "serviceProvider"='manual'`)
   return result.rows[0]
 }
