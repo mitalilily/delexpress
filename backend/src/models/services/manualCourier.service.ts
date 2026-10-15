@@ -2,13 +2,25 @@ import { and, desc, eq, ilike, sql } from 'drizzle-orm'
 import { db } from '../client'
 import { createWalletTransaction } from './wallet.service'
 import { walletOfUser } from './walletTopupService'
+import Papa from 'papaparse'
 
 const stableId = (name: string) => {
   let hash = 2166136261
   for (const char of `manual:${name.trim().toLowerCase()}`) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619)
   return (hash >>> 0) % 900000000 + 100000000
 }
-const list = (value: unknown) => Array.from(new Set((Array.isArray(value) ? value : String(value || '').split(/[,\n]/)).map((v) => String(v).trim()).filter(Boolean)))
+const list = (value: unknown) => {
+  let source: unknown = value
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value)
+      source = Array.isArray(parsed) ? parsed : value
+    } catch {
+      source = value
+    }
+  }
+  return Array.from(new Set((Array.isArray(source) ? source : String(source || '').split(/[,\n]/)).map((v) => String(v).trim()).filter(Boolean)))
+}
 const types = (value: unknown) => list(value).map((v) => v.toLowerCase()).filter((v) => v === 'b2b' || v === 'b2c')
 
 export async function listManualCouriers(search = '', includeInactive = true) {
@@ -23,7 +35,8 @@ export async function listManualCouriers(search = '', includeInactive = true) {
 export async function createManualCourier(input: any) {
   const name = String(input.name || '').trim()
   const serviceTypes = types(input.serviceTypes || input.service_types)
-  const pincodes = list(input.pincodes).filter((p) => /^\d{6}$/.test(p))
+  const csvPincodes = input.pincodesCsv ? parsePincodeCsv(input.pincodesCsv) : []
+  const pincodes = Array.from(new Set([...list(input.pincodes), ...csvPincodes])).filter((p) => /^\d{6}$/.test(p))
   const maxWeight = input.maxWeightKg === '' || input.maxWeightKg == null ? null : Number(input.maxWeightKg)
   if (!name) throw new Error('Courier name is required')
   if (!serviceTypes.length) throw new Error('Select B2C or B2B')
@@ -35,6 +48,27 @@ export async function createManualCourier(input: any) {
     await tx.execute(sql`INSERT INTO couriers (id,name,"serviceProvider","isEnabled",business_type) VALUES (${courierId},${name},'manual',true,${JSON.stringify(serviceTypes)}::jsonb) ON CONFLICT (id,"serviceProvider") DO UPDATE SET name=EXCLUDED.name,"isEnabled"=true,business_type=EXCLUDED.business_type,updated_at=now()`)
     return row.rows[0]
   })
+}
+
+function parsePincodeCsv(buffer: Buffer | string) {
+  const parsed = Papa.parse<Record<string, unknown>>(buffer.toString(), { header: true, skipEmptyLines: true })
+  const values: string[] = []
+  for (const row of parsed.data || []) {
+    const key = Object.keys(row).find((name) => /pin(code)?|zip/i.test(name))
+    const value = key ? row[key] : Object.values(row)[0]
+    if (value != null) values.push(...String(value).split(/[,\s]+/))
+  }
+  return values.map((value) => value.trim()).filter((value) => /^\d{6}$/.test(value))
+}
+
+export async function importManualCourierPincodes(id: string, buffer: Buffer) {
+  const current = await db.execute(sql`SELECT pincodes FROM manual_couriers WHERE id=${id} LIMIT 1`)
+  if (!current.rows[0]) throw new Error('Manual courier not found')
+  const incoming = parsePincodeCsv(buffer)
+  if (!incoming.length) throw new Error('CSV must contain at least one valid 6-digit pincode')
+  const merged = Array.from(new Set([...list(current.rows[0].pincodes), ...incoming]))
+  const result = await db.execute(sql`UPDATE manual_couriers SET pincodes=${merged},updated_at=now() WHERE id=${id} RETURNING *`)
+  return { courier: result.rows[0], added: incoming.length, total: merged.length }
 }
 
 export async function updateManualCourier(id: string, input: any) {
