@@ -28,6 +28,11 @@ export async function ensureManualCourierSchema() {
       created_by uuid,
       created_at timestamp NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS manual_courier_awb_sequences (
+      manual_courier_id uuid PRIMARY KEY REFERENCES manual_couriers(id),
+      next_value bigint NOT NULL DEFAULT 1,
+      updated_at timestamp NOT NULL DEFAULT now()
+    );
     ALTER TABLE b2c_orders ADD COLUMN IF NOT EXISTS manual_courier_id uuid;
     ALTER TABLE b2c_orders ADD COLUMN IF NOT EXISTS manual_awb_number varchar(100);
     ALTER TABLE b2b_orders ADD COLUMN IF NOT EXISTS manual_courier_id uuid;

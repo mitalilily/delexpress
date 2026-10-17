@@ -24,6 +24,25 @@ const list = (value: unknown) => {
 const types = (value: unknown) => list(value).map((v) => v.toLowerCase()).filter((v) => v === 'b2b' || v === 'b2c')
 const pgTextArray = (values: string[]) => sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`
 
+export async function allocateManualAwb(
+  tx: any,
+  manualCourierId: string,
+  courierId: number | string,
+) {
+  const result = await tx.execute(sql`
+    INSERT INTO manual_courier_awb_sequences (manual_courier_id, next_value)
+    VALUES (${manualCourierId}, 2)
+    ON CONFLICT (manual_courier_id)
+    DO UPDATE SET next_value = manual_courier_awb_sequences.next_value + 1
+    RETURNING next_value - 1 AS allocated_value
+  `)
+  const sequence = Number(result.rows[0]?.allocated_value)
+  if (!Number.isSafeInteger(sequence) || sequence < 1) {
+    throw new Error('Unable to allocate a manual courier AWB')
+  }
+  return `MNL-${String(courierId).trim()}-${String(sequence).padStart(8, '0')}`
+}
+
 export async function listManualCouriers(search = '', includeInactive = true) {
   const conditions = []
   if (!includeInactive) conditions.push(sql`is_active = true`)

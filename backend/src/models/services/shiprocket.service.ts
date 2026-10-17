@@ -24,7 +24,7 @@ import {
 } from '../../utils/delhiveryCourier'
 import { getBucketName } from '../../utils/functions'
 import { db } from '../client'
-import { getServiceableManualCouriers } from './manualCourier.service'
+import { allocateManualAwb, getServiceableManualCouriers } from './manualCourier.service'
 import { b2b_orders } from '../schema/b2bOrders'
 import { b2c_orders } from '../schema/b2cOrders'
 import { invoicePreferences } from '../schema/invoicePreferences'
@@ -3107,6 +3107,8 @@ export interface InsertB2COrderParams {
   resolvedCodCharges?: number | null
   manifestError?: string | null
   pickupStatus?: string | null
+  manualCourierId?: string | null
+  manualAwbNumber?: string | null
 }
 
 export async function createB2COrder({
@@ -3132,6 +3134,8 @@ export async function createB2COrder({
   resolvedCodCharges,
   manifestError,
   pickupStatus,
+  manualCourierId,
+  manualAwbNumber,
 }: InsertB2COrderParams) {
   const orderAmount = Number(params.order_amount ?? 0)
   const requestedOrderNumber = typeof params.order_number === 'string' ? params.order_number.trim() : ''
@@ -3300,6 +3304,8 @@ export async function createB2COrder({
         courier_partner: shipmentData?.courier_name ?? null,
         delivery_location: params.delivery_location ?? params.zone ?? null,
         courier_id: params.courier_id ? Number(params.courier_id) : null,
+        manual_courier_id: manualCourierId ?? null,
+        manual_awb_number: manualAwbNumber ?? null,
         shipping_mode: shippingMode ?? null,
         selected_max_slab_weight: selectedMaxSlabWeight ?? null,
         shipment_id: shipmentData?.shipment_id?.toString() ?? null,
@@ -4104,6 +4110,7 @@ export const createB2CShipmentService = async (
   } = {}
 
   const rollbackActions: Array<() => Promise<void>> = []
+  let manualCourierRecord: any = null
 
   // Check if this is a reverse shipment
   const originalOrderId = params.original_order_id || params.order_id
@@ -4903,6 +4910,7 @@ export const createB2CShipmentService = async (
       if (!manualCourier) {
         throw new HttpError(400, `Manual courier is not serviceable for origin ${manualOrigin}, destination ${manualDestination}, or weight ${manualWeightKg} kg.`)
       }
+      manualCourierRecord = manualCourier
       shipmentData = { success: true, manual: true, status: 'booked' }
       shipmentMeta = {
         shipment_id: String(params.order_number || ''),
@@ -5121,6 +5129,22 @@ export const createB2CShipmentService = async (
       const orderStatus = integrationType === 'shadowfax' ? 'pickup_initiated' : integrationType === 'manual' ? 'manual_booked' : 'booked'
       const manifestErrorMessage = null
 
+      let manualAwbNumber: string | null = null
+      if (integrationType === 'manual') {
+        if (!manualCourierRecord?.id) {
+          throw new HttpError(400, 'Selected manual courier could not be resolved')
+        }
+        manualAwbNumber = await allocateManualAwb(
+          tx,
+          String(manualCourierRecord.id),
+          Number(manualCourierRecord.courier_id),
+        )
+        shipmentMeta.awb_number = manualAwbNumber
+        shipmentMeta.shipment_id = manualAwbNumber
+        shipmentData.awb_number = manualAwbNumber
+        shipmentData.awbNumber = manualAwbNumber
+      }
+
       const newOrder = await createB2COrder({
         tx,
         params,
@@ -5144,6 +5168,8 @@ export const createB2CShipmentService = async (
         shippingMode: selectedDelhiveryShippingMode ?? null,
         selectedMaxSlabWeight,
         resolvedCodCharges: isCodOrder ? codCharges : 0,
+        manualCourierId: integrationType === 'manual' ? String(manualCourierRecord.id) : null,
+        manualAwbNumber,
       })
 
       if (selectedDelhiveryShippingMode && selectedDelhiveryCourierId !== null) {
