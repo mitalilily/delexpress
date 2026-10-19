@@ -1440,6 +1440,7 @@ export const upsertOverheadRule = async (payload: {
     is_active: payload.isActive ?? true,
     courier_id: courierId,
     service_provider: serviceProvider,
+    plan_id: payload.planId ?? null,
   }
 
   if (payload.code) insertData.code = payload.code
@@ -1449,32 +1450,47 @@ export const upsertOverheadRule = async (payload: {
   if (payload.effectiveFrom) insertData.effective_from = payload.effectiveFrom
   if (payload.effectiveTo) insertData.effective_to = payload.effectiveTo
 
-  const [record] = await db
-    .insert(b2bOverheadRules)
-    .values(insertData)
-    .onConflictDoUpdate({
-      target: [
-        b2bOverheadRules.code,
-        b2bOverheadRules.courier_id,
-        b2bOverheadRules.service_provider,
-      ],
-      set: {
-        name: payload.name,
-        description: payload.description,
-        type: payload.type,
-        amount: payload.amount !== undefined ? payload.amount.toString() : undefined,
-        percent: payload.percent !== undefined ? payload.percent.toString() : undefined,
-        applies_to: payload.appliesTo ?? 'freight',
-        condition: conditionValue,
-        priority: payload.priority,
-        is_active: payload.isActive ?? true,
-        updated_at: new Date(),
-        plan_id: payload.planId ?? undefined,
-      },
-    })
-    .returning()
+  return db.transaction(async (tx) => {
+    const scopeConditions: SQLWrapper[] = [
+      eq(b2bOverheadRules.business_type, 'B2B') as SQLWrapper,
+      payload.code
+        ? eq(b2bOverheadRules.code, payload.code)
+        : isNull(b2bOverheadRules.code),
+      courierId !== null
+        ? eq(b2bOverheadRules.courier_id, courierId)
+        : isNull(b2bOverheadRules.courier_id),
+      serviceProvider !== null
+        ? eq(b2bOverheadRules.service_provider, serviceProvider)
+        : isNull(b2bOverheadRules.service_provider),
+      payload.planId
+        ? eq(b2bOverheadRules.plan_id, payload.planId)
+        : isNull(b2bOverheadRules.plan_id),
+    ]
 
-  return record
+    const [existing] = await tx
+      .select({ id: b2bOverheadRules.id })
+      .from(b2bOverheadRules)
+      .where(and(...scopeConditions))
+      .limit(1)
+
+    if (existing?.id) {
+      const [record] = await tx
+        .update(b2bOverheadRules)
+        .set({
+          ...insertData,
+          updated_at: new Date(),
+        })
+        .where(eq(b2bOverheadRules.id, existing.id))
+        .returning()
+      return record
+    }
+
+    const [record] = await tx
+      .insert(b2bOverheadRules)
+      .values(insertData)
+      .returning()
+    return record
+  })
 }
 
 export const deleteOverheadRule = async (id: string) => {
