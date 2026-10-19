@@ -144,6 +144,8 @@ export const getAdditionalCharges = async (params: {
     null,
   ]
 
+  const planIds: (string | null)[] = params.planId ? [params.planId, null] : [null]
+
   for (const scope of scopes) {
     const { courierId: cId, serviceProvider: sProvider } = normalizeCourierScope(scope ?? undefined)
 
@@ -159,20 +161,22 @@ export const getAdditionalCharges = async (params: {
       conditions.push(isNull(b2bAdditionalCharges.service_provider))
     }
 
-    // Add plan_id filter
-    if (params.planId) {
-      conditions.push(eq(b2bAdditionalCharges.plan_id, params.planId))
-    } else {
-      conditions.push(isNull(b2bAdditionalCharges.plan_id))
+    for (const planId of planIds) {
+      const [charges] = await db
+        .select()
+        .from(b2bAdditionalCharges)
+        .where(
+          and(
+            ...conditions,
+            planId
+              ? eq(b2bAdditionalCharges.plan_id, planId)
+              : isNull(b2bAdditionalCharges.plan_id),
+          ),
+        )
+        .limit(1)
+
+      if (charges) return charges
     }
-
-    const [charges] = await db
-      .select()
-      .from(b2bAdditionalCharges)
-      .where(and(...conditions))
-      .limit(1)
-
-    if (charges) return charges
   }
 
   // Return null if nothing found - frontend will handle empty form

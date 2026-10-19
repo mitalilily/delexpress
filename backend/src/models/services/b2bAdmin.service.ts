@@ -55,7 +55,10 @@ const normalizeCourierScope = (scope?: CourierScope) => {
     return { courierId: null, serviceProvider: null }
   }
   const courierId = scope.courierId != null ? Number(scope.courierId) : null
-  const serviceProvider = scope.serviceProvider ?? null
+  const serviceProvider =
+    typeof scope.serviceProvider === 'string' && scope.serviceProvider.trim()
+      ? scope.serviceProvider.trim().toLowerCase()
+      : null
   return { courierId, serviceProvider }
 }
 
@@ -1579,17 +1582,24 @@ export const calculateB2BChargeableWeight = (params: {
 }) => {
   const { weightKg, length, width, height, cftFactor } = params
 
-  // Calculate volumetric weight if dimensions provided
-  let volumetricWeight = weightKg
-  if (length && width && height) {
+  // Values of 5/6 are the admin UI's CFT shorthand for 5000/6000 cm3/kg.
+  // Preserve full divisors such as 5000 when they are stored explicitly.
+  const volumetricDivisor = cftFactor > 0 && cftFactor <= 100 ? cftFactor * 1000 : cftFactor
+  let volumetricWeight = 0
+  if (length && width && height && volumetricDivisor > 0) {
     const volumeCm3 = length * width * height
-    volumetricWeight = volumeCm3 / cftFactor
+    volumetricWeight = volumeCm3 / volumetricDivisor
   }
 
-  // Billable weight is max of actual and volumetric (ALWAYS applies)
+  // Billable weight is max of actual and volumetric when dimensions are present.
   const billableWeight = Math.max(weightKg, volumetricWeight)
 
-  return { billableWeight, volumetricWeight }
+  return {
+    billableWeight,
+    volumetricWeight,
+    usedVolumetric: volumetricWeight > weightKg,
+    volumetricDivisor,
+  }
 }
 
 export const calculateB2BRate = async (params: {
@@ -1619,6 +1629,32 @@ export const calculateB2BRate = async (params: {
   deliveryAddress?: string // Optional: Delivery address - used to detect CSD locations via keywords
   planId?: string // Optional: Plan ID to fetch plan-specific additional charges
 }) => {
+  const originPincode = String(params.originPincode ?? '').trim()
+  const destinationPincode = String(params.destinationPincode ?? '').trim()
+  const weightKg = Number(params.weightKg)
+
+  if (!/^\d{6}$/.test(originPincode) || !/^\d{6}$/.test(destinationPincode)) {
+    throw new Error('Origin and destination pincodes must each be exactly 6 digits')
+  }
+  if (!Number.isFinite(weightKg) || weightKg <= 0) {
+    throw new Error('Weight must be a finite value greater than 0 kg')
+  }
+
+  const dimensions = [params.length, params.width, params.height]
+  const hasAnyDimension = dimensions.some((value) => value !== undefined && value !== null)
+  if (hasAnyDimension && dimensions.some((value) => value === undefined || value === null || !Number.isFinite(Number(value)) || Number(value) <= 0)) {
+    throw new Error('Length, width, and height must all be positive numbers when dimensions are provided')
+  }
+
+  const invoiceValue = params.invoiceValue == null ? 0 : Number(params.invoiceValue)
+  if (!Number.isFinite(invoiceValue) || invoiceValue < 0) {
+    throw new Error('Invoice value must be a finite value of 0 or greater')
+  }
+  const paymentMode = String(params.paymentMode ?? 'PREPAID').trim().toUpperCase()
+  if (paymentMode !== 'COD' && paymentMode !== 'PREPAID') {
+    throw new Error('Payment mode must be COD or PREPAID')
+  }
+
   const { courierId, serviceProvider } = normalizeCourierScope(params.courierScope)
   const effectiveDate = params.effectiveDate ?? new Date()
 
@@ -1631,17 +1667,17 @@ export const calculateB2BRate = async (params: {
     })
   }
 
-  const origin = await findZoneForPincode(params.originPincode, { courierId, serviceProvider })
-  const destination = await findZoneForPincode(params.destinationPincode, {
+  const origin = await findZoneForPincode(originPincode, { courierId, serviceProvider })
+  const destination = await findZoneForPincode(destinationPincode, {
     courierId,
     serviceProvider,
   })
 
   if (!origin) {
-    throw new Error(`No zone mapping found for origin pincode ${params.originPincode}`)
+    throw new Error(`No B2B zone mapping found for origin pincode ${originPincode}`)
   }
   if (!destination) {
-    throw new Error(`No zone mapping found for destination pincode ${params.destinationPincode}`)
+    throw new Error(`No B2B zone mapping found for destination pincode ${destinationPincode}`)
   }
 
   const rate = await findZoneRate({
@@ -1649,6 +1685,7 @@ export const calculateB2BRate = async (params: {
     destinationZoneId: destination.zoneId,
     courierId,
     serviceProvider,
+    planId: params.planId,
     effectiveDate,
   })
 
@@ -1675,11 +1712,14 @@ export const calculateB2BRate = async (params: {
   // CFT Factor - ALWAYS used in weight calculation
   // Formula: volumetricWeight = (L Ã— B Ã— H) / cftFactor
   // chargeableWeight = max(volumetricWeight, actualWeight)
-  const cftFactor = Number(additionalCharges.cft_factor || 5000) // Default to 5000 if not configured
+  const cftFactor = Number(additionalCharges.cft_factor)
+  if (!Number.isFinite(cftFactor) || cftFactor <= 0) {
+    throw new Error('Configured CFT factor must be greater than 0')
+  }
 
   // Use shared helper for weight calculation
-  const { billableWeight, volumetricWeight } = calculateB2BChargeableWeight({
-    weightKg: params.weightKg,
+  const { billableWeight, volumetricWeight, volumetricDivisor } = calculateB2BChargeableWeight({
+    weightKg,
     length: params.length,
     width: params.width,
     height: params.height,
@@ -1753,12 +1793,12 @@ export const calculateB2BRate = async (params: {
   // Check if pickup date is a holiday (Sunday or in holiday list)
   // Fetch state from pincode for holiday checking
   let pickupState: string | undefined = undefined
-  if (params.originPincode) {
+  if (originPincode) {
     try {
       const [pincodeData] = await db
         .select({ state: b2bPincodes.state })
         .from(b2bPincodes)
-        .where(eq(b2bPincodes.pincode, params.originPincode))
+        .where(eq(b2bPincodes.pincode, originPincode))
         .limit(1)
       pickupState = pincodeData?.state || undefined
     } catch (error) {
@@ -1801,7 +1841,7 @@ export const calculateB2BRate = async (params: {
   const isCsd = isCsdByPincode || isCsdByAddress
 
   const context = {
-    paymentMode: (params.paymentMode ?? 'PREPAID').toUpperCase(),
+    paymentMode,
     isOda: destination.isOda, // ODA charges apply only if destination pincode is ODA
     isRemote: origin.isRemote || destination.isRemote,
     isSez: origin.isSez || destination.isSez,
@@ -1817,10 +1857,10 @@ export const calculateB2BRate = async (params: {
     courierId: courierId || null,
     origin,
     destination,
-    weightKg: params.weightKg,
+    weightKg,
     billableWeight,
     volumetricWeight,
-    invoiceValue: params.invoiceValue ?? 0,
+    invoiceValue,
     baseFreight,
   }
 
@@ -2152,14 +2192,14 @@ export const calculateB2BRate = async (params: {
     // Apply only if: payment_mode = COD
     // Formula: max(codFixedAmount, invoiceValue Ã— (codPercentage / 100))
     // Formula according to admin added calculation method
-    if (params.paymentMode === 'COD') {
+    if (paymentMode === 'COD') {
       const codFixedAmount = Number(additionalCharges.cod_fixed_amount || 50)
       const codPercentage = Number(additionalCharges.cod_percentage || 1)
       const codMethod = additionalCharges.cod_method || 'whichever_is_higher'
 
       const codByFixed = codFixedAmount
       // Calculate percentage-based COD if invoiceValue is provided, otherwise use 0
-      const codByPercentage = params.invoiceValue ? (params.invoiceValue * codPercentage) / 100 : 0
+      const codByPercentage = invoiceValue ? (invoiceValue * codPercentage) / 100 : 0
 
       // Apply selected method: max(codFixedAmount, invoiceValue Ã— (codPercentage / 100)) or min based on admin configuration
       const codCharge =
@@ -2183,13 +2223,13 @@ export const calculateB2BRate = async (params: {
     // Apply ONLY IF: declaredValue > 0, regardless of COD or prepaid
     // Formula: max(rovFixedAmount, declaredValue Ã— (rovPercentage / 100))
     // min or max according to admin configured calculation method
-    if (params.invoiceValue && params.invoiceValue > 0) {
+    if (invoiceValue > 0) {
       const rovFixedAmount = Number(additionalCharges.rov_fixed_amount || 100)
       const rovPercentage = Number(additionalCharges.rov_percentage || 0.5)
       const rovMethod = additionalCharges.rov_method || 'whichever_is_higher'
 
       const rovByFixed = rovFixedAmount
-      const rovByPercentage = (params.invoiceValue * rovPercentage) / 100
+      const rovByPercentage = (invoiceValue * rovPercentage) / 100
 
       // Apply selected method: max(rovFixedAmount, declaredValue Ã— (rovPercentage / 100)) or min based on admin configuration
       const rovCharge =
@@ -2479,9 +2519,9 @@ export const calculateB2BRate = async (params: {
     const amount = computeOverheadAmount(rule, {
       baseFreight,
       currentTotal: runningTotal,
-      weightKg: params.weightKg,
+      weightKg,
       billableWeight,
-      invoiceValue: params.invoiceValue ?? 0,
+      invoiceValue,
     })
 
     if (amount === 0) continue
@@ -2503,11 +2543,11 @@ export const calculateB2BRate = async (params: {
     destination,
     rate,
     calculation: {
-      actualWeight: params.weightKg,
+      actualWeight: weightKg,
       volumetricWeight,
       billableWeight,
-      volumetricDivisor: cftFactor,
-      usedVolumetric: volumetricWeight > params.weightKg,
+      volumetricDivisor,
+      usedVolumetric: volumetricWeight > weightKg,
     },
     charges: {
       baseFreight,
@@ -2619,6 +2659,7 @@ export const findZoneRate = async (params: {
   destinationZoneId: string
   courierId: number | null
   serviceProvider: string | null
+  planId?: string | null
   effectiveDate?: Date
 }) => {
   const effectiveDate = params.effectiveDate ?? new Date()
@@ -2631,37 +2672,44 @@ export const findZoneRate = async (params: {
     null,
   ]
 
-  for (const scope of scopes) {
-    const { courierId, serviceProvider } = normalizeCourierScope(scope ?? undefined)
+  const planIds: (string | null)[] = params.planId ? [params.planId, null] : [null]
 
-    const [row] = await db
-      .select()
-      .from(b2bZoneToZoneRates)
-      .where(
-        and(
-          eq(b2bZoneToZoneRates.origin_zone_id, params.originZoneId),
-          eq(b2bZoneToZoneRates.destination_zone_id, params.destinationZoneId),
-          eq(b2bZoneToZoneRates.is_active, true),
-          or(
-            isNull(b2bZoneToZoneRates.effective_from),
-            lte(b2bZoneToZoneRates.effective_from, effectiveDate),
-          ),
-          or(
-            isNull(b2bZoneToZoneRates.effective_to),
-            gte(b2bZoneToZoneRates.effective_to, effectiveDate),
-          ),
-          courierId
-            ? eq(b2bZoneToZoneRates.courier_id, courierId)
-            : isNull(b2bZoneToZoneRates.courier_id),
-          serviceProvider
-            ? eq(b2bZoneToZoneRates.service_provider, serviceProvider)
-            : isNull(b2bZoneToZoneRates.service_provider),
-        ),
-      )
-      .orderBy(desc(b2bZoneToZoneRates.effective_from))
-      .limit(1)
+  for (const planId of planIds) {
+    for (const scope of scopes) {
+      const { courierId, serviceProvider } = normalizeCourierScope(scope ?? undefined)
 
-    if (row) return row
+      const [row] = await db
+        .select()
+        .from(b2bZoneToZoneRates)
+        .where(
+          and(
+            eq(b2bZoneToZoneRates.origin_zone_id, params.originZoneId),
+            eq(b2bZoneToZoneRates.destination_zone_id, params.destinationZoneId),
+            eq(b2bZoneToZoneRates.is_active, true),
+            or(
+              isNull(b2bZoneToZoneRates.effective_from),
+              lte(b2bZoneToZoneRates.effective_from, effectiveDate),
+            ),
+            or(
+              isNull(b2bZoneToZoneRates.effective_to),
+              gte(b2bZoneToZoneRates.effective_to, effectiveDate),
+            ),
+            courierId
+              ? eq(b2bZoneToZoneRates.courier_id, courierId)
+              : isNull(b2bZoneToZoneRates.courier_id),
+            serviceProvider
+              ? eq(b2bZoneToZoneRates.service_provider, serviceProvider)
+              : isNull(b2bZoneToZoneRates.service_provider),
+            planId
+              ? eq(b2bZoneToZoneRates.plan_id, planId)
+              : isNull(b2bZoneToZoneRates.plan_id),
+          ),
+        )
+        .orderBy(desc(b2bZoneToZoneRates.effective_from))
+        .limit(1)
+
+      if (row) return row
+    }
   }
 
   return null

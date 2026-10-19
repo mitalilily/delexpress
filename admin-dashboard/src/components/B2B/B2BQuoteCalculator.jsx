@@ -18,8 +18,9 @@ import {
   useToast,
   VStack,
 } from '@chakra-ui/react'
-import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useCouriers } from '../../hooks/useCouriers'
+import { usePlans } from '../../hooks/usePlans'
 import { b2bAdminService } from '../../services/b2bAdmin.service'
 import Card from '../Card/Card'
 import CardBody from '../Card/CardBody'
@@ -41,29 +42,60 @@ const B2BQuoteCalculator = ({ planId }) => {
   })
   const [quoteResult, setQuoteResult] = useState(null)
   const [isCalculating, setIsCalculating] = useState(false)
+  const [selectedPlanId, setSelectedPlanId] = useState(planId || '')
 
-  const { data: couriers = [] } = useQuery({
-    queryKey: ['couriers'],
-    queryFn: () => fetch('/api/couriers').then((r) => r.json()),
-  })
+  const { data: couriers = [] } = useCouriers({ businessType: 'b2b' })
+  const { data: plansResponse, isLoading: plansLoading } = usePlans()
+  const plans = Array.isArray(plansResponse) ? plansResponse : plansResponse?.data || []
+  const providers = useMemo(() => {
+    const values = couriers
+      .map((courier) => courier.service_provider || courier.serviceProvider)
+      .filter(Boolean)
+      .map((provider) => String(provider).trim().toLowerCase())
+    return [...new Set(values)].sort()
+  }, [couriers])
+  const availableCouriers = useMemo(() => {
+    if (!formData.serviceProvider) return couriers
+    return couriers.filter(
+      (courier) =>
+        String(courier.service_provider || courier.serviceProvider || '').toLowerCase() ===
+        formData.serviceProvider,
+    )
+  }, [couriers, formData.serviceProvider])
 
   const handleCalculate = async () => {
-    if (!formData.originPincode || !formData.destinationPincode || !formData.weightKg) {
+    const originPincode = String(formData.originPincode).trim()
+    const destinationPincode = String(formData.destinationPincode).trim()
+    const weightKg = Number(formData.weightKg)
+    if (!/^\d{6}$/.test(originPincode) || !/^\d{6}$/.test(destinationPincode)) {
       toast({
-        title: 'Missing required fields',
-        description: 'Please fill in origin, destination, and weight',
+        title: 'Invalid pincodes',
+        description: 'Origin and destination must each be exactly 6 digits',
         status: 'error',
         duration: 3000,
       })
+      return
+    }
+    if (!Number.isFinite(weightKg) || weightKg <= 0) {
+      toast({ title: 'Invalid weight', description: 'Weight must be greater than 0 kg', status: 'error', duration: 3000 })
+      return
+    }
+    const dimensions = [formData.length, formData.width, formData.height]
+    if (dimensions.some(Boolean) && dimensions.some((value) => !Number.isFinite(Number(value)) || Number(value) <= 0)) {
+      toast({ title: 'Invalid dimensions', description: 'Enter all three dimensions as positive numbers, or leave all blank', status: 'error', duration: 3000 })
+      return
+    }
+    if (!selectedPlanId) {
+      toast({ title: 'Select a plan', description: 'B2B additional charges are configured per plan', status: 'error', duration: 3000 })
       return
     }
 
     setIsCalculating(true)
     try {
       const result = await b2bAdminService.calculateRate({
-        originPincode: formData.originPincode,
-        destinationPincode: formData.destinationPincode,
-        weightKg: Number(formData.weightKg),
+        originPincode,
+        destinationPincode,
+        weightKg,
         length: formData.length ? Number(formData.length) : undefined,
         width: formData.width ? Number(formData.width) : undefined,
         height: formData.height ? Number(formData.height) : undefined,
@@ -71,7 +103,7 @@ const B2BQuoteCalculator = ({ planId }) => {
         paymentMode: formData.paymentMode,
         courier_id: formData.courierId || undefined,
         service_provider: formData.serviceProvider || undefined,
-        plan_id: planId || undefined,
+        plan_id: selectedPlanId,
       })
       setQuoteResult(result)
     } catch (error) {
@@ -124,7 +156,8 @@ const B2BQuoteCalculator = ({ planId }) => {
                 <NumberInput
                   value={formData.weightKg}
                   onChange={(_, value) => setFormData({ ...formData, weightKg: value })}
-                  min={0}
+                  min={0.01}
+                  precision={3}
                 >
                   <NumberInputField />
                 </NumberInput>
@@ -191,9 +224,9 @@ const B2BQuoteCalculator = ({ planId }) => {
                   value={formData.courierId}
                   onChange={(e) => setFormData({ ...formData, courierId: e.target.value })}
                 >
-                  {couriers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
+                  {availableCouriers.map((c) => (
+                    <option key={`${c.id}-${c.service_provider || c.serviceProvider || ''}`} value={c.id}>
+                      {c.name || c.courier_name || `Courier ${c.id}`}
                     </option>
                   ))}
                 </Select>
@@ -205,12 +238,37 @@ const B2BQuoteCalculator = ({ planId }) => {
               <Select
                 placeholder="Select Service Provider"
                 value={formData.serviceProvider}
-                onChange={(e) => setFormData({ ...formData, serviceProvider: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, serviceProvider: e.target.value, courierId: '' })
+                }
               >
-                <option value="delhivery">Delhivery</option>
-                <option value="ekart">Ekart</option>
+                {providers.map((provider) => (
+                  <option key={provider} value={provider}>
+                    {provider}
+                  </option>
+                ))}
               </Select>
             </FormControl>
+
+            {!planId && (
+              <FormControl isRequired>
+                <FormLabel>Plan</FormLabel>
+                <Select
+                  placeholder={plansLoading ? 'Loading plans...' : 'Select a plan'}
+                  value={selectedPlanId}
+                  onChange={(e) => setSelectedPlanId(e.target.value)}
+                  isDisabled={plansLoading}
+                >
+                  {plans
+                    .filter((plan) => plan.is_active !== false)
+                    .map((plan) => (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.name}
+                      </option>
+                    ))}
+                </Select>
+              </FormControl>
+            )}
 
             <Button
               colorScheme="blue"
@@ -251,10 +309,10 @@ const B2BQuoteCalculator = ({ planId }) => {
                   <SimpleGrid columns={2} spacing={2} fontSize="sm">
                     <Text>Actual Weight: {quoteResult.calculation.actualWeight} kg</Text>
                     <Text>
-                      Volumetric Weight: {quoteResult.calculation.volumetricWeight.toFixed(2)} kg
+                      Volumetric Weight: {Number(quoteResult.calculation.volumetricWeight || 0).toFixed(2)} kg
                     </Text>
                     <Text>
-                      Billable Weight: {quoteResult.calculation.billableWeight.toFixed(2)} kg
+                      Billable Weight: {Number(quoteResult.calculation.billableWeight || 0).toFixed(2)} kg
                     </Text>
                     <Text>
                       {quoteResult.calculation.usedVolumetric
@@ -275,18 +333,18 @@ const B2BQuoteCalculator = ({ planId }) => {
                   <Tbody>
                     <Tr>
                       <Td fontWeight="semibold">Base Freight</Td>
-                      <Td isNumeric>₹{quoteResult.charges.baseFreight.toFixed(2)}</Td>
+                      <Td isNumeric>₹{Number(quoteResult.charges?.baseFreight || 0).toFixed(2)}</Td>
                     </Tr>
-                    {quoteResult.charges.overheads.map((overhead) => (
+                    {(quoteResult.charges?.overheads || []).map((overhead) => (
                       <Tr key={overhead.id}>
                         <Td>{overhead.name}</Td>
-                        <Td isNumeric>₹{overhead.amount.toFixed(2)}</Td>
+                        <Td isNumeric>₹{Number(overhead.amount || 0).toFixed(2)}</Td>
                       </Tr>
                     ))}
                     <Tr borderTop="2px solid" borderColor="gray.300">
                       <Td fontWeight="bold">Total</Td>
                       <Td isNumeric fontWeight="bold">
-                        ₹{quoteResult.charges.total.toFixed(2)}
+                        ₹{Number(quoteResult.charges?.total || 0).toFixed(2)}
                       </Td>
                     </Tr>
                   </Tbody>
