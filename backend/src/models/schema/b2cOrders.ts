@@ -93,6 +93,8 @@ export const b2c_orders = pgTable(
   manifest_last_retry_at: timestamp('manifest_last_retry_at'),
 
   awb_number: varchar('awb_number', { length: 100 }),
+  manual_courier_id: uuid('manual_courier_id'),
+  manual_awb_number: varchar('manual_awb_number', { length: 100 }),
 
   // Pickup & RTO info
   pickup_location_id: varchar('pickup_location_id', { length: 50 }),

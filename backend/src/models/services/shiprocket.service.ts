@@ -3109,6 +3109,7 @@ export interface InsertB2COrderParams {
   pickupStatus?: string | null
   manualCourierId?: string | null
   manualAwbNumber?: string | null
+  allowManualRebook?: boolean
 }
 
 export async function createB2COrder({
@@ -3136,6 +3137,7 @@ export async function createB2COrder({
   pickupStatus,
   manualCourierId,
   manualAwbNumber,
+  allowManualRebook = false,
 }: InsertB2COrderParams) {
   const orderAmount = Number(params.order_amount ?? 0)
   const requestedOrderNumber = typeof params.order_number === 'string' ? params.order_number.trim() : ''
@@ -3181,16 +3183,27 @@ export async function createB2COrder({
   const isAttachableSourceOrder = (order: any) =>
     isAttachableShopifyOrder(order) || isAttachableManifestFailedOrder(order)
 
-  if (sourceOrderId && !isAttachableSourceOrder(existingSourceOrder)) {
+  const isAttachableManualOrder = (order: any) =>
+    Boolean(
+      allowManualRebook &&
+        order &&
+        order.manual_courier_id &&
+        String(order.integration_type || '').toLowerCase() === 'manual',
+    )
+
+  const isAttachableTargetOrder = (order: any) =>
+    isAttachableSourceOrder(order) || isAttachableManualOrder(order)
+
+  if (sourceOrderId && !isAttachableTargetOrder(existingSourceOrder)) {
     throw new HttpError(
       400,
       'The selected order is not available for courier booking.',
     )
   }
 
-  const targetShopifyOrder = isAttachableSourceOrder(existingSourceOrder)
+  const targetShopifyOrder = isAttachableTargetOrder(existingSourceOrder)
     ? existingSourceOrder
-    : isAttachableSourceOrder(existingSameOrderNumber)
+    : isAttachableTargetOrder(existingSameOrderNumber)
       ? existingSameOrderNumber
       : null
 
@@ -3371,7 +3384,19 @@ export const createB2CShipmentService = async (
   params: ShipmentParams,
   userId: string,
   is_external_api: boolean = false,
+  options: {
+    allowManualRebook?: boolean
+    skipWalletDebit?: boolean
+    preserveManualCourierId?: string | null
+    preserveManualAwb?: string | null
+  } = {},
 ) => {
+  const {
+    allowManualRebook = false,
+    skipWalletDebit = false,
+    preserveManualCourierId = null,
+    preserveManualAwb = null,
+  } = options
   await requireMerchantOrderReadiness(userId)
 
   // 🔹 Handle provider_code: Convert provider_code to integration_type if provided
@@ -4011,7 +4036,7 @@ export const createB2CShipmentService = async (
   }
 
   let estimatedWalletDebit = 0
-  if (!isReverseShipment) {
+  if (!isReverseShipment && !skipWalletDebit) {
     if (params.payment_type === 'prepaid') {
       estimatedWalletDebit = freightCharges + otherCharges
     } else if (params.payment_type === 'cod') {
@@ -5168,8 +5193,12 @@ export const createB2CShipmentService = async (
         shippingMode: selectedDelhiveryShippingMode ?? null,
         selectedMaxSlabWeight,
         resolvedCodCharges: isCodOrder ? codCharges : 0,
-        manualCourierId: integrationType === 'manual' ? String(manualCourierRecord.id) : null,
-        manualAwbNumber,
+        manualCourierId:
+          integrationType === 'manual'
+            ? String(manualCourierRecord.id)
+            : preserveManualCourierId,
+        manualAwbNumber: integrationType === 'manual' ? manualAwbNumber : preserveManualAwb,
+        allowManualRebook,
       })
 
       if (selectedDelhiveryShippingMode && selectedDelhiveryCourierId !== null) {
@@ -5185,7 +5214,12 @@ export const createB2CShipmentService = async (
       // Delhivery forward orders use deferred manifest generation, so charge only after manifest succeeds.
       const shouldDeferWalletDebit = isDeferredDelhiveryForwardManifest
       const finalWalletDebit = walletDebit ?? 0
-      if (shouldDeferWalletDebit) {
+      if (skipWalletDebit) {
+        console.log('ℹ️ Skipping wallet debit for admin manual-shipment provider replacement', {
+          order_number: params.order_number,
+          order_id: newOrder?.id,
+        })
+      } else if (shouldDeferWalletDebit) {
         console.log('ℹ️ Deferring wallet debit until manifest success for Delhivery order', {
           order_number: params.order_number,
           order_status: orderStatus,
@@ -8298,6 +8332,8 @@ type OrderSummary = {
   delivery_message: string | null
   created_at: Date | null
   updated_at: Date | null
+  order_type_scope?: 'b2c' | 'b2b'
+  manual_courier_id?: string | null
 }
 
 const sanitizeString = (value: unknown, fallback = ''): string => {
@@ -8643,6 +8679,7 @@ const findOrderByAwb = async (awb: string): Promise<OrderSummary | null> => {
       delivery_message: b2c_orders.delivery_message,
       created_at: b2c_orders.created_at,
       updated_at: b2c_orders.updated_at,
+      manual_courier_id: b2c_orders.manual_courier_id,
     })
     .from(b2c_orders)
     .where(eq(b2c_orders.awb_number, awb))
@@ -8664,6 +8701,7 @@ const findOrderByAwb = async (awb: string): Promise<OrderSummary | null> => {
       delivery_message: b2c.delivery_message,
       created_at: b2c.created_at,
       updated_at: b2c.updated_at,
+      order_type_scope: 'b2c',
     }
   }
 
@@ -8681,6 +8719,7 @@ const findOrderByAwb = async (awb: string): Promise<OrderSummary | null> => {
       delivery_message: b2b_orders.delivery_message,
       created_at: b2b_orders.created_at,
       updated_at: b2b_orders.updated_at,
+      manual_courier_id: b2b_orders.manual_courier_id,
     })
     .from(b2b_orders)
     .where(eq(b2b_orders.awb_number, awb))
@@ -8688,7 +8727,9 @@ const findOrderByAwb = async (awb: string): Promise<OrderSummary | null> => {
 
   if (b2b) {
     const courierPartner = sanitizeString(b2b.courier_partner).toLowerCase()
-    const b2bIntegrationType = courierPartner.includes('shadowfax')
+    const b2bIntegrationType = b2b.manual_courier_id
+      ? 'manual'
+      : courierPartner.includes('shadowfax')
       ? 'shadowfax'
       : courierPartner.includes('expressfly')
         ? 'expressfly'
@@ -8713,10 +8754,26 @@ const findOrderByAwb = async (awb: string): Promise<OrderSummary | null> => {
       delivery_message: b2b.delivery_message,
       created_at: b2b.created_at,
       updated_at: b2b.updated_at,
+      order_type_scope: 'b2b',
     }
   }
 
   return null
+}
+
+const fetchManualStatusHistory = async (orderId: string, orderType: 'b2c' | 'b2b') => {
+  const result = await db.execute(sql`
+    SELECT status, remarks, created_at, awb_number
+    FROM manual_courier_status_events
+    WHERE order_id=${orderId} AND order_type=${orderType}
+    ORDER BY created_at ASC
+  `)
+  return result.rows.map((row: any) => ({
+    status_code: sanitizeString(row.status, 'Status Update'),
+    location: '',
+    event_time: toIsoString(row.created_at),
+    message: sanitizeString(row.remarks, row.status || 'Status Update'),
+  }))
 }
 
 export const trackByAwbService = async (awb: string): Promise<TrackingServiceResponse> => {
@@ -8758,6 +8815,13 @@ export const trackByAwbService = async (awb: string): Promise<TrackingServiceRes
         console.warn('ExpressFly tracking persistence failed:', persistError?.message || persistError)
       }
       providerData = mapExpressflyTracking(raw, order)
+    } else if (providerKey === 'manual') {
+      providerData = {
+        history: [],
+        status: order.order_status || 'manual_booked',
+        shipment_info: order.delivery_message || 'Manual tracking update',
+        courier_name: order.courier_partner || 'Manual Courier',
+      }
     } else {
       throw new HttpError(400, 'Unsupported integration_type for tracking')
     }
@@ -8770,9 +8834,10 @@ export const trackByAwbService = async (awb: string): Promise<TrackingServiceRes
   }
 
   const persistedHistory = await fetchPersistedTrackingHistory(order.id)
+  const manualHistory = await fetchManualStatusHistory(order.id, order.order_type_scope || 'b2c')
   providerData = {
     ...providerData,
-    history: mergeTrackingHistory(persistedHistory, providerData.history),
+    history: mergeTrackingHistory([...manualHistory, ...persistedHistory], providerData.history),
   }
 
   return buildTrackingResponse(order, providerData)

@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { isAdminMiddleware } from '../../middlewares/isAdmin'
 import { requireAuth } from '../../middlewares/requireAuth'
-import { createManualCourierController, deleteManualCourierController, importManualCourierPincodesController, listManualCouriersController, listManualShipmentsController, replaceManualAwbController, updateManualCourierController, updateManualShipmentController } from '../../controllers/admin/manualCourier.controller'
+import { bookManualShipmentWithProviderController, createManualCourierController, deleteManualCourierController, importManualCourierPincodesController, listManualCouriersController, manualShipmentProviderOptionsController, listManualShipmentsController, replaceManualAwbController, updateManualCourierController, updateManualShipmentController } from '../../controllers/admin/manualCourier.controller'
 import { upload } from '../../middlewares/upload'
 const router = Router()
 router.use(requireAuth, isAdminMiddleware)
@@ -13,4 +13,6 @@ router.post('/:id/pincodes/import', upload.single('file'), importManualCourierPi
 router.get('/shipments/list', listManualShipmentsController)
 router.post('/shipments/:id/status', updateManualShipmentController)
 router.post('/shipments/:id/awb', replaceManualAwbController)
+router.get('/shipments/:id/provider-options', manualShipmentProviderOptionsController)
+router.post('/shipments/:id/integrated-book', bookManualShipmentWithProviderController)
 export default router

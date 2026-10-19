@@ -28,6 +28,23 @@ export async function ensureManualCourierSchema() {
       created_by uuid,
       created_at timestamp NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS manual_courier_provider_bookings (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_id uuid NOT NULL,
+      order_type varchar(3) NOT NULL,
+      manual_courier_id uuid REFERENCES manual_couriers(id),
+      provider varchar(60) NOT NULL,
+      courier_id integer,
+      previous_awb varchar(100),
+      provider_awb varchar(100),
+      provider_reference varchar(150),
+      status varchar(30) NOT NULL,
+      error_message varchar(1000),
+      response jsonb,
+      created_by uuid,
+      created_at timestamp NOT NULL DEFAULT now(),
+      updated_at timestamp NOT NULL DEFAULT now()
+    );
     CREATE TABLE IF NOT EXISTS manual_courier_awb_sequences (
       manual_courier_id uuid PRIMARY KEY REFERENCES manual_couriers(id),
       next_value bigint NOT NULL DEFAULT 1,
@@ -39,6 +56,7 @@ export async function ensureManualCourierSchema() {
     ALTER TABLE b2b_orders ADD COLUMN IF NOT EXISTS manual_awb_number varchar(100);
     CREATE INDEX IF NOT EXISTS manual_couriers_active_idx ON manual_couriers (is_active);
     CREATE INDEX IF NOT EXISTS manual_courier_events_order_idx ON manual_courier_status_events (order_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS manual_courier_provider_bookings_order_idx ON manual_courier_provider_bookings (order_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS b2c_orders_manual_courier_idx ON b2c_orders (manual_courier_id);
     CREATE INDEX IF NOT EXISTS b2b_orders_manual_courier_idx ON b2b_orders (manual_courier_id);
   `))

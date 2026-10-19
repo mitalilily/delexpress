@@ -88,6 +88,8 @@ export const b2b_orders = pgTable(
   courier_partner: varchar('courier_partner', { length: 50 }),
   courier_id: numeric('courier_id'),
   awb_number: varchar('awb_number', { length: 100 }),
+  manual_courier_id: uuid('manual_courier_id'),
+  manual_awb_number: varchar('manual_awb_number', { length: 100 }),
   shipment_id: varchar('shipment_id', { length: 100 }),
   is_insurance: boolean('is_insurance').default(false),
   // Declared/insured value and ROV charge (if insurance opted)

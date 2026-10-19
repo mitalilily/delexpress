@@ -128,14 +128,20 @@ export async function listManualShipments(params: any = {}) {
   const search = String(params.search || '').trim()
   const result = await db.execute(sql`
     SELECT 'b2c' AS order_type, o.id, o.order_number, o.order_id, o.awb_number, o.manual_awb_number,
-      o.order_status, o.buyer_name, o.pincode, o.weight, o.freight_charges, o.courier_partner,
-      o.manual_courier_id, o.created_at, mc.name AS manual_courier_name
+      o.order_status, o.buyer_name, o.buyer_phone, o.buyer_email, o.address, o.city, o.state, o.country,
+      o.pincode, o.weight, o.length, o.breadth, o.height, o.order_amount, o.order_type AS payment_type,
+      o.freight_charges, o.shipping_charges, o.other_charges, o.cod_charges, o.invoice_number, o.invoice_date,
+      o.invoice_amount, o.products, o.pickup_details, o.pickup_location_id, o.courier_partner, o.integration_type,
+      o.manual_courier_id, o.user_id, o.created_at, mc.name AS manual_courier_name
     FROM b2c_orders o LEFT JOIN manual_couriers mc ON mc.id=o.manual_courier_id
     WHERE o.manual_courier_id IS NOT NULL ${search ? sql`AND (o.order_number ILIKE ${`%${search}%`} OR o.order_id ILIKE ${`%${search}%`} OR o.awb_number ILIKE ${`%${search}%`} OR o.manual_awb_number ILIKE ${`%${search}%`} OR o.buyer_name ILIKE ${`%${search}%`})` : sql``}
     UNION ALL
     SELECT 'b2b' AS order_type, o.id, o.order_number, o.order_id, o.awb_number, o.manual_awb_number,
-      o.order_status, o.buyer_name, o.pincode, o.weight, o.freight_charges, o.courier_partner,
-      o.manual_courier_id, o.created_at, mc.name AS manual_courier_name
+      o.order_status, o.buyer_name, o.buyer_phone, o.buyer_email, o.address, o.city, o.state, o.country,
+      o.pincode, o.weight, o.length, o.breadth, o.height, o.order_amount, o.order_type AS payment_type,
+      o.freight_charges, o.shipping_charges, NULL::numeric AS other_charges, o.cod_charges, o.invoice_number, o.invoice_date,
+      o.invoice_amount, o.products, o.pickup_details, o.pickup_location_id, o.courier_partner, 'manual' AS integration_type,
+      o.manual_courier_id, o.user_id, o.created_at, mc.name AS manual_courier_name
     FROM b2b_orders o LEFT JOIN manual_couriers mc ON mc.id=o.manual_courier_id
     WHERE o.manual_courier_id IS NOT NULL ${search ? sql`AND (o.order_number ILIKE ${`%${search}%`} OR o.order_id ILIKE ${`%${search}%`} OR o.awb_number ILIKE ${`%${search}%`} OR o.manual_awb_number ILIKE ${`%${search}%`} OR o.buyer_name ILIKE ${`%${search}%`})` : sql``}
     ORDER BY created_at DESC LIMIT ${Math.min(Number(params.limit) || 100, 500)} OFFSET ${Math.max(Number(params.offset) || 0, 0)}
@@ -146,12 +152,27 @@ export async function listManualShipments(params: any = {}) {
 export async function updateManualShipment(id: string, input: any, adminId?: string) {
   const orderType = String(input.orderType || '').toLowerCase() === 'b2b' ? 'b2b' : 'b2c'
   const table = orderType === 'b2b' ? 'b2b_orders' : 'b2c_orders'
-  const status = String(input.status || '').trim().toLowerCase()
+  const allowedStatuses = new Set([
+    'manual_booked',
+    'pickup_initiated',
+    'in_transit',
+    'out_for_delivery',
+    'delivered',
+    'ndr',
+    'rto',
+    'rto_delivered',
+    'cancelled',
+  ])
+  const status = String(input.status || '').trim().toLowerCase().replace(/[ -]+/g, '_')
   const remarks = String(input.remarks || '').trim() || null
   if (!status) throw new Error('Status is required')
+  if (!allowedStatuses.has(status)) throw new Error('Unsupported shipment status')
   const result = await db.execute(sql`UPDATE ${sql.raw(table)} SET order_status=${status},updated_at=now() WHERE id=${id} AND manual_courier_id IS NOT NULL RETURNING *`)
   if (!result.rows[0]) throw new Error('Manual shipment not found')
   await db.execute(sql`INSERT INTO manual_courier_status_events (order_id,order_type,manual_courier_id,awb_number,status,remarks,created_by) VALUES (${id},${orderType},${result.rows[0].manual_courier_id},${result.rows[0].manual_awb_number || result.rows[0].awb_number || null},${status},${remarks},${adminId || null})`)
+  if (orderType === 'b2c' && result.rows[0].user_id) {
+    await db.execute(sql`INSERT INTO tracking_events (order_id,user_id,awb_number,courier,status_code,status_text,location,raw,created_at) VALUES (${id},${result.rows[0].user_id},${result.rows[0].awb_number || result.rows[0].manual_awb_number || null},'manual',${status},${remarks || status},${input.location ? String(input.location).trim() : null},${JSON.stringify({ source: 'manual_admin', status, remarks, created_by: adminId || null })}::jsonb,now())`)
+  }
   return result.rows[0]
 }
 
@@ -166,9 +187,151 @@ export async function replaceManualAwb(id: string, input: any, adminId?: string)
   const wallet = await walletOfUser(String(result.rows[0].user_id))
   const amount = Number(result.rows[0].freight_charges || 0)
   if (amount > 0) {
-    const existing = await db.execute(sql`SELECT id FROM wallet_transactions WHERE wallet_id=${wallet.id} AND type='debit' AND ref=${`manual_courier:${id}`} LIMIT 1`)
+    const existing = await db.execute(sql`SELECT id FROM wallet_transactions WHERE wallet_id=${wallet.id} AND type='debit' AND (ref=${`manual_courier:${id}`} OR ref=${id}) LIMIT 1`)
     if (!existing.rows[0]) await createWalletTransaction({ walletId: wallet.id, amount, type: 'debit', ref: `manual_courier:${id}`, reason: 'Manual courier shipment', meta: { orderId: id, awb, courierType: 'manual' } })
   }
   return result.rows[0]
+}
+
+const parseJson = (value: unknown) => {
+  if (!value) return null
+  if (typeof value === 'object') return value
+  try { return JSON.parse(String(value)) } catch { return null }
+}
+
+const normalizeOrderItems = (value: unknown) => {
+  const parsed = parseJson(value)
+  if (!Array.isArray(parsed)) return []
+  return parsed.map((item: any) => ({
+    name: item.name || item.box_name || item.title || 'Item',
+    sku: item.sku || item.itemSku || 'NA',
+    qty: Number(item.qty ?? item.quantity ?? 1) || 1,
+    quantity: Number(item.quantity ?? item.qty ?? 1) || 1,
+    price: Number(item.price ?? item.sellingPrice ?? item.unit_price ?? 0) || 0,
+    hsn: item.hsn || item.hsnCode || '',
+    discount: Number(item.discount || 0) || 0,
+    tax_rate: Number(item.tax_rate ?? item.taxRate ?? 0) || 0,
+  }))
+}
+
+const getManualOrder = async (id: string, orderType: string) => {
+  const table = orderType === 'b2b' ? 'b2b_orders' : 'b2c_orders'
+  const result = await db.execute(sql`SELECT * FROM ${sql.raw(table)} WHERE id=${id} AND manual_courier_id IS NOT NULL LIMIT 1`)
+  return result.rows[0] || null
+}
+
+const pickupFromOrder = (order: any) => {
+  const parsed = parseJson(order.pickup_details) || parseJson(order.pickup) || {}
+  return {
+    ...parsed,
+    warehouse_name: parsed.warehouse_name || parsed.name || order.pickup_location_id || 'Pickup warehouse',
+    address: parsed.address || parsed.address_line1 || '',
+    city: parsed.city || '',
+    state: parsed.state || '',
+    pincode: parsed.pincode || parsed.pin_code || parsed.pickup_pincode || '',
+    phone: parsed.phone || parsed.contact || parsed.phone_number || '',
+  }
+}
+
+export async function getManualShipmentProviderOptions(id: string, orderTypeInput: string) {
+  const orderType = String(orderTypeInput || '').toLowerCase() === 'b2b' ? 'b2b' : 'b2c'
+  const order = await getManualOrder(id, orderType)
+  if (!order) throw new Error('Manual shipment not found')
+  if (orderType === 'b2b') {
+    throw new Error('Integrated provider booking is currently available for B2C manual shipments only')
+  }
+  const { fetchAvailableCouriersWithRatesAdmin } = await import('./shiprocket.service')
+  let planId: string | undefined
+  const plan = await db.execute(sql`SELECT plan_id FROM user_plans WHERE user_id=${order.user_id} LIMIT 1`)
+  planId = plan.rows[0]?.plan_id ? String(plan.rows[0].plan_id) : undefined
+  return fetchAvailableCouriersWithRatesAdmin({
+    origin: pickupFromOrder(order).pincode,
+    destination: order.pincode,
+    payment_type: String(order.order_type || 'prepaid').toLowerCase(),
+    order_amount: Number(order.order_amount || 0),
+    weight: Number(order.weight || 0) * 1000,
+    length: Number(order.length || 0),
+    breadth: Number(order.breadth || 0),
+    height: Number(order.height || 0),
+    shipment_type: 'b2c',
+    isCalculator: false,
+  } as any, planId)
+}
+
+export async function bookManualShipmentWithProvider(id: string, input: any, adminId?: string) {
+  const orderType = String(input.orderType || '').toLowerCase() === 'b2b' ? 'b2b' : 'b2c'
+  const order = await getManualOrder(id, orderType)
+  if (!order) throw new Error('Manual shipment not found')
+  if (orderType === 'b2b') throw new Error('Integrated provider booking is currently available for B2C manual shipments only')
+  const currentIntegrationType = String(order.integration_type || 'manual').trim().toLowerCase()
+  if (currentIntegrationType !== 'manual') throw new Error('This shipment is already mapped to an integrated provider')
+  const provider = String(input.integrationType || input.integration_type || '').trim().toLowerCase()
+  const courierId = Number(input.courierId ?? input.courier_id)
+  if (!provider) throw new Error('Integrated provider is required')
+  if (!Number.isInteger(courierId) || courierId <= 0) throw new Error('A valid integrated courier is required')
+
+  const { createB2CShipmentService } = await import('./shiprocket.service')
+  const pickup = pickupFromOrder(order)
+  const payload: any = {
+    order_number: order.order_number,
+    source_order_id: order.id,
+    order_amount: Number(order.order_amount || 0),
+    payment_type: String(order.order_type || 'prepaid').toLowerCase(),
+    consignee: {
+      name: order.buyer_name,
+      phone: order.buyer_phone,
+      email: order.buyer_email || undefined,
+      address: order.address,
+      city: order.city,
+      state: order.state,
+      pincode: order.pincode,
+      country: order.country || 'India',
+    },
+    pickup,
+    pickup_location_id: order.pickup_location_id || pickup.warehouse_name,
+    order_items: normalizeOrderItems(order.products),
+    package_weight: Number(order.weight || 0),
+    package_length: Number(order.length || 0),
+    package_breadth: Number(order.breadth || 0),
+    package_height: Number(order.height || 0),
+    shipping_charges: Number(order.shipping_charges || 0),
+    other_charges: Number(order.other_charges || 0),
+    freight_charges: Number(order.freight_charges || 0),
+    cod_charges: Number(order.cod_charges || 0),
+    invoice_number: order.invoice_number || undefined,
+    invoice_date: order.invoice_date || undefined,
+    invoice_amount: order.invoice_amount || order.order_amount || 0,
+    courier_id: courierId,
+    integration_type: provider,
+    courier_partner: input.courierName || undefined,
+    selected_max_slab_weight: input.selectedMaxSlabWeight || undefined,
+  }
+
+  const inFlight = await db.execute(sql`
+    SELECT id
+    FROM manual_courier_provider_bookings
+    WHERE order_id=${id} AND order_type=${orderType} AND status='processing'
+    LIMIT 1
+  `)
+  if (inFlight.rows[0]) throw new Error('A provider booking is already in progress for this shipment')
+
+  await db.execute(sql`INSERT INTO manual_courier_provider_bookings (order_id,order_type,manual_courier_id,provider,courier_id,previous_awb,status,created_by) VALUES (${id},${orderType},${order.manual_courier_id},${provider},${courierId},${order.awb_number || order.manual_awb_number || null},'processing',${adminId || null})`)
+  try {
+    const result = await createB2CShipmentService(payload, String(order.user_id), false, {
+      allowManualRebook: true,
+      skipWalletDebit: true,
+      preserveManualCourierId: String(order.manual_courier_id),
+      preserveManualAwb: String(order.manual_awb_number || order.awb_number || ''),
+    })
+    const booked = result?.order || result?.shipment?.order || result?.shipment || {}
+    const providerAwb = booked.awb_number || result?.shipment?.awb_number || result?.shipment?.awbNumber || null
+    if (!providerAwb) throw new Error('Integrated provider did not return an AWB')
+    await db.execute(sql`UPDATE manual_courier_provider_bookings SET provider_awb=${providerAwb},provider_reference=${booked.shipment_id || result?.shipment?.shipment_id || null},status='succeeded',response=${JSON.stringify({ shipment: result?.shipment || null })}::jsonb,updated_at=now() WHERE order_id=${id} AND order_type=${orderType} AND status='processing'`)
+    await db.execute(sql`INSERT INTO manual_courier_status_events (order_id,order_type,manual_courier_id,awb_number,status,remarks,created_by) VALUES (${id},${orderType},${order.manual_courier_id},${providerAwb},'provider_booked',${`Booked with ${input.courierName || provider}`},${adminId || null})`)
+    return { order: booked, shipment: result?.shipment || result, providerAwb }
+  } catch (error: any) {
+    await db.execute(sql`UPDATE manual_courier_provider_bookings SET status='failed',error_message=${String(error?.message || error).slice(0, 1000)},response=${JSON.stringify(error?.response?.data || null)}::jsonb,updated_at=now() WHERE order_id=${id} AND order_type=${orderType} AND status='processing'`)
+    throw error
+  }
 }
 
