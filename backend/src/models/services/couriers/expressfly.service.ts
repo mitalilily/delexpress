@@ -1794,7 +1794,12 @@ export class ExpressflyService {
       } catch (error: any) {
         lastError = error
         const status = Number(error?.statusCode ?? error?.status ?? error?.response?.status ?? 0)
-        if (status && status !== 404) throw error
+        const message = String(error?.message || error?.response?.data?.message || '').toLowerCase()
+        const invalidLookupId = message.includes('invalid "id"') || message.includes('invalid id')
+        // A local shipment id can be valid in our database but not be the
+        // provider's order id. Continue with the AWB/order-number/search
+        // candidates instead of aborting the complete tracking lookup.
+        if (status && status !== 400 && status !== 404 && !invalidLookupId) throw error
       }
     }
 
