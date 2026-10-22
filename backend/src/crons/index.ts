@@ -11,12 +11,14 @@ import {
 import { pollDelhiveryTracking } from './delhiveryTracking'
 import { pollEkartTracking } from './ekartTracking'
 import { pollShadowfaxTracking } from './shadowfaxTracking'
+import { pollExpressflyTracking } from './expressflyTracking'
 
 let isWalletReconciliationRunning = false
 let isPendingWebhookRunActive = false
 let isDelhiveryTrackingRunActive = false
 let isEkartTrackingRunActive = false
 let isShadowfaxTrackingRunActive = false
+let isExpressflyTrackingRunActive = false
 
 if (isRazorpayConfigured) {
   cron.schedule('*/20 * * * *', async () => {
@@ -90,6 +92,26 @@ cron.schedule('*/15 * * * *', async () => {
     console.error('[Cron] Delhivery tracking poll failed:', err instanceof Error ? err.message : err)
   } finally {
     isDelhiveryTrackingRunActive = false
+  }
+})
+
+cron.schedule('*/15 * * * *', async () => {
+  if (isExpressflyTrackingRunActive) {
+    console.log('[Cron] ExpressFly tracking poll skipped because a previous run is still active')
+    return
+  }
+  isExpressflyTrackingRunActive = true
+  console.log('[Cron] ExpressFly tracking poll')
+  try {
+    const result = await pollExpressflyTracking()
+    console.log(
+      `[Cron] ExpressFly tracking complete selected=${result.selected} fetched=${result.fetched} ` +
+        `succeeded=${result.succeeded} failed=${result.failed} inserted=${result.inserted} skipped=${result.skipped}`,
+    )
+  } catch (err) {
+    console.error('[Cron] ExpressFly tracking poll failed:', err instanceof Error ? err.message : err)
+  } finally {
+    isExpressflyTrackingRunActive = false
   }
 })
 
