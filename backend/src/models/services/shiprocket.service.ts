@@ -85,6 +85,7 @@ import { ShadowfaxService } from './couriers/shadowfax.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
 import { calculateOrderWeights } from './courierWeightCalculation.service'
 import {
+  mapExpressflyStatus,
   normalizeExpressflyTrackingPayload,
   persistExpressflyTracking,
 } from './expressflyTracking.service'
@@ -8410,6 +8411,13 @@ const mergeTrackingHistory = (
       event_time: toIsoString(event.event_time),
       message: sanitizeString(event.message, event.status_code || 'Status Update'),
     }
+    // Older ExpressFly polling stored the aggregate numeric status_id (for
+    // example `3`) as both code and message. It is not a scan and obscures the
+    // real tracking_logs returned by the provider, so keep it out of the API
+    // response while retaining the raw database record for auditability.
+    if (/^\d+$/.test(normalized.status_code) && /^\d+$/.test(normalized.message)) {
+      continue
+    }
     const key = trackingHistoryKey(normalized)
     if (seen.has(key)) continue
     seen.add(key)
@@ -8593,19 +8601,35 @@ const mapShadowfaxTracking = (raw: any, order: OrderSummary): ProviderNormalized
   }
 }
 
+const mapExpressflyDisplayCode = (statusCode: unknown, statusText: unknown) => {
+  const internal = mapExpressflyStatus(`${statusText || ''} ${statusCode || ''}`)
+  if (internal === 'booked') return 'PP'
+  if (internal === 'pickup_initiated') return 'PP'
+  if (internal === 'in_transit') return 'IT'
+  if (internal === 'out_for_delivery') return 'OFD'
+  if (internal === 'delivered') return 'DL'
+  if (internal === 'cancelled') return 'CAN'
+  if (internal === 'rto' || internal === 'rto_in_transit') return 'RT'
+  if (internal === 'ndr') return 'EX'
+  return sanitizeString(statusCode, 'IT')
+}
+
 const mapExpressflyTracking = (raw: any, order: OrderSummary): ProviderNormalizedTracking => {
   const normalized = normalizeExpressflyTrackingPayload(raw?.raw ?? raw, order.awb_number)
   const history = normalized.events.map((event) => ({
-    status_code: event.statusCode,
+    status_code: mapExpressflyDisplayCode(event.statusCode, event.statusText),
     location: event.location,
     event_time: event.eventTime || toIsoString(order.updated_at ?? order.created_at),
     message: event.statusText,
   }))
   const latest = normalized.events[normalized.events.length - 1]
+  const latestInternalStatus = mapExpressflyStatus(
+    `${latest?.statusText || ''} ${latest?.statusCode || ''}`,
+  )
 
   return {
     history,
-    status: latest?.statusText || order.order_status || 'In Transit',
+    status: latestInternalStatus || order.order_status || 'in_transit',
     edd: undefined,
     shipment_info: latest?.statusText || undefined,
     courier_name: order.courier_partner || 'ExpressFly',

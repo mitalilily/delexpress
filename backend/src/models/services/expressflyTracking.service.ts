@@ -62,9 +62,14 @@ const asEvent = (item: any, fallback: any = {}) => {
     item?.code,
     item?.event_code,
     item?.eventCode,
+    item?.scan,
+    item?.activity,
+    item?.order_status_id,
     item?.status,
     fallback?.status_code,
     fallback?.statusCode,
+    fallback?.status_name,
+    fallback?.statusName,
     fallback?.status,
   )
   const statusText = firstText(
@@ -75,6 +80,9 @@ const asEvent = (item: any, fallback: any = {}) => {
     item?.message,
     item?.description,
     item?.activity,
+    item?.scan,
+    item?.remark,
+    item?.remarks,
     item?.scan_status,
     item?.scanStatus,
     item?.status,
@@ -97,6 +105,7 @@ const asEvent = (item: any, fallback: any = {}) => {
       item?.timestamp,
       item?.scanDateTime,
       item?.scan_datetime,
+    item?.scan_date_time,
       item?.date,
       item?.time,
       fallback?.event_time,
@@ -123,6 +132,7 @@ const eventArrays = (payload: any) => {
     payload?.scans,
     payload?.scan_events,
     payload?.tracking_details,
+    payload?.tracking_logs,
     payload?.data?.events,
     payload?.data?.tracking_events,
     payload?.data?.trackingHistory,
@@ -130,9 +140,12 @@ const eventArrays = (payload: any) => {
     payload?.data?.scans,
     payload?.data?.scan_events,
     payload?.data?.tracking_details,
+    payload?.data?.tracking_logs,
     payload?.result?.events,
     payload?.result?.tracking_events,
     payload?.result?.history,
+    payload?.result?.tracking_logs,
+    payload?.status_info?.tracking_logs,
   ]
   return values.filter(Array.isArray).flat()
 }

@@ -42,6 +42,28 @@ const statusLabels = {
   EX: 'Exception',
 }
 
+const stageByStatus = {
+  booked: 0,
+  pending_pickup: 1,
+  pickup_initiated: 1,
+  in_transit: 2,
+  out_for_delivery: 3,
+  delivered: 4,
+}
+
+const getTrackingStage = (value) => {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[ -]+/g, '_')
+  const label = statusLabels[value] || statusLabels[String(value || '').toUpperCase()]
+  const labelKey = String(label || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[ -]+/g, '_')
+  return stageByStatus[normalized] ?? stageByStatus[labelKey] ?? 0
+}
+
 export default function TrackingDetails({ data, isLoading, error }) {
   const cardBg = useColorModeValue('white', 'gray.800')
   const detailItemBg = useColorModeValue('gray.50', 'gray.700')
@@ -72,10 +94,7 @@ export default function TrackingDetails({ data, isLoading, error }) {
     )
   }
 
-  const currentStage =
-    data?.history?.findIndex(
-      (h) => statusLabels[h.status_code]?.toLowerCase() === data.status?.toLowerCase(),
-    ) ?? 0
+  const currentStage = getTrackingStage(data?.status)
 
   return (
     <Container maxW="6xl" py={8}>

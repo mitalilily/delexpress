@@ -52,6 +52,28 @@ const statusLabels: Record<string, string> = {
   EX: 'Exception',
 }
 
+const stageByStatus: Record<string, number> = {
+  booked: 0,
+  pending_pickup: 1,
+  pickup_initiated: 1,
+  in_transit: 2,
+  out_for_delivery: 3,
+  delivered: 4,
+}
+
+const getTrackingStage = (value?: string | null) => {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[ -]+/g, '_')
+  const label = statusLabels[value || ''] || statusLabels[String(value || '').toUpperCase()]
+  const labelKey = String(label || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[ -]+/g, '_')
+  return stageByStatus[normalized] ?? stageByStatus[labelKey] ?? 0
+}
+
 const DE_BLUE = '#0052CC'
 const BACKGROUND = '#F4F5F7'
 
@@ -69,12 +91,7 @@ export default function TrackingPage() {
   const contact = searchParams.get('contact')
   const { data: trackingData, isLoading, error } = useTracking(awb, order, contact)
 
-  const currentStage =
-    trackingData?.history?.findIndex(
-      (h) =>
-        statusLabels[h.status_code]?.toLocaleLowerCase() ===
-        trackingData.status?.toLocaleLowerCase(),
-    ) ?? 0
+  const currentStage = getTrackingStage(trackingData?.status)
 
   // Loading Screen
   if (isLoading)
