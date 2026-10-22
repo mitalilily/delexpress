@@ -8441,12 +8441,30 @@ const fetchPersistedTrackingHistory = async (orderId: string): Promise<TrackingH
     .where(eq(tracking_events.order_id, orderId))
     .orderBy(asc(tracking_events.created_at))
 
-  return rows.map((row) => ({
-    status_code: sanitizeString(row.statusCode, row.statusText || 'Status Update'),
-    location: sanitizeString(row.location),
-    event_time: getPersistedTrackingEventTime(row.raw, row.createdAt),
-    message: sanitizeString(row.statusText, row.statusCode || 'Status Update'),
-  }))
+  return rows.flatMap((row) => {
+    const raw = row.raw && typeof row.raw === 'object' ? (row.raw as Record<string, any>) : null
+    const expressflyLogs = Array.isArray(raw?.tracking_logs)
+      ? raw.tracking_logs
+      : Array.isArray(raw?.data?.tracking_logs)
+        ? raw.data.tracking_logs
+        : []
+
+    if (expressflyLogs.length) {
+      return expressflyLogs.map((log: any) => ({
+        status_code: mapExpressflyDisplayCode(log?.scan, log?.remark),
+        location: sanitizeString(log?.location),
+        event_time: toIsoString(log?.scan_date_time ?? log?.event_time, getPersistedTrackingEventTime(raw, row.createdAt)),
+        message: sanitizeString(log?.remark || log?.scan, 'Tracking update'),
+      }))
+    }
+
+    return [{
+      status_code: sanitizeString(row.statusCode, row.statusText || 'Status Update'),
+      location: sanitizeString(row.location),
+      event_time: getPersistedTrackingEventTime(row.raw, row.createdAt),
+      message: sanitizeString(row.statusText, row.statusCode || 'Status Update'),
+    }]
+  })
 }
 
 const mapDelhiveryTracking = (raw: any, order: OrderSummary): ProviderNormalizedTracking => {
@@ -8658,8 +8676,21 @@ const buildTrackingResponse = (
 
   sortHistoryAscending(history)
 
+  const latestHistoryEvent = history[history.length - 1]
+  const latestHistoryStatus = (() => {
+    const code = sanitizeString(latestHistoryEvent?.status_code).toUpperCase()
+    if (code === 'PP') return 'pending_pickup'
+    if (code === 'IT') return 'in_transit'
+    if (code === 'OFD') return 'out_for_delivery'
+    if (code === 'DL') return 'delivered'
+    if (code === 'CAN') return 'cancelled'
+    if (code === 'RT') return 'rto'
+    if (code === 'EX') return 'ndr'
+    return null
+  })()
+
   const status = sanitizeString(
-    providerData.status ?? history[history.length - 1]?.message ?? order.order_status,
+    latestHistoryStatus ?? providerData.status ?? latestHistoryEvent?.message ?? order.order_status,
     'In Transit',
   )
 
@@ -8669,8 +8700,12 @@ const buildTrackingResponse = (
 
   const eddValue = providerData.edd ?? (order.edd ? sanitizeString(order.edd) : null)
 
+  const providerShipmentInfo = sanitizeString(providerData.shipment_info ?? '')
   const shipmentInfoValue =
-    providerData.shipment_info || sanitizeString(order.delivery_message ?? '', '') || null
+    (/^\d+$/.test(providerShipmentInfo) ? '' : providerShipmentInfo) ||
+    sanitizeString(latestHistoryEvent?.message ?? '') ||
+    sanitizeString(order.delivery_message ?? '') ||
+    null
 
   return {
     id: order.id,
